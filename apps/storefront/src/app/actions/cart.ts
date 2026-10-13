@@ -1,0 +1,325 @@
+"use server"
+
+import { isValidPhoneNumber } from "libphonenumber-js"
+import { revalidatePath } from "next/cache"
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+import {
+  addLine,
+  applyPromotion,
+  completeCart,
+  listPaymentChoices,
+  moveCartToRegion,
+  removeLine,
+  removePromotion,
+  selectShipping,
+  setGiftOptions,
+  startPaymentSession,
+  summarizeCart,
+  updateCartAddress,
+  updateLine,
+  validateAddress,
+  type CartSummary,
+} from "@/lib/cart"
+import { getAuthToken } from "@/lib/auth"
+import { REGION_COOKIE } from "@/lib/config"
+import { getRegionContext, listRegions, medusaFetch, MedusaRequestError } from "@/lib/medusa"
+import { regionFromCountry } from "@/lib/region"
+
+export type CartActionResult =
+  | { ok: true; cart: CartSummary }
+  | { ok: false; error: string }
+
+function publicError(error: unknown, fallback: string) {
+  if (error instanceof MedusaRequestError && error.publicMessage) {
+    return error.publicMessage
+  }
+  return fallback
+}
+
+export async function addToCartAction(variantId: string, quantity = 1): Promise<CartActionResult> {
+  if (!variantId) {
+    return { ok: false, error: "This edition is not available." }
+  }
+  try {
+    const cart = await addLine(variantId, Math.max(1, Math.min(quantity, 99)))
+    revalidatePath("/cart")
+    return { ok: true, cart: summarizeCart(cart)! }
+  } catch (error) {
+    console.error(error)
+    return { ok: false, error: publicError(error, "We could not add this book to your cart.") }
+  }
+}
+
+export async function updateQuantityAction(formData: FormData) {
+  const lineId = String(formData.get("line_id") || "")
+  const quantity = Number(formData.get("quantity"))
+  if (lineId && Number.isFinite(quantity)) {
+    try {
+      await updateLine(lineId, Math.max(0, Math.min(Math.round(quantity), 99)))
+    } catch (error) {
+      console.error(error)
+    }
+  }
+  revalidatePath("/", "layout")
+}
+
+export async function removeLineAction(formData: FormData) {
+  const lineId = String(formData.get("line_id") || "")
+  if (lineId) {
+    await removeLine(lineId)
+  }
+  revalidatePath("/", "layout")
+}
+
+/** Used by the drawer, which needs the updated summary back. */
+export async function removeLineFromDrawerAction(lineId: string): Promise<CartActionResult> {
+  try {
+    const cart = await removeLine(lineId)
+    revalidatePath("/", "layout")
+    return {
+      ok: true,
+      cart: summarizeCart(cart) || { id: "", count: 0, currency: "usd", subtotal: 0, items: [] },
+    }
+  } catch (error) {
+    return { ok: false, error: publicError(error, "Could not remove the item.") }
+  }
+}
+
+export async function setRegionAction(formData: FormData) {
+  const country = String(formData.get("country") || "").toUpperCase()
+  const regions = await listRegions()
+  const region = regions.find((r) => r.countries?.some((c) => c.iso_2 === country.toLowerCase()))
+  if (!region) {
+    return
+  }
+
+  const jar = await cookies()
+  jar.set(REGION_COOKIE, JSON.stringify(regionFromCountry(country)), {
+    path: "/",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+  })
+
+  try {
+    await moveCartToRegion(region.id)
+  } catch (error) {
+    console.error(error)
+  }
+
+  revalidatePath("/", "layout")
+}
+
+export type FormState = { error: string | null; message?: string | null }
+
+export async function applyPromoAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const code = String(formData.get("code") || "").trim()
+  if (!code) {
+    return { error: "Enter a promo code." }
+  }
+  try {
+    const { applied } = await applyPromotion(code)
+    revalidatePath("/", "layout")
+    return applied
+      ? { error: null, message: `Code ${code.toUpperCase()} applied.` }
+      : { error: `${code.toUpperCase()} is not valid for this cart.` }
+  } catch (error) {
+    return { error: publicError(error, "That code could not be applied.") }
+  }
+}
+
+export async function removePromoAction(formData: FormData) {
+  const code = String(formData.get("code") || "")
+  if (code) {
+    await removePromotion(code)
+  }
+  revalidatePath("/", "layout")
+}
+
+export async function saveGiftOptionsAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const isGift = formData.get("is_gift") === "on"
+  try {
+    await setGiftOptions({
+      is_gift: isGift,
+      gift_message: String(formData.get("gift_message") || ""),
+      gift_wrap: formData.get("gift_wrap") === "on",
+    })
+    revalidatePath("/cart")
+    return { error: null, message: isGift ? "Gift options saved." : "Gift options removed." }
+  } catch (error) {
+    return { error: publicError(error, "Could not save gift options.") }
+  }
+}
+
+export async function saveAddressAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const field = (name: string) => String(formData.get(name) || "").trim()
+  const phone = field("phone")
+  const address = {
+    email: field("email"),
+    first_name: field("first_name"),
+    last_name: field("last_name"),
+    address_1: field("address_1"),
+    address_2: field("address_2"),
+    city: field("city"),
+    province: field("province"),
+    postal_code: field("postal_code"),
+    country_code: field("country_code").toLowerCase(),
+    phone,
+  }
+
+  const required = ["email", "first_name", "last_name", "address_1", "city", "country_code", "phone"] as const
+  const missing = required.filter((key) => !address[key]).map((key) => key.replace("_1", "").replace(/_/g, " ").replace("country code", "country"))
+  if (missing.length) {
+    return { error: `Please fill in: ${missing.join(", ")}.` }
+  }
+  if (!isValidPhoneNumber(phone)) {
+    return { error: "Check the phone number and its country code." }
+  }
+
+  // Shipping to a country in another currency region moves the cart (and the
+  // shopper's region) there, so prices and payment methods follow.
+  const [current, regions] = await Promise.all([getRegionContext(), listRegions()])
+  const target = regions.find((r) => r.countries?.some((c) => c.iso_2 === address.country_code))
+  if (!target) {
+    return { error: "We don't ship to that country yet. Contact us and we'll try to help." }
+  }
+
+  try {
+    if (target.id !== current.regionId) {
+      await moveCartToRegion(target.id)
+    }
+    const validation = await validateAddress({
+      name: `${address.first_name} ${address.last_name}`,
+      street1: address.address_1,
+      street2: address.address_2 || undefined,
+      city: address.city,
+      state: address.province || undefined,
+      zip: address.postal_code || undefined,
+      country: address.country_code.toUpperCase(),
+      phone: address.phone,
+    })
+    if (!validation.is_valid) {
+      return { error: validation.messages.join(" ") || "We could not verify this address." }
+    }
+    await updateCartAddress(address)
+  } catch (error) {
+    console.error(error)
+    return { error: publicError(error, "We could not save your address. Please try again.") }
+  }
+
+  if (target.id !== current.regionId) {
+    const jar = await cookies()
+    jar.set(REGION_COOKIE, JSON.stringify(regionFromCountry(address.country_code)), {
+      path: "/",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30,
+    })
+  }
+
+  if (formData.get("save_address") === "on") {
+    const token = await getAuthToken()
+    if (token) {
+      const { email: _email, ...book } = address
+      void _email
+      await medusaFetch("/store/customers/me/addresses", {
+        method: "POST",
+        token,
+        revalidate: false,
+        body: JSON.stringify(book),
+      }).catch((error) => console.error(error))
+    }
+  }
+
+  revalidatePath("/", "layout")
+  redirect("/checkout?step=delivery")
+}
+
+/* ------------------------------------------------------------------ */
+/* Payment                                                             */
+/* ------------------------------------------------------------------ */
+
+export type PaymentStart =
+  | { kind: "error"; error: string }
+  | { kind: "done"; orderId: string }
+  | { kind: "mpesa"; message: string }
+  | { kind: "stripe"; clientSecret: string }
+
+async function prepare(optionId: string, providerId: string) {
+  if (!optionId) {
+    return "Choose a delivery option."
+  }
+  const region = await getRegionContext()
+  const choices = region.regionId ? await listPaymentChoices(region.regionId) : []
+  if (!choices.some((c) => c.id === providerId)) {
+    return "Choose a payment method."
+  }
+  await selectShipping(optionId)
+  return null
+}
+
+/**
+ * Starts payment for the chosen method. Test payments complete at once,
+ * M-Pesa sends an STK push and returns for polling, Stripe returns the
+ * PaymentIntent client secret for the card form.
+ */
+export async function startPaymentAction(input: {
+  optionId: string
+  providerId: string
+  phone?: string
+  restart?: boolean
+}): Promise<PaymentStart> {
+  try {
+    const problem = await prepare(input.optionId, input.providerId)
+    if (problem) {
+      return { kind: "error", error: problem }
+    }
+
+    if (input.providerId === "pp_daraja_daraja") {
+      const phone = String(input.phone || "").replace(/\D/g, "")
+      if (!/^254[17]\d{8}$/.test(phone)) {
+        return { kind: "error", error: "Enter your M-Pesa number as 2547XXXXXXXX or 2541XXXXXXXX." }
+      }
+      await startPaymentSession({ providerId: input.providerId, data: { phone }, restart: input.restart })
+      const result = await completeCart()
+      if (result.type === "order") {
+        return { kind: "done", orderId: result.orderId }
+      }
+      return { kind: "mpesa", message: "Check your phone and enter your M-Pesa PIN to pay." }
+    }
+
+    if (input.providerId === "pp_stripe_stripe") {
+      const session = await startPaymentSession({ providerId: input.providerId, restart: input.restart })
+      const secret = session.data?.client_secret
+      if (typeof secret !== "string") {
+        return { kind: "error", error: "Card payments are unavailable right now." }
+      }
+      return { kind: "stripe", clientSecret: secret }
+    }
+
+    await startPaymentSession({ providerId: input.providerId })
+    const result = await completeCart()
+    if (result.type === "order") {
+      return { kind: "done", orderId: result.orderId }
+    }
+    return { kind: "error", error: result.message }
+  } catch (error) {
+    console.error(error)
+    return { kind: "error", error: publicError(error, "We could not start your payment.") }
+  }
+}
+
+/** Retries cart completion (M-Pesa polling, after Stripe confirmation). */
+export async function completeOrderAction(): Promise<
+  { kind: "done"; orderId: string } | { kind: "pending" } | { kind: "error"; error: string }
+> {
+  const result = await completeCart()
+  if (result.type === "order") {
+    revalidatePath("/", "layout")
+    return { kind: "done", orderId: result.orderId }
+  }
+  if (result.type === "pending") {
+    return { kind: "pending" }
+  }
+  return { kind: "error", error: result.message }
+}
+

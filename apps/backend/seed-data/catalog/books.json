@@ -1,0 +1,948 @@
+{
+ "source": "darussalam.com product pages, fetched 2026-10-10. GBP prices converted to USD at 1 GBP = 1.3230 USD (open.er-api.com) and charm-rounded.",
+ "books": [
+  {
+   "handle": "noble-quran-bewley",
+   "title": "The Noble Qur'an",
+   "subtitle": "A New Rendering of its Meaning in English",
+   "description": "The Noble Quran The Noble Qur'an: A New Rendering of its Meaning in English needs no introduction. Now in its third edition, its reviews speak for themselves: \"This new translation of the Qur'an immediately outdated all the others in the English-speaking world. the result of over twenty-five years of detailed study of the Qur'anic text, the Bewley translation has the advantage of high quality, naturally fluent English, along with the benefit of access to the traditional understanding of the text.\" Dr. Y. Dutton, Head of Dept. of Arabic and Islamic Studies, Edinburgh University in Journal of Qur'anic Studies, vol. ll, no. 2, 2000, pp. 82-88 \"Abdalhaqq and Aisha Bewley's (translation) has, perhaps, the potential of setting new standards in this discipline... For those who want to familiarise themselves with the content of the Qur'an, this is the ideal translation to start with.\" Dr. A. Christmann, University of Manchester, Journal of Semitic Studies, 2002, pp. 372-375",
+   "category": "quran-mushaf",
+   "tags": [
+    "staff-pick"
+   ],
+   "format": "Paperback",
+   "book": {
+    "title_arabic": "القرآن الكريم",
+    "author": null,
+    "translator": "Abdalhaqq and Aisha Bewley",
+    "commentator_tahqeeq": null,
+    "publisher": "Ta-Ha Publishers",
+    "binding_type": "softcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9781842001288",
+    "isbn_10": null
+   },
+   "pages": 651,
+   "dimensions_cm": [
+    15.0,
+    21.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 20.0,
+   "price_usd": 26.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "01-1.webp",
+    "01-2.webp",
+    "01-3.webp"
+   ],
+   "source_url": "https://darussalam.com/the-noble-quran/"
+  },
+  {
+   "handle": "tafsir-ibn-kathir-10-volume-set",
+   "title": "Tafsir Ibn Kathir (10 Volume Set)",
+   "subtitle": "Abridged English translation",
+   "description": "Tafsir Ibn Kathir (Full Set) Darussalam (Abridged) Vol 1-10 Translated and abridged by a group of scholars under the supervision of Sheikh Safiur-Rahman Al-Mubarakpuri. The Qur'an is the revelation of Allah's Own Words for the guidance of His creatures. Since the Qur'an is the primary source of Islamic teachings, the correct understanding for the Qur'an is necessary for every Muslim. The Tafsir of Ibn Kathir is the most renowned and accepted explanation of the Qur'an in the entire world. In it one finds the best presentation of Ahadith, history, and scholarly commentary. Dar-us-Salam is proud to present for the first time this abridged version of Tafsir Ibn Kathir, which is free from unauthentic Ahadith.",
+   "category": "tafsir",
+   "tags": [
+    "bestseller"
+   ],
+   "format": "Box Set",
+   "book": {
+    "title_arabic": "تفسير ابن كثير",
+    "author": "Imam Ismail ibn Kathir",
+    "translator": null,
+    "commentator_tahqeeq": "Safiur-Rahman al-Mubarakpuri (supervising editor)",
+    "publisher": "Darussalam",
+    "binding_type": "multi_volume_box_set",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 10,
+    "isbn_13": "9782987457336",
+    "isbn_10": null
+   },
+   "pages": 6600,
+   "dimensions_cm": [
+    17.0,
+    22.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 175.0,
+   "price_usd": 231.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "02-1.webp",
+    "02-2.webp",
+    "02-3.webp"
+   ],
+   "source_url": "https://darussalam.com/tafsir-ibn-kathir-10-volume-full-set-quran-tafseer/"
+  },
+  {
+   "handle": "maqdis-quran-word-by-word-tajweed-a5",
+   "title": "Al-Qur'an al-Karim Maqdis",
+   "subtitle": "Word-by-Word Translation & Colour Coded Tajweed (A5)",
+   "description": "\"MAQDIS\" AL-QURAN AL-KARIM Word-By-Word Translation & Color Coded Tajweed Hard Cover, A5 Small • If you are looking for a Quran with Arabic-English word-for-word translation , in Rasm Uthmani Script, with color coded tajweed, all-in-one volume, at an excellent price, then look no further. • Every word in this beautiful Quran was translated so that readers can understand every single word or phrase.• It needs to be remembered that not all literal translation represents the exact meaning of the word since the Quran uses varied Arabic language style and sometimes metaphor. To understand the full meaning of the word or the verse , Muhammad Muhsin Khan's The Holy Quran translation which was approved the University of Madinah, was included on the side. However, to comprehend more of the meaning of the Quran, reading the commentary of the Quran from trusted scholars would be necessary.• Approved by the Department of Islamic Development of Malaysia (JAKIM) and Malaysian Ministry of Home Affairs (KDN)• This Quran comes with a complementary book , \" Asbab An Nuzul\" ( packaged inside the front cover).• Beautiful hardcover design and lightweight for its A5 size. Pictures do not do justice.• Well laid-out, easy and extremely beneficial, this mushaf is a must have for everyone or every home.• Makes an excellent gift Colour of the cover may vary from the photos but all the contents will be exactly the same . If the right Colour will not be available we will message you as its selling really fast so we may not guarantee the same colour",
+   "category": "quran-mushaf",
+   "tags": [
+    "bestseller"
+   ],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "القرآن الكريم",
+    "author": null,
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Karya Bestari",
+    "binding_type": "hardcover",
+    "script_type": "madani",
+    "language": "arabic",
+    "volume_count": 1,
+    "isbn_13": null,
+    "isbn_10": null
+   },
+   "pages": 633,
+   "dimensions_cm": [
+    14.0,
+    20.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 20.0,
+   "price_usd": 39.99,
+   "sale_price_usd": 26.99,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "03-1.webp",
+    "03-2.webp",
+    "03-3.webp"
+   ],
+   "source_url": "https://darussalam.com/al-quran-al-kareem-maqdis-word-by-word-translation-colour-coded-tajweed-a5/"
+  },
+  {
+   "handle": "quran-indo-pak-script-13-lines",
+   "title": "The Holy Qur'an, Indo-Pak Script",
+   "subtitle": "13 Lines",
+   "description": "The Holy Quran – 13 Lines Indo-Pak Script is a beautifully presented Mushaf featuring the traditional Indo-Pak Arabic script and a clear 13-line page layout. This format is widely used by Qur’an readers and students across South Asia and is particularly popular for Qur’an reading, memorisation and Hifz. The 13-line layout provides a comfortable and organised reading experience, making it suitable for daily recitation, Qur’an classes, madrasahs and personal study. Ideal for students, Hifz learners, families and regular Qur’an readers, this Mushaf is also a meaningful Islamic gift for family and loved ones. Features The Holy Quran Traditional Indo-Pak script 13 lines per page Clear and easy-to-read Arabic text Ideal for Hifz and memorisation Suitable for Qur’an classes and madrasahs Perfect for daily recitation and revision Suitable for home and personal study Meaningful Islamic gift",
+   "category": "quran-mushaf",
+   "tags": [
+    "staff-pick"
+   ],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "القرآن الكريم",
+    "author": null,
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "IBS",
+    "binding_type": "hardcover",
+    "script_type": "indo_pak",
+    "language": "arabic",
+    "volume_count": 1,
+    "isbn_13": null,
+    "isbn_10": null
+   },
+   "pages": null,
+   "dimensions_cm": [
+    24.0,
+    18.0,
+    4.0
+   ],
+   "weight_g": 1500.0,
+   "series": null,
+   "price_gbp_source": 13.0,
+   "price_usd": 17.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "04-1.webp",
+    "04-2.webp",
+    "04-3.webp"
+   ],
+   "source_url": "https://darussalam.com/quran-al-kareem-indo-pak-script/"
+  },
+  {
+   "handle": "juz-amma-translation-transliteration",
+   "title": "Juz 'Amma",
+   "subtitle": "With Meanings, Translation and Transliteration in English",
+   "description": "Juzk Amma with Meanings Translation and Transliteration in English This is Amma part of the Tajweed Quran, Part thirty , starts from sura Naas till sura \"naba\", it includes translations and transliteration into English. Translation: meanings of the Quranic versus are translated into English and placed on the margins around the Arabic text. Transliteration: Arabic letters are presented by English letters with added symbols in order to give the same sound of Arabic letters. English transliteration makes it easier for the speakers of the English language to read the Tajweed Quran in Arabic pronunciation using the English alphabet letters. Considering that this Part contains small suras; it is a perfect start for kids, beginners and students. This Amma Part comes in the standard portrait form, with a nice glossy soft cover. Each page contains 15 lines as any standard Quran. This part of the Tajweed Quran is in Hafs narration. All our Tajweed Quran products - including this item - come with the following: 1- Colour coded letters: to present the Tajweed rules, very good and simple way to learn and apply Tajweed rules . 2- Obvious script: extra spaces were added between the words in order to make it easier to read and recite the Quran. 3- Permissible stops: long spaces were added at certain places where it is permissible to stop. It helps to avoid stopping at wrong places or times. 4- A set of very useful indexes such as: Surahs Colour Index, Subject Index. 5- Tajweed rules explained in details with helpful illustration.",
+   "category": "quran-mushaf",
+   "tags": [
+    "bestseller"
+   ],
+   "format": "Paperback",
+   "book": {
+    "title_arabic": "جزء عمّ",
+    "author": null,
+    "translator": "Abdullah Yusuf Ali",
+    "commentator_tahqeeq": null,
+    "publisher": "Dar Al Ma'arifa",
+    "binding_type": "softcover",
+    "script_type": "madani",
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9789933423377",
+    "isbn_10": null
+   },
+   "pages": 56,
+   "dimensions_cm": [
+    17.0,
+    24.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 3.5,
+   "price_usd": 4.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "05-1.webp",
+    "05-2.webp",
+    "05-3.webp"
+   ],
+   "source_url": "https://darussalam.com/juz-amma-with-meanings-translation-and-transliteration-in-english/"
+  },
+  {
+   "handle": "sahih-al-bukhari-9-volume-set",
+   "title": "Sahih al-Bukhari (9 Volume Set)",
+   "subtitle": "Arabic-English",
+   "description": "Sahih Al-Bukhari (9 Vol. Set) Generally regarded as the single most authentic collection of Ahadith, Sahih Al-Bukhari covers almost all aspects of life in providing proper guidance from the messenger of Allah. This 9-Volume Bukhari is the work of over 16 years by Imam Bukhari who before writing any Hadith in this book performed two Rakat prayer of guidance from Allah and when he was sure of the Hadith's authenticity, he wrote it in the book. Tremendous amounts of errors exist in the translations by other translators. To eliminate the problem Dar-us-Salam spent over 3 years in the publication of this book and presented a book which is translated into English in a very easy and simple language, so that all readers can understand it without difficulty. This is the unabridged version consisting of 7563 ahadith (about 4000 pages) which are presented neatly in smaller books format and printed on fine paper. Each book (subtopics in each volume categorized by very broad topics such as the Book of As-Salat) contains many chapters which represent one logical unit of Ahadith. Each book contains anywhere from one to 150 chapters with each chapter containing several Ahadith. This book will be a great addition to your library while giving you a true perspective on the traditions of the Prophet (PBUH). In Imam Bukhari's 'Al-Jami-al-Sahih' (Sahih Al Bukhari) the Imam had recorded all the Sayings of the Prophet which he found to be genuine after thorough examination and scrutiny. He spent sixteen years in research and examined more than sixty thousand Sayings from which he selected only sayings whose genuineness and accuracy he established beyond the slightest doubt. Deducting duplicates, the Imam's collection contain about four thousand distinct Sayings.",
+   "category": "hadith",
+   "tags": [
+    "bestseller"
+   ],
+   "format": "Box Set",
+   "book": {
+    "title_arabic": "صحيح البخاري",
+    "author": "Imam Muhammad ibn Ismail al-Bukhari",
+    "translator": "Dr. Muhammad Muhsin Khan",
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "multi_volume_box_set",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 9,
+    "isbn_13": "9782987457671",
+    "isbn_10": null
+   },
+   "pages": 4050,
+   "dimensions_cm": [
+    14.0,
+    22.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 145.0,
+   "price_usd": 191.99,
+   "sale_price_usd": null,
+   "stock": 0,
+   "allow_backorder": true,
+   "preorder": false,
+   "images": [
+    "06-1.webp",
+    "06-2.webp",
+    "06-3.webp"
+   ],
+   "source_url": "https://darussalam.com/sahih-al-bukhari-9-vol-set/"
+  },
+  {
+   "handle": "sahih-muslim-7-volume-set",
+   "title": "Sahih Muslim (7 Volume Set)",
+   "subtitle": "English-Arabic",
+   "description": "English Translation of Sahih Muslim : 7 Volume Set English Translation of Sahih Muslim : 7 Volume Set Set By Nasiruddin Al-Khattab. Sahih Muslim is the most authentic book of Hadith after Sahih Al-Bukhari and contains 7,563 Ahadith. The Muslim Scholars have agreed that all of the Ahadith in Sahih Muslim are authentic. Thus, Darussalam realized the great benefit of publishing the full version of Sahih Muslim in the English language in the best presentation. Much care has been taken in rendering these Ahadith into a clear and simple style of modern English. This fine-quality edition of Sahih Muslim has been verified by Dar-us-Salam Publications extensively. Its translation has been checked several times as not only to avoid mistranslating but also to avoid misinterpreting the ahadith as done by many translators of the current times in order to rush the product to market or to their lack of understanding of the Arabic language. Unlike other publishers which leave you wondering about the meaning of the ahadith, the unclear wording has been explained in the brackets. There are also footnotes on bottom of some of the pages, when the term cannot be explained in the brackets. This edition of Dar-us-Salam is nice in that it starts off by drawing a life sketch of Imam Muslim. Then, it goes on to the introduction of Sahih Muslim by Imam Muslim himself where he explains the difference between different narrators and level of trustworthiness. This edition is also different from other publishers in that the text is side by side with Arabic so you have access to both English and Arabic at the same time. Furthermore, the book regarding reporting from the trustworthy narrators have been placed first while other books follow it.",
+   "category": "hadith",
+   "tags": [],
+   "format": "Box Set",
+   "book": {
+    "title_arabic": "صحيح مسلم",
+    "author": "Imam Muslim ibn al-Hajjaj",
+    "translator": "Nasiruddin al-Khattab",
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "multi_volume_box_set",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 7,
+    "isbn_13": "9782987457992",
+    "isbn_10": null
+   },
+   "pages": 4000,
+   "dimensions_cm": [
+    16.0,
+    22.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 105.0,
+   "price_usd": 138.99,
+   "sale_price_usd": null,
+   "stock": 0,
+   "allow_backorder": true,
+   "preorder": false,
+   "images": [
+    "07-1.webp",
+    "07-2.webp",
+    "07-3.webp"
+   ],
+   "source_url": "https://darussalam.com/sahih-muslim-english-arabic-7-volume-set/"
+  },
+  {
+   "handle": "riyad-us-saliheen-2-volume-set",
+   "title": "Riyad us-Saliheen (2 Volume Set)",
+   "subtitle": "The Gardens of the Righteous",
+   "description": "Riyad Us Saliheen : 2 volume Set We praise ALLAH that He enabled us to publish many books on religious topics in the Arabic, Urdu and English languages which acclaimed great popularity in Arab countries as well as in America, France and European countries besides Pakistan, India and many African countries. We try to present publications based on authentic research material in lines with the Qur'an and Sunnah, and that are free from every type of vague conception, weak authority and false ideas. Now, we have published Riyad-us-Saliheen with the same spirit and same tradition of good research work, professional editing and excellent printing standard. The book was compiled by Imam An-Nawawi who was the great scholar of Hadith and Fiqh of his time. Commentaries on the Ahadith have been added by Hafiz Salahuddin Yusuf of Pakistan who had originally executed them for the Urdu edition of this book. The English translation of the book and the - commentaries was performed by Dr. Muhammad Amin and Abu Usamah Al-Arabi bin Razduq who have performed their task with utmost care and profound interest. We, hopefully, can proclaim that it is the best representation of Riyad-us-Saliheen ever produced in any language any where. May Allah accept our sincere efforts regarding the propagation of His religion throughout the world, and bestow on us His blessings to fulfil our resolutions in this regard -Amin! Abdul Malik Mujahid General Manager Darussalam",
+   "category": "hadith",
+   "tags": [
+    "bestseller",
+    "staff-pick"
+   ],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "رياض الصالحين",
+    "author": "Imam Abu Zakariya Yahya an-Nawawi",
+    "translator": "Dr. Muhammad Amin and Abu Usamah al-Arabi bin Razduq",
+    "commentator_tahqeeq": "Hafiz Salahuddin Yusuf (commentary)",
+    "publisher": "Darussalam",
+    "binding_type": "hardcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 2,
+    "isbn_13": "9782987458098",
+    "isbn_10": null
+   },
+   "pages": 1413,
+   "dimensions_cm": [
+    15.0,
+    21.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 32.0,
+   "price_usd": 42.99,
+   "sale_price_usd": null,
+   "stock": 0,
+   "allow_backorder": true,
+   "preorder": false,
+   "images": [
+    "08-1.webp",
+    "08-2.webp",
+    "08-3.webp"
+   ],
+   "source_url": "https://darussalam.com/riyad-us-saliheen-2-volume-set/"
+  },
+  {
+   "handle": "bulugh-al-maram",
+   "title": "Bulugh al-Maram",
+   "subtitle": "Attainment of the Objective",
+   "description": "Bulugh Al Maram: Attainment of the Objective Bulugh Al-Maram is based upon the Ahadith of our Prophet which have been the sources of Islamic Jurisprudence. Al-Hafiz Ibn Hajar Al-Asqalani (Hijrah 777-853) has recorded the true significance of the Ahadith and their origins & also made a comparison of the versions, if the sources are more than one",
+   "category": "fiqh-aqidah",
+   "tags": [],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "بلوغ المرام",
+    "author": "Al-Hafiz Ibn Hajar al-Asqalani",
+    "translator": null,
+    "commentator_tahqeeq": "Muhammad bin Ismail as-San'ani",
+    "publisher": "Darussalam",
+    "binding_type": "hardcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9789960899527",
+    "isbn_10": null
+   },
+   "pages": 520,
+   "dimensions_cm": [
+    15.0,
+    21.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 15.0,
+   "price_usd": 19.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "09-1.webp",
+    "09-2.webp",
+    "09-3.webp"
+   ],
+   "source_url": "https://darussalam.com/bulugh-al-maram-attainment-of-the-objective/"
+  },
+  {
+   "handle": "fortress-of-the-muslim-pocket",
+   "title": "Fortress of the Muslim (Pocket Size)",
+   "subtitle": "Invocations from the Qur'an and Sunnah",
+   "description": "Fortress of the Muslim (Pocket Size) Invocations from the Qur'an & Sunnah. Translation of Hisnul-Muslim. (aka 'Citadel of the Believer') This is a very beautiful booklet consists of many authentic Dua's (supplications) for a Muslim to supplicate on a daily basis and on special occasions. Author's Note: This book is an abridgement of my earlier work entitled, Adh-Dhikr wad-Du'a wal-'llaj bir-Ruqyah mina'-Kitab was-Sunnah. In order to make it small and easily portable, I have chosen only the section on words of remembrance for this abridgement. To achieve this, I only mentioned the text of the words of remembrance instead of the entire Hadith. I also limited myself to mentioning only one or two references from the original book for each Hadith. Whoever would like to know about the Companion who related a particular Hadith, or more information about where it is recorded, should refer to the original work (mentioned above). I ask Allah the Glorious, the Mighty, by His beautiful Names and by His sublime Attributes to accept this as having been done sincerely for His sake alone. I ask Him to bring me its benefits during my lifetime and after my death. May those who read it, those who print it, or have had any role in distributing it, benefit from it also. Surely He, glory be unto Him, is Capable of all things. May the peace and blessings of Allah be upon our Prophet, Muhammad, and upon his family and Companions and whoever follows them in piety until the Day of Judgement. Said bin Ali bin Wahaf Al-Qahtani",
+   "category": "islamic-living",
+   "tags": [
+    "bestseller"
+   ],
+   "format": "Paperback",
+   "book": {
+    "title_arabic": "حصن المسلم",
+    "author": "Sa'id ibn Wahf al-Qahtani",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "softcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9789960892461",
+    "isbn_10": null
+   },
+   "pages": null,
+   "dimensions_cm": [
+    8.0,
+    12.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 2.95,
+   "price_usd": 3.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "10-1.webp",
+    "10-2.webp",
+    "10-3.webp"
+   ],
+   "source_url": "https://darussalam.com/fortress-of-the-muslim-pocket-size/"
+  },
+  {
+   "handle": "kitab-at-tawheed",
+   "title": "Kitab at-Tawheed",
+   "subtitle": "The Book of Tawheed, with commentary",
+   "description": "This is a commentary on the book of Shaikh Muhammed ibn Abdul Wahhab’s Kitab At-Tawheed (The Book of Tawheed). Kitab At-Tawheed is an excellent and comprehensive book. It illuminates to the reader the light of tawheed the Oneness of Allah tawheed, the very foundation of this deen, the single most important concept and the purpose behind our creation.",
+   "category": "fiqh-aqidah",
+   "tags": [
+    "new-release"
+   ],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "كتاب التوحيد",
+    "author": "Shaykh Muhammad ibn Abdul Wahhab",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Suhaib Sirajudin",
+    "binding_type": "hardcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9781916186286",
+    "isbn_10": null
+   },
+   "pages": 553,
+   "dimensions_cm": [
+    17.0,
+    24.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 19.99,
+   "price_usd": 26.99,
+   "sale_price_usd": null,
+   "stock": 3,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "11-1.webp",
+    "11-2.webp",
+    "11-3.webp"
+   ],
+   "source_url": "https://darussalam.com/kitab-at-tawheed/"
+  },
+  {
+   "handle": "noble-quran-hilali-khan-medium",
+   "title": "The Noble Qur'an (Medium)",
+   "subtitle": "Arabic text with English meanings and commentary",
+   "description": "Noble Quran Medium H/C Interpretation of the meanings of the Noble Qur'an with Arabic text in the modern English language. A summarized version of At-Tabari, Al-Qurtubi and Ibn Kathir with comments from Sahih Al-Bukhari. This 1 volume summarized version offers brief commentary and Ahadith wherever necessary. This unique combination of commentary and relevant Ahadith makes this a very useful study reference tool.",
+   "category": "quran-mushaf",
+   "tags": [
+    "bestseller"
+   ],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "القرآن الكريم وترجمة معانيه",
+    "author": null,
+    "translator": "Dr. Muhammad Muhsin Khan and Dr. Muhammad Taqi-ud-Din al-Hilali",
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "hardcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9782987458364",
+    "isbn_10": null
+   },
+   "pages": 927,
+   "dimensions_cm": [
+    14.0,
+    21.0
+   ],
+   "weight_g": 1535.0,
+   "series": null,
+   "price_gbp_source": 21.99,
+   "price_usd": 29.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "12-1.webp",
+    "12-2.webp",
+    "12-3.webp"
+   ],
+   "source_url": "https://darussalam.com/noble-quran-medium-h-c/"
+  },
+  {
+   "handle": "the-sealed-nectar",
+   "title": "The Sealed Nectar",
+   "subtitle": "Ar-Raheeq al-Makhtum: Biography of the Noble Prophet",
+   "description": "Ar-Raheeq Al-Makhtum - Biography of Prophet Muhammad Pbuh. (MEDIUM SIZE) A complete authoritative book on the life of Prophet Muhammad (S) By: Safi Ur-Rehman Mubarakpuri. The Sealed Nectar was honoured by the World Muslim League as first prize winner book. Whoever wants to know the whole life style of the Prophet in detail must read this book. Muhammad (S) is the Messenger of Allah, and those who are with him, are severe against the disbelievers, and merciful among themselves. You see them bowing and falling down prostrate (in prayer), seeking bounty from Allah and (His) Good Pleasure. The mark of them (i.e. of their Faith) is on their faces (fore heads) from the traces of prostration (during prayers). This is their description in the Taurah (Torah). But their description in the Injeel (Gospel) is like a (sown) seed which sends forth its shoot, then makes it strong, and becomes thick and it stands straight on its stem, delighting the sowers, that He may enrage the disbelievers with them. Allah has promised those among them who believe and do righteous good deeds, forgiveness and a mighty reward (Paradise). (Al-Fath: 29) The Prophet Muhammad (S) said: \"The example of guidance and knowledge with which Allah has sent me is like abundant rain falling on the earth. Some of which was fertile soil that absorbed rain-water and brought forth vegetation and grass in abundance. (And) another portion of it was hard and held the rain-water and Allah benefited the people with it and they utilized it for drinking (making their animals drink from it) and to irrigate the land for cultivation. (And) a portion of it was barren which could neither hold the water nor bring forth vegetation (then that land gave no benefits).",
+   "category": "seerah-history",
+   "tags": [
+    "bestseller",
+    "staff-pick"
+   ],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "الرحيق المختوم",
+    "author": "Safiur-Rahman al-Mubarakpuri",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "hardcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9782987468387",
+    "isbn_10": null
+   },
+   "pages": 588,
+   "dimensions_cm": [
+    16.0,
+    21.0
+   ],
+   "weight_g": 870.0,
+   "series": null,
+   "price_gbp_source": 18.99,
+   "price_usd": 25.99,
+   "sale_price_usd": null,
+   "stock": 0,
+   "allow_backorder": true,
+   "preorder": false,
+   "images": [
+    "13-1.webp",
+    "13-2.webp",
+    "13-3.webp"
+   ],
+   "source_url": "https://darussalam.com/sealed-nectar-ar-raheequl-makhtum/"
+  },
+  {
+   "handle": "stories-of-the-prophets",
+   "title": "Stories of the Prophets",
+   "subtitle": "From al-Bidayah wan-Nihayah",
+   "description": "Stories of the Prophets Immerse yourself in the captivating world of the prophets with this extraordinary book, \"Stories of the Prophets.\" Drawing from the renowned masterpiece 'Al-Bidayah wan-Nihayah' (The Beginning and the End) by Ibn Kathir, a celebrated Muslim exegete and historian, this literary gem takes you on a profound journey through Islamic history. With meticulous attention to detail, the book intricately weaves together the stories of the prophets, supported by verses from the Qur'an and the cherished traditions of the Prophet (S). Ibn Kathir's careful research and extensive knowledge shine through as he explores the lives of the prophets, providing a comprehensive and enlightening account of their extraordinary experiences. Delving into the historical significance of each event, the book ensures authenticity by conducting a comparative study of various sources. Moreover, Ibn Kathir artfully presents the viewpoints and interpretations of the esteemed Qur'anic scholars of his time, offering a rich and diverse understanding of the prophets' stories.\"Stories of the Prophets\" is a treasure trove of knowledge, offering invaluable insights into the lives and teachings of the messengers chosen by Allah. Whether you seek spiritual enlightenment, a deeper understanding of Islamic history, or simply an engaging read, this book is a must-have for every seeker of truth.",
+   "category": "seerah-history",
+   "tags": [
+    "bestseller"
+   ],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "قصص الأنبياء",
+    "author": "Imam Ismail ibn Kathir",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "hardcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9789960892269",
+    "isbn_10": null
+   },
+   "pages": 576,
+   "dimensions_cm": [
+    16.0,
+    21.0
+   ],
+   "weight_g": 850.0,
+   "series": null,
+   "price_gbp_source": 16.99,
+   "price_usd": 34.99,
+   "sale_price_usd": 22.99,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "14-1.webp",
+    "14-2.webp",
+    "14-3.webp"
+   ],
+   "source_url": "https://darussalam.com/stories-of-the-prophets-darussalam/"
+  },
+  {
+   "handle": "men-and-women-around-the-messenger",
+   "title": "Men & Women Around the Messenger",
+   "subtitle": "One hundred Companions of the Prophet",
+   "description": "Men & Women Around the Messenger The author has chosen one hundred personalities amongst the Companions. He compiled narrations, hadiths and incidences that contributed to the distinction of these individuals who have no similitude in the history of mankind after the Prophets of Allah and His Messengers. Their excellence is further clearly established from the study of these individuals, their attributes and their characters with which they were embellished. For this reason, they were from the best of people ever raised up for mankind.",
+   "category": "seerah-history",
+   "tags": [
+    "staff-pick"
+   ],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "رجال ونساء حول الرسول",
+    "author": "Sa'd Yusuf Abu 'Aziz",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "hardcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9786035000338",
+    "isbn_10": null
+   },
+   "pages": 608,
+   "dimensions_cm": [
+    15.0,
+    21.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 17.5,
+   "price_usd": 23.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "15-1.webp",
+    "15-2.webp",
+    "15-3.webp"
+   ],
+   "source_url": "https://darussalam.com/men-women-around-the-messenger/"
+  },
+  {
+   "handle": "history-of-islam-abu-bakr",
+   "title": "History of Islam: Abu Bakr as-Siddiq",
+   "subtitle": "The Age of the Rightly Guided Caliphs",
+   "description": "History of Islam : Abu Bakr As-Siddiq R.A. : The Age of Rightly Guided Caliphs A Reader Series Abu Bakr As-Siddiq Rightly-Guided Caliphs History of Islam The age of the rightly guided caliphs Al-Khulafa Ar-Rashidun This is the first volume from this series, which deals with the life of Abū Bakr as-Șiddīq, the first of the Four Rightly-Guided Caliphs. No other person in the History of Islam can be compared to him when it comes to truthfulness, insight into Islamic teachings and devotion to ALLAH and His Messenger صلی الله علیهِ وآله وسلم. He was outstanding and unique in his commitment, sincerity, and whole-hearted support and assistance to the Prophet. Our past, present, and future are interconnected and interdependent. Therefore, knowing and understanding our history is not optional: it is essential. Darussalam presents the entire History of Islam to our youth in language that appeals to them, in a simple yet lucid manner. The first four volumes in this series explore Islamic history during the period of the first Four Rightly-Guided Caliphs. Later volumes would be devoted to the History of Islam, down through the ages to modern times, insha'ALLAH.",
+   "category": "seerah-history",
+   "tags": [],
+   "format": "Hardcover",
+   "book": {
+    "title_arabic": "أبو بكر الصديق",
+    "author": "Maulvi Abdul Aziz",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "hardcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9782987458616",
+    "isbn_10": null
+   },
+   "pages": 141,
+   "dimensions_cm": [
+    18.0,
+    24.0
+   ],
+   "weight_g": null,
+   "series": "History of Islam: The Rightly Guided Caliphs",
+   "price_gbp_source": 10.5,
+   "price_usd": 13.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "16-1.webp",
+    "16-2.webp",
+    "16-3.webp"
+   ],
+   "source_url": "https://darussalam.com/history-of-islam-abu-bakr-as-siddiq-r-a/"
+  },
+  {
+   "handle": "brief-illustrated-guide-to-understanding-islam",
+   "title": "A Brief Illustrated Guide to Understanding Islam",
+   "subtitle": null,
+   "description": "A Brief Illustrated Guide to Understanding Islam This book is specifically written for non-Muslims to help them better understand Islam. Some of the topics in this book are: - - Pillars of faith. - Some benefits of Islam. - General information on Islam. - The status of women in Islam. - What Islam says about terrorism? - Evidence that Islam is a true religion. - Correction of some misconceptions about Islam. - Proofs that the Qur'an is the literal word of God. - Scientific miracles in the Qur'an with scientific illustrations. - Why Muhammad صلی الله علیه وآله وسلم is truly a prophet sent by God? Features of the book: * 43 illustrations, 39 in colour. * More than 375,000 copies have been printed. * Laminated 350 gm cover, High quality printing. * 76 colourful pages on glossy, coated, 115 gm paper.",
+   "category": "islamic-living",
+   "tags": [
+    "bestseller"
+   ],
+   "format": "Paperback",
+   "book": {
+    "title_arabic": null,
+    "author": "Darussalam Research Division",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "softcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9789960340111",
+    "isbn_10": null
+   },
+   "pages": 74,
+   "dimensions_cm": [
+    15.0,
+    21.0
+   ],
+   "weight_g": null,
+   "series": null,
+   "price_gbp_source": 3.0,
+   "price_usd": 3.99,
+   "sale_price_usd": null,
+   "stock": 0,
+   "allow_backorder": true,
+   "preorder": false,
+   "images": [
+    "17-1.webp",
+    "17-2.webp",
+    "17-3.webp"
+   ],
+   "source_url": "https://darussalam.com/a-brief-illustrated-guide-to-understanding-islam/"
+  },
+  {
+   "handle": "al-qaida-nooraniah-small",
+   "title": "Al-Qaida an-Nooraniah (Small)",
+   "subtitle": "Learn to read Arabic in the Uthmani script",
+   "description": "Al Qaida Nooraniah (Small) Arabic Large Colour Print. Learn to Read Arabic Uthmani Script Noorani Qaida has been popular for decades in large parts of the Muslim world. Note : this is not the One Used by the India/Pakistan based Madrassah's This is the Uthmani Script which is used in most of the Arab and North African World",
+   "category": "islamic-education",
+   "tags": [
+    "bestseller"
+   ],
+   "format": "Paperback",
+   "book": {
+    "title_arabic": "القاعدة النورانية",
+    "author": "Shaykh Nur Muhammad Haqqani",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Furqan Group for education",
+    "binding_type": "softcover",
+    "script_type": "madani",
+    "language": "arabic",
+    "volume_count": 1,
+    "isbn_13": null,
+    "isbn_10": null
+   },
+   "pages": null,
+   "dimensions_cm": [
+    14.0,
+    20.0
+   ],
+   "weight_g": 100.0,
+   "series": null,
+   "price_gbp_source": 3.5,
+   "price_usd": 4.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "18-1.webp",
+    "18-2.webp",
+    "18-3.webp"
+   ],
+   "source_url": "https://darussalam.com/al-qaida-nooraniah-small/"
+  },
+  {
+   "handle": "my-first-prayer-book",
+   "title": "My First Prayer Book",
+   "subtitle": "Wudu, Salah and daily du'as for children",
+   "description": "My First Prayer BookDarussalam’s My First Prayer Book is a beautifully illustrated guide designed to teach children the fundamentals of prayer in an engaging and easy-to-understand way. This comprehensive book covers: How to Perform Wudhu: Step-by-step instructions for ablution, complete with vibrant illustrations and QR codes for video guidance. How to Perform Salah: A clear and practical guide to each stage of prayer, ensuring children learn correctly from the very beginning. Daily Duas and Athkar: A collection of essential supplications and remembrances, encouraging the habit of connecting with Allah throughout the day. Written in accordance with the Quran and Sunnah, My First Prayer Book ensures children learn the Islamic way of performing these important acts of worship. With its interactive features and child-friendly design, this book is the perfect tool for parents, teachers, and caregivers to instill the love of prayer in young hearts.",
+   "category": "childrens-books",
+   "tags": [
+    "new-release",
+    "staff-pick"
+   ],
+   "format": "Paperback",
+   "book": {
+    "title_arabic": null,
+    "author": "Aamina Waheed",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": "softcover",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": "9781915851673",
+    "isbn_10": null
+   },
+   "pages": 60,
+   "dimensions_cm": [
+    20.0,
+    15.0,
+    1.0
+   ],
+   "weight_g": 140.0,
+   "series": null,
+   "price_gbp_source": 3.0,
+   "price_usd": 3.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "19-1.webp",
+    "19-2.webp",
+    "19-3.webp"
+   ],
+   "source_url": "https://darussalam.com/my-first-prayer-book/"
+  },
+  {
+   "handle": "prophet-muhammad-stories-gift-set",
+   "title": "Prophet Muhammad Stories (Gift Set)",
+   "subtitle": "Four hardbound Seerah storybooks, ages 7+",
+   "description": "Prophet Muhammad Stories Gift Set is a beautifully presented collection of inspiring Seerah stories specially selected for children aged 7 years and above. This four-book hardbound set introduces young readers to the life, character, and mission of Prophet Muhammad ﷺ through engaging stories and child-friendly explanations. Through these treasured moments from the Prophet’s ﷺ life, children can learn about his kindness, patience, mercy, courage, and excellent character while discovering how to apply his timeless teachings in their own daily lives. With colourful illustrations and an attractive gift box design, this collection is perfect for home reading, bedtime stories, Islamic schools, and family learning. It makes a meaningful gift for children and grandchildren. Features Complete 4-book Prophet Muhammad ﷺ Seerah gift set Specially designed for children aged 7+ Inspiring stories from the life of Prophet Muhammad ﷺ Helps children learn Prophetic manners and values Colourful, child-friendly illustrations Hardbound books with premium presentation Suitable for home, school and Islamic learning Encourages love for the Prophet ﷺ and his teachings Beautiful Islamic gift for children",
+   "category": "childrens-books",
+   "tags": [
+    "new-release",
+    "staff-pick"
+   ],
+   "format": "Box Set",
+   "book": {
+    "title_arabic": null,
+    "author": "Saniyasnain Khan",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Goodword Books",
+    "binding_type": "multi_volume_box_set",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 4,
+    "isbn_13": "9789386589996",
+    "isbn_10": null
+   },
+   "pages": null,
+   "dimensions_cm": [
+    19.0,
+    25.0
+   ],
+   "weight_g": 2000.0,
+   "series": null,
+   "price_gbp_source": 26.99,
+   "price_usd": 35.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "20-1.webp",
+    "20-2.webp",
+    "20-3.webp"
+   ],
+   "source_url": "https://darussalam.com/prophet-muhammad-stories-gift-set/"
+  },
+  {
+   "handle": "babys-first-quran-stories-box-set-2",
+   "title": "Baby's First Quran Stories Box Set",
+   "subtitle": "Volume 2: five board books for toddlers",
+   "description": "Baby’s First Box of Quran Stories Volume 2 continues the beloved Goodword bestselling board book series designed specifically for very young children. This second volume introduces a fresh set of inspiring stories from the lives of the Prophets, thoughtfully simplified to engage toddlers and preschoolers. Each of the five beautifully illustrated board books features vibrant, colorful artwork that captures children’s attention and helps bring the stories to life. The language is gentle and accessible, making it easy for little readers to understand and connect with the messages of faith, patience, and kindness. Crafted with durable board pages, these books are perfect for small hands and built to endure repeated reading and exploration. This collection encourages children to develop a deeper appreciation for Allah’s guidance and blessings through the example of the Prophets. The stories promote important values such as gratitude, honesty, and compassion, helping to nurture young hearts and minds. Parents and caregivers will find this set an excellent resource to share meaningful moments and reinforce Islamic teachings in everyday life. Packaged in a charming gift box, Volume 2 makes a thoughtful present for birthdays, Eid, baby showers, or any special occasion. This set supports early spiritual growth by making Quranic stories approachable and enjoyable for the youngest children. Whether read aloud at bedtime or explored independently, these books help build a foundation of faith and understanding. Overall, Baby’s First Box of Quran Stories Volume 2 is a beautiful continuation of the journey to inspire children with the wisdom and values of the Prophets. Best suited for children under 5years of age.",
+   "category": "childrens-books",
+   "tags": [
+    "new-release"
+   ],
+   "format": "Board Book Box Set",
+   "book": {
+    "title_arabic": null,
+    "author": "Saniyasnain Khan",
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Goodword Books",
+    "binding_type": "multi_volume_box_set",
+    "script_type": null,
+    "language": "english",
+    "volume_count": 5,
+    "isbn_13": "9789391969110",
+    "isbn_10": null
+   },
+   "pages": null,
+   "dimensions_cm": null,
+   "weight_g": 700.0,
+   "series": null,
+   "price_gbp_source": 13.99,
+   "price_usd": 18.99,
+   "sale_price_usd": null,
+   "stock": 40,
+   "allow_backorder": false,
+   "preorder": false,
+   "images": [
+    "21-1.webp",
+    "21-2.webp",
+    "21-3.webp"
+   ],
+   "source_url": "https://darussalam.com/baby-s-first-quran-stories-box-set-5-islamic-board-books-for-toddlers/"
+  },
+  {
+   "handle": "islamic-historic-cities-calendar-2027",
+   "title": "2027 Islamic Historic Cities Calendar",
+   "subtitle": "Hijri 1448-1449, with prayer times",
+   "description": "Discover the beauty and heritage of the Muslim world with the Islamic Historic Cities Calendar 2027. Featuring stunning photographs of important Islamic cities and landmarks, this practical wall calendar combines the Gregorian calendar with Hijri dates for 1448–1449. Each monthly page provides clear date boxes, prayer-time information and important Islamic occasions, making it ideal for Muslim homes, offices, schools, mosques and Islamic centres. Key Features: Full 2027 Gregorian calendar Corresponding Hijri dates for 1448–1449 Beautiful photographs of historic Islamic cities Features Makkah, Madinah and other significant locations Prayer-time information Important Islamic dates and occasions Spacious daily boxes for notes and reminders Suitable for homes, offices, mosques and classrooms Produced by The London Central Mosque Trust & The Islamic Cultural Centre A beautiful and practical Islamic calendar that also makes a thoughtful gift for family, friends, students and colleagues.",
+   "category": "gifts",
+   "tags": [
+    "coming-soon"
+   ],
+   "format": "Wall Calendar",
+   "book": {
+    "title_arabic": null,
+    "author": null,
+    "translator": null,
+    "commentator_tahqeeq": null,
+    "publisher": "Darussalam",
+    "binding_type": null,
+    "script_type": null,
+    "language": "english",
+    "volume_count": 1,
+    "isbn_13": null,
+    "isbn_10": null
+   },
+   "pages": null,
+   "dimensions_cm": [
+    23.5,
+    33.5
+   ],
+   "weight_g": 200.0,
+   "series": null,
+   "price_gbp_source": 2.99,
+   "price_usd": 3.99,
+   "sale_price_usd": null,
+   "stock": 0,
+   "allow_backorder": true,
+   "preorder": true,
+   "images": [
+    "22-1.webp",
+    "22-2.webp",
+    "22-3.webp"
+   ],
+   "source_url": "https://darussalam.com/2027-islamic-historic-cities-calendar-hijri-1448-1449-with-prayer-times-8gyz/"
+  }
+ ]
+}

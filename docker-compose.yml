@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: maktabah-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: medusa
+      POSTGRES_PASSWORD: medusa
+      POSTGRES_DB: medusa-maktabah
+    ports:
+      - "5432:5432"
+    volumes:
+      - maktabah_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medusa -d medusa-maktabah"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: maktabah-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - maktabah_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  typesense:
+    image: typesense/typesense:27.1
+    container_name: maktabah-typesense
+    restart: unless-stopped
+    environment:
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: xyz
+      TYPESENSE_ENABLE_CORS: "true"
+    command: ["--data-dir", "/data", "--api-key", "xyz", "--enable-cors"]
+    ports:
+      - "8108:8108"
+    volumes:
+      - maktabah_typesense_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8108'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  maktabah_postgres_data:
+  maktabah_redis_data:
+  maktabah_typesense_data:

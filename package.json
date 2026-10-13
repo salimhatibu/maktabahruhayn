@@ -1,0 +1,51 @@
+{
+  "name": "maktabahruhayn",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm infra:up && pnpm -r --parallel --filter @maktabah/backend --filter @maktabah/storefront dev",
+    "dev:apps": "pnpm -r --parallel --filter @maktabah/backend --filter @maktabah/storefront dev",
+    "build": "pnpm -r build",
+    "start": "turbo start",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "infra:up": "bash ./scripts/infra-up.sh",
+    "infra:down": "bash ./scripts/infra-down.sh",
+    "db:ensure": "bash ./scripts/ensure-postgres.sh",
+    "setup": "pnpm infra:up && pnpm db:migrate && pnpm seed:typesense && pnpm seed:regions && pnpm seed:fulfillment && pnpm seed:catalog && pnpm seed:promotions && bash ./scripts/sync-storefront-env.sh",
+    "sync:storefront-env": "bash ./scripts/sync-storefront-env.sh",
+    "backend:dev": "pnpm --filter @maktabah/backend dev",
+    "backend:seed:typesense": "pnpm --filter @maktabah/backend seed:typesense",
+    "seed:typesense": "pnpm --filter @maktabah/backend seed:typesense",
+    "seed:regions": "pnpm --filter @maktabah/backend seed:regions",
+    "seed:fulfillment": "pnpm --filter @maktabah/backend seed:fulfillment",
+    "seed:catalog": "pnpm --filter @maktabah/backend seed:catalog",
+    "db:generate": "pnpm --filter @maktabah/backend db:generate",
+    "db:migrate": "pnpm --filter @maktabah/backend db:migrate",
+    "storefront:dev": "pnpm --filter @maktabah/storefront dev",
+    "seed:promotions": "pnpm --filter @maktabah/backend seed:promotions",
+    "seed:store-products": "pnpm --filter @maktabah/backend seed:store-products",
+    "cleanup:legacy": "pnpm --filter @maktabah/backend cleanup:legacy",
+    "test:unit": "pnpm --filter @maktabah/backend test:unit",
+    "storefront:cf:deploy": "pnpm --filter @maktabah/storefront cf:deploy"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.0.5",
+      "@types/react-dom": "19.0.5",
+      "tsconfig-paths": "^4.2.0"
+    }
+  },
+  "devDependencies": {
+    "@medusajs/eslint-plugin": "2.21.2",
+    "eslint": "^9.39.4",
+    "jiti": "^2.7.0",
+    "prettier": "^3.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "turbo": "^2.0.14"
+  }
+}
