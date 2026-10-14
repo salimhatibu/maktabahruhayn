@@ -36,7 +36,6 @@
     "test:unit": "TEST_TYPE=unit NODE_OPTIONS=--experimental-vm-modules jest --silent --runInBand --forceExit"
   },
   "dependencies": {
-    "@maktabah/shared": "workspace:*",
     "@medusajs/admin-sdk": "2.21.2",
     "@medusajs/admin-shared": "2.21.2",
     "@medusajs/caching": "2.21.2",
@@ -55,6 +54,7 @@
     "zod": "4.2.0"
   },
   "devDependencies": {
+    "@maktabah/shared": "workspace:*",
     "@medusajs/test-utils": "2.21.2",
     "@swc/core": "^1.7.28",
     "@swc/jest": "^0.2.36",

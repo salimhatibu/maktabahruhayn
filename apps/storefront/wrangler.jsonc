@@ -17,10 +17,26 @@
       "bucket_name": "maktabah-next-cache"
     }
   ],
-  // Replace with your real domains before deploying.
+  // Runtime configuration. Wrangler copies these into process.env on each cold
+  // start, so changing one takes effect on the next deploy without a rebuild.
+  // NEXT_PUBLIC_* names would NOT work here: Next.js compiles those into the
+  // bundle at build time (see .env.production). These unprefixed names are read
+  // by src/lib/config.ts and override the compiled-in fallbacks.
   "vars": {
-    "NEXT_PUBLIC_MEDUSA_BACKEND_URL": "https://api.maktabahruhayn.com",
-    "NEXT_PUBLIC_SITE_URL": "https://maktabahruhayn.com"
+    // Public origin of the Medusa backend. The admin lives at <this>/app and is
+    // served by the backend alone, never proxied through this Worker.
+    "MEDUSA_BACKEND_URL": "https://api.maktabahruhayn.com",
+    // This Worker's own public origin.
+    "SITE_URL": "https://maktabahruhayn.com",
+    // Store API publishable key: admin > Settings > Publishable API keys.
+    // Required - without it the Store API rejects every request.
+    "MEDUSA_PUBLISHABLE_KEY": ""
   },
+  // Attach the custom domain once the zone is on this Cloudflare account.
+  // Until then the Worker is reachable at <name>.<subdomain>.workers.dev.
+  // "routes": [
+  //   { "pattern": "maktabahruhayn.com", "custom_domain": true },
+  //   { "pattern": "www.maktabahruhayn.com", "custom_domain": true }
+  // ],
   "observability": { "enabled": true }
 }

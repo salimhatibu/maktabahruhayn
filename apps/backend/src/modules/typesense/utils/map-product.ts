@@ -1,4 +1,4 @@
-import type { TypesenseBookDocument } from "@maktabah/shared"
+import type { TypesenseBookDocument } from "../collection"
 
 export type LinkedBook = {
   id?: string | null

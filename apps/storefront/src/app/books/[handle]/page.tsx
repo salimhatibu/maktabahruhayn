@@ -13,6 +13,7 @@ import { PromoStrip } from "@/components/site-header"
 import { RatingLine, Stars } from "@/components/stars"
 import { WishlistButton } from "@/components/wishlist"
 import { getCustomer } from "@/lib/auth"
+import { siteUrl } from "@/lib/config"
 import { bindingLabel, formatDate, formatMoney, scriptLabel, titleCase } from "@/lib/format"
 import {
   getBookByHandle,
@@ -125,9 +126,9 @@ export default async function BookPage({ params, searchParams }: Props) {
     getCustomer().catch(() => null),
   ])
 
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "")
-  const absolute = (u: string) => (u.startsWith("/") ? `${siteUrl}${u}` : u)
-  const url = `${siteUrl}/books/${book.handle}`
+  const site = siteUrl()
+  const absolute = (u: string) => (u.startsWith("/") ? `${site}${u}` : u)
+  const url = `${site}/books/${book.handle}`
   const meta = book.meta
   const summary = reviews?.summary && reviews.summary.count ? reviews.summary : null
 

@@ -58,7 +58,7 @@ export async function clearAuthToken() {
 
 /** POSTs to Medusa's auth routes (no publishable key needed). */
 async function authRequest(path: string, body: unknown): Promise<string> {
-  const response = await fetch(`${backendUrl}${path}`, {
+  const response = await fetch(`${backendUrl()}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

@@ -4,7 +4,7 @@ import {
   TYPESENSE_BOOKS_COLLECTION,
   TYPESENSE_BOOKS_SCHEMA,
   type TypesenseBookDocument,
-} from "@maktabah/shared"
+} from "./collection"
 
 type TypesenseModuleOptions = {
   host?: string

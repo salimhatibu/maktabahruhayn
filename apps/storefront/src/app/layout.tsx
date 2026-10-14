@@ -9,6 +9,7 @@ import { StaleActionGuard } from "@/components/stale-action-guard"
 import { getCustomer } from "@/lib/auth"
 import { getCart, summarizeCart } from "@/lib/cart"
 import { getFreeShippingThreshold, getRegionContext, listRegions } from "@/lib/medusa"
+import { siteUrl } from "@/lib/config"
 import { getSiteConfig, themeCss, whatsappLink } from "@/lib/site-config"
 import "./globals.css"
 
@@ -30,7 +31,7 @@ const arabic = Amiri({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "Maktabah Ruhayn | Islamic Books, Qur'an, Hadith & Multi-volume Sets",
     template: "%s | Maktabah Ruhayn",

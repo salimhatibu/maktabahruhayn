@@ -1,4 +1,12 @@
-import type { BindingType, BookLanguage } from "./book"
+import type { BindingType, BookLanguage } from "@maktabah/shared"
+
+/**
+ * The books collection as this backend creates and indexes it. It lives here
+ * rather than in @maktabah/shared because the backend is its only user: the
+ * storefront searches through GET /store/books/search and never talks to
+ * Typesense. Keeping it local also keeps the built server free of a runtime
+ * import of a workspace package, which production Node cannot resolve.
+ */
 
 export interface TypesenseBookDocument {
   id: string

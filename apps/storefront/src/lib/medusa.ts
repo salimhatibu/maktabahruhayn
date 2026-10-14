@@ -35,14 +35,15 @@ export async function medusaFetch<T>(
   const { revalidate = 60, token, ...rest } = init || {}
   const headers = new Headers(rest.headers)
   headers.set("Content-Type", "application/json")
-  if (publishableKey) {
-    headers.set("x-publishable-api-key", publishableKey)
+  const key = publishableKey()
+  if (key) {
+    headers.set("x-publishable-api-key", key)
   }
   if (token) {
     headers.set("Authorization", `Bearer ${token}`)
   }
 
-  const response = await fetch(`${backendUrl}${path}`, {
+  const response = await fetch(`${backendUrl()}${path}`, {
     ...rest,
     headers,
     ...(revalidate === false || token ? { cache: "no-store" as const } : { next: { revalidate } }),
