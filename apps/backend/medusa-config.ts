@@ -2,6 +2,37 @@ import { loadEnv, defineConfig } from "@medusajs/framework/utils"
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd())
 
+const isProduction = process.env.NODE_ENV === "production"
+
+/** Public origin of this backend. The admin dashboard is served at <origin>/app. */
+const backendUrl = (process.env.MEDUSA_BACKEND_URL || "http://localhost:9000").replace(/\/+$/, "")
+/** Public origin of the storefront (the Cloudflare Worker in production). */
+const storefrontUrl = (process.env.STOREFRONT_URL || "http://localhost:3000").replace(/\/+$/, "")
+
+/**
+ * The storefront and backend origins are always allowed, so a deployment only
+ * has to set STOREFRONT_URL and MEDUSA_BACKEND_URL instead of repeating them
+ * across three lists. The *_CORS variables stay available for extra origins.
+ */
+function corsOrigins(configured: string | undefined, ...required: string[]) {
+  const listed = (configured || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+  return [...new Set([...listed, ...required])].join(",")
+}
+
+if (
+  isProduction &&
+  [process.env.JWT_SECRET, process.env.COOKIE_SECRET].some((s) => !s || s === "supersecret")
+) {
+  console.warn(
+    "[maktabah] JWT_SECRET and COOKIE_SECRET are unset or still the development default. " +
+      "Set both to random values before putting the admin on the internet: with the default, " +
+      "anyone can forge an admin session."
+  )
+}
+
 const paymentProviders = []
 
 if (process.env.STRIPE_API_KEY) {
@@ -65,13 +96,24 @@ module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     http: {
-      storeCors: process.env.STORE_CORS!,
-      adminCors: process.env.ADMIN_CORS!,
-      authCors: process.env.AUTH_CORS!,
+      storeCors: corsOrigins(process.env.STORE_CORS, storefrontUrl),
+      adminCors: corsOrigins(process.env.ADMIN_CORS, backendUrl),
+      authCors: corsOrigins(process.env.AUTH_CORS, backendUrl, storefrontUrl),
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     },
     redisUrl: process.env.REDIS_URL,
+  },
+  admin: {
+    /**
+     * The dashboard is served by this backend only, at <backend origin>/app,
+     * and it calls the API on whatever origin it was loaded from. It is never
+     * built into or proxied by the public storefront, so the storefront domain
+     * has no route to it. Set ADMIN_DISABLED=true to run the API without it.
+     */
+    path: "/app",
+    storefrontUrl,
+    disable: process.env.ADMIN_DISABLED === "true",
   },
   modules: [
     {

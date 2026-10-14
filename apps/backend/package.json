@@ -22,6 +22,7 @@
     "seed:fulfillment": "medusa exec ./src/scripts/seed-fulfillment.ts",
     "seed:catalog": "medusa exec ./src/scripts/seed-catalog.ts",
     "cleanup:legacy": "medusa exec ./src/scripts/cleanup-legacy-products.ts",
+    "cleanup:orphan-images": "medusa exec ./src/scripts/cleanup-orphan-images.ts",
     "seed:promotions": "medusa exec ./src/scripts/seed-promotions.ts",
     "seed:store-products": "medusa exec ./src/scripts/seed-store-products.ts",
     "assign:super-admin": "medusa exec ./src/scripts/assign-super-admin.ts",

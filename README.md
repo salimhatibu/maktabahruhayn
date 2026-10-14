@@ -36,7 +36,7 @@ Medusa's admin, extended with a Maktabah section modeled on the Uzanga dashboard
 | Page | What you manage |
 |---|---|
 | Dashboard | GMV, captured revenue, orders, average order, products, active customers, and abandoned carts for any date range, converted to one reporting currency. Also a daily sales chart, sales channels, payment methods, regions, top books, low stock, recent orders, and quick links |
-| Products | Medusa's Products section opens the Maktabah product list (All, Published, Drafts, Bundles, and Stock with inline stock editing) and one-page editor. Up to 10 images (upload, drag and drop, paste, or pick from the media library; drag to reorder). Rich-text description with reusable templates. Categories with a primary category, units, standard products or bundles, physical or digital delivery, inventory tracking, and shipping-size presets. Variants with a system SKU plus an optional custom SKU, saved option values, selling, original (sale) and cost prices in KES, low-stock alerts, and stock per location. Publish now, save as a draft, or schedule publishing. Collections (bestseller, new arrival, pre-order, booksellers' pick), release date and pre-orders, book details, bookseller's note, author bio, editorial reviews and a search listing preview. Every product gets a product number (`pnpm --filter @maktabah/backend backfill:product-numbers` numbers existing products). Medusa's own product page stays reachable from the editor's menu (Advanced settings) |
+| Products | Medusa's Products section opens the Maktabah product list (All, Published, Drafts, Bundles, and Stock with inline stock editing) and one-page editor. Up to 10 images (upload, drag and drop, paste, or pick from the media library; drag to reorder). Rich-text description with reusable templates. Categories with a primary category, units, standard products or bundles, physical or digital delivery, inventory tracking, and shipping-size presets. Variants with a system SKU plus an optional custom SKU, saved option values, selling, original (sale) and cost prices in KES, low-stock alerts, and stock per location. Publish now, save as a draft, or schedule publishing. Collections (bestseller, new arrival, pre-order, booksellers' pick), release date and pre-orders, book details, bookseller's note, author bio, editorial reviews and a search listing preview. Every product gets a product number (`pnpm --filter @maktabah/backend backfill:product-numbers` numbers existing products). Deleting a book removes everything it owns: formats, prices, stock, book details, reviews, its search document and its uploaded images (stock it holds for open orders is released first, which is what otherwise makes a book in an order impossible to delete). `pnpm cleanup:orphan-images` lists images no product uses any more, and `-- --delete` removes them. Medusa's own product page stays reachable from the editor's menu (Advanced settings) |
 | Abandoned Carts | Unfinished carts, with one-click reminder emails (or automatic reminders) |
 | Payments | Gateway status and payment totals by method, plus an M-Pesa STK Push tool for phone and WhatsApp orders, tracked to paid or failed |
 | Shipping | Shippo status, free-shipping thresholds, fallback rates, and shipments with tracking, labels, and customs invoices |
@@ -76,11 +76,28 @@ Storefront (`apps/storefront/.env.local`, see `.env.example`): `NEXT_PUBLIC_MEDU
 
 ## Deploying the storefront to Cloudflare
 
+Run these from the repo root (they target the storefront package, wherever you are):
+
 ```bash
-cd apps/storefront
-pnpm cf:preview     # build with OpenNext and run locally in workerd
-pnpm cf:deploy      # deploy the Worker (set vars and the R2 cache bucket in wrangler.jsonc first)
+pnpm storefront:cf:build     # build with OpenNext
+pnpm storefront:cf:preview   # build, then run it locally in workerd
+pnpm storefront:cf:deploy    # deploy the Worker (set vars and the R2 cache bucket in wrangler.jsonc first)
 ```
+
+`wrangler` and `opennextjs-cloudflare` detect the application from the current
+directory, and `apps/storefront/wrangler.jsonc` is the only Worker config in the
+workspace. Running either tool from the repo root instead fails with:
+
+```text
+The Cloudflare application detection logic has been run in the root of a
+workspace instead of targeting a specific project.
+```
+
+The commands above (and `cd apps/storefront && pnpm cf:deploy`) avoid that. If
+you build on Cloudflare (Workers Builds), set the project's **root directory**
+to `apps/storefront`, or leave it at the repo root and set the commands to
+`pnpm storefront:cf:build` and `pnpm storefront:cf:deploy` — the default
+`npx wrangler deploy` runs at the repo root and hits the same error.
 
 ## Tests
 

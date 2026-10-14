@@ -1,7 +1,7 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
-import { deleteProductsWorkflow } from "@medusajs/medusa/core-flows"
 import { loadEditorProduct, type CatalogProductInput } from "../../../../../lib/catalog-editor"
+import { deleteCatalogProductWorkflow } from "../../../../../workflows/delete-catalog-product"
 import { saveCatalogProductWorkflow } from "../../../../../workflows/save-catalog-product"
 import type { CatalogProductBodyType } from "../validators"
 
@@ -23,8 +23,16 @@ export async function POST(req: MedusaRequest<CatalogProductBodyType>, res: Medu
   res.json({ id: result.product_id })
 }
 
-/** DELETE /admin/maktabah/catalog/:id */
+/** DELETE /admin/maktabah/catalog/:id: the product and everything it owns. */
 export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
-  await deleteProductsWorkflow(req.scope).run({ input: { ids: [req.params.id] } })
-  res.json({ id: req.params.id, object: "product", deleted: true })
+  const { result } = await deleteCatalogProductWorkflow(req.scope).run({
+    input: { id: req.params.id },
+  })
+  res.json({
+    id: req.params.id,
+    object: "product",
+    deleted: true,
+    deleted_files: result.deleted_files.length,
+    released_reservations: result.released_reservations,
+  })
 }

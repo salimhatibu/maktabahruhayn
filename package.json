@@ -29,8 +29,12 @@
     "seed:promotions": "pnpm --filter @maktabah/backend seed:promotions",
     "seed:store-products": "pnpm --filter @maktabah/backend seed:store-products",
     "cleanup:legacy": "pnpm --filter @maktabah/backend cleanup:legacy",
+    "cleanup:orphan-images": "pnpm --filter @maktabah/backend cleanup:orphan-images",
     "test:unit": "pnpm --filter @maktabah/backend test:unit",
-    "storefront:cf:deploy": "pnpm --filter @maktabah/storefront cf:deploy"
+    "storefront:cf:build": "pnpm --filter @maktabah/storefront cf:build",
+    "storefront:cf:preview": "pnpm --filter @maktabah/storefront cf:preview",
+    "storefront:cf:deploy": "pnpm --filter @maktabah/storefront cf:deploy",
+    "storefront:cf:typegen": "pnpm --filter @maktabah/storefront cf:typegen"
   },
   "pnpm": {
     "overrides": {

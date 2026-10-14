@@ -758,7 +758,8 @@ const ProductEditorPage = () => {
   const remove = async () => {
     const ok = await prompt({
       title: `Delete “${form?.title || "this product"}”?`,
-      description: "It is removed from the store with its formats and prices. Past orders keep their line items. This cannot be undone.",
+      description:
+        "Its formats, prices, stock, book details, reviews and uploaded images are all deleted, and any stock it holds for open orders is released. Past orders keep their line items. This cannot be undone.",
       confirmText: "Delete product",
       cancelText: "Cancel",
     })
