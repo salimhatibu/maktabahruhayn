@@ -3,8 +3,9 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { ChevronLeft, ChevronRight } from "./icons"
+import { Countdown } from "./countdown"
 
-export type PromoMessage = { text: string; href: string }
+export type PromoMessage = { text: string; href: string; endDate?: string }
 
 export function PromoBar({ messages }: { messages: PromoMessage[] }) {
   const [index, setIndex] = useState(0)
@@ -37,6 +38,12 @@ export function PromoBar({ messages }: { messages: PromoMessage[] }) {
           </button>
           <Link href={message.href} aria-live="polite">
             {message.text}
+            {message.endDate ? (
+              <>
+                {" "}
+                <Countdown endDate={message.endDate} compact />
+              </>
+            ) : null}
           </Link>
           <button
             type="button"

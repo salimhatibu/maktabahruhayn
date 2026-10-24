@@ -1,12 +1,15 @@
 "use client"
 
 import { usePathname, useSearchParams } from "next/navigation"
-import { useEffect, useId, useState } from "react"
+import { useEffect, useState } from "react"
 
 /** Filter sidebar on wide screens; a collapsible panel behind a "Filters" button on phones. */
 export function FiltersPanel({ label, summary, children }: { label: string; summary?: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
-  const id = useId()
+  // Derived from the label rather than useId(): a useId value is a function of
+  // the React tree and can differ between the server render and hydration,
+  // which breaks the aria-controls pairing (see phone-input.tsx).
+  const id = `filters-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
   const pathname = usePathname()
   const params = useSearchParams()
   useEffect(() => setOpen(false), [pathname, params])

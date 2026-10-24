@@ -1,0 +1,37 @@
+{
+  "name": "@maktabah/admin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "lint": "next lint",
+    "cf:build": "node ./scripts/cf.mjs build",
+    "cf:deploy": "node ./scripts/cf.mjs build && node ./scripts/cf.mjs deploy",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview"
+  },
+  "dependencies": {
+    "@maktabah/db": "workspace:^",
+    "@maktabah/shared": "workspace:^",
+    "@medusajs/icons": "2.21.2",
+    "@medusajs/ui": "4.2.6",
+    "@opennextjs/cloudflare": "1.20.6",
+    "next": "15.5.28",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@medusajs/ui-preset": "2.21.2",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.28",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5",
+    "wrangler": "4.141.0"
+  }
+}

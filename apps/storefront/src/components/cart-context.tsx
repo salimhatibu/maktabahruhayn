@@ -38,10 +38,17 @@ export function useCart() {
 export function CartProvider({
   initialSummary,
   freeShippingThreshold,
+  currency,
   children,
 }: {
   initialSummary: CartSummary | null
   freeShippingThreshold: number | null
+  /**
+   * The visitor's currency. An empty cart has none of its own, and the
+   * free-shipping figure is already in this currency, so without it the
+   * drawer would label a KES amount with a dollar sign.
+   */
+  currency: string
   children: React.ReactNode
 }) {
   const [summary, setSummary] = useState(initialSummary)
@@ -69,6 +76,7 @@ export function CartProvider({
         summary={summary}
         setSummary={setSummary}
         freeShippingThreshold={freeShippingThreshold}
+        currency={currency}
       />
     </CartContext.Provider>
   )
@@ -91,12 +99,14 @@ function CartDrawer({
   summary,
   setSummary,
   freeShippingThreshold,
+  currency: regionCurrency,
 }: {
   open: boolean
   onClose: () => void
   summary: CartSummary | null
   setSummary: (s: CartSummary | null) => void
   freeShippingThreshold: number | null
+  currency: string
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const [pending, startTransition] = useTransition()
@@ -122,7 +132,8 @@ function CartDrawer({
   }, [open, onClose])
 
   const count = summary?.count || 0
-  const currency = summary?.currency || "usd"
+  // An empty cart has no currency of its own; the visitor's region does.
+  const currency = summary?.currency || regionCurrency
   const subtotal = summary?.subtotal || 0
   const remaining = freeShippingThreshold ? Math.max(freeShippingThreshold - subtotal, 0) : null
 

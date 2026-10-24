@@ -2,153 +2,129 @@
 
 ## Overview
 
-Medusa DTC Starter — a Turborepo workspace monorepo containing a Medusa backend (`@medusajs/medusa` latest, Node 20+, PostgreSQL 15+) and an optional storefront (Next.js, Tanstack, etc...).
+Maktabah Ruhayn: an Islamic bookshop that runs entirely on Cloudflare. A
+Next.js storefront is deployed to Workers by OpenNext, and it reads and writes
+a D1 (SQLite) database directly through a binding — there is no API server
+between them. Media and the page cache live in R2.
 
-## Directory Structure
+There was a Medusa backend; it is gone. Nothing should reintroduce one.
+
+## Directory structure
 
 ```text
 .
 ├── apps/
-│   ├── backend/                  # Medusa application (@dtc/backend)
-│   │   ├── medusa-config.ts      # Medusa config: DB URL, CORS, secrets, modules
-│   │   ├── integration-tests/    # setup.js (Jest setupFiles) and http/*.spec.ts suites
+│   ├── admin/                    # The dashboard (@maktabah/admin), its own Worker
+│   │   ├── wrangler.jsonc        # Same D1 binding, plus the media bucket
 │   │   └── src/
-│   │       ├── admin/            # Admin dashboard extensions (widgets/, i18n/, routes)
-│   │       ├── api/              # API routes: api/store/*, api/admin/* (file-based)
-│   │       ├── jobs/             # Scheduled jobs
-│   │       ├── links/            # Module links between modules
-│   │       ├── migration-scripts/# Data migration scripts (e.g. initial-data-seed.ts)
-│   │       ├── modules/          # Custom modules (service + models + migrations)
-│   │       ├── subscribers/      # Event subscribers
-│   │       └── workflows/        # Workflows and workflow steps
-│   └── storefront/               # OPTIONAL storefront
-├── eslint.config.ts              # Root ESLint: @medusajs/eslint-plugin recommended
-├── turbo.json                    # Task graph: build, dev, start, lint, test, seed
+│   │       ├── app/api/          # Route handlers the pages call
+│   │       ├── components/       # Ported from the previous admin
+│   │       ├── middleware.ts     # Verifies the Access token on every request
+│   │       └── lib/access.ts     # Cloudflare Access identity
+│   ├── router/                   # Front door: picks shop or admin by Host
+│   └── storefront/               # Next.js on Workers (@maktabah/storefront)
+│       ├── wrangler.jsonc        # Worker config: D1, R2, vars, routes
+│       ├── open-next.config.ts   # OpenNext build
+│       ├── public/catalog/       # Committed cover images, served by the CDN
+│       └── src/
+│           ├── app/              # Pages, server actions, webhook routes
+│           ├── components/       # UI
+│           └── lib/              # Data access, auth, cart, payments, config
+├── packages/
+│   ├── db/                       # The database: schema, queries, payments
+│   │   ├── migrations/           # Applied with `wrangler d1 migrations apply`
+│   │   ├── seed-data/books.json  # The 22 catalogue titles
+│   │   ├── scripts/              # Seed generator and the verification suite
+│   │   └── src/                  # Typed queries; see its README
+│   └── shared/                   # Types and region configuration
+└── turbo.json
 ```
-
-**`apps/storefront` is optional and may not exist.** It is skipped when the user chooses not to install it. Before running any storefront command, referencing storefront files, or assuming a full-stack change is possible, check that `apps/storefront/` exists. If it doesn't, the project is backend-only — do not scaffold it or suggest it was deleted by mistake.
-
-Each app can have its own nested `AGENTS.md`; agents read the nearest one in the directory tree, so put app-specific context there rather than expanding this file.
-
-## Package Manager
-
-**The package manager is chosen at install time and is not fixed.** Detect it before running anything, in this order:
-
-1. The `packageManager` field in the root `package.json` (e.g. `"pnpm@10.11.1"`) — authoritative when present.
-2. The lockfile at the repo root: `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, `package-lock.json` → npm.
-
-```bash
-node -p "require('./package.json').packageManager ?? 'unset'"
-ls pnpm-lock.yaml yarn.lock package-lock.json bun.lock bun.lockb 2>/dev/null
-```
-
-Use that manager for every command and never introduce a second lockfile. Below, `<pm>` means the detected manager. The `<pm> run <script>` and `<pm> exec <bin>` forms work across npm, pnpm, yarn, and bun; workspace-filter flags do not, so the per-app commands below `cd` into the app instead.
 
 ## Commands
 
-Run from the repo root unless noted. Turbo skips missing apps automatically.
-
-### Development
+Run from the repo root. The package manager is pnpm (see `packageManager`).
 
 ```bash
-<pm> run dev                # all apps
-<pm> run backend:dev        # backend only (http://localhost:9000, admin at /app)
-<pm> run storefront:dev     # storefront only (http://localhost:8000)
+pnpm dev                 # storefront :3000 and admin :3001
+pnpm admin:dev           # admin only
+pnpm setup               # migrate and seed the local database
+pnpm db:migrate:local    # apply migrations locally
+pnpm db:seed:local       # load the catalogue and settings
+pnpm db:verify           # assert the money path still behaves
+pnpm db:test             # integration tests on a fresh D1, incl. replayed attacks
+pnpm html:test           # the description sanitiser against XSS payloads
+pnpm test                # all three
+pnpm storefront:cf:deploy
+pnpm admin:cf:deploy
 ```
-
-### Build
-
-```bash
-<pm> run build              # all apps
-<pm> run start              # build (via turbo dependsOn) then start
-```
-
-### Lint
-
-```bash
-<pm> run lint                          # all apps via turbo
-cd apps/backend && <pm> run lint       # medusa lint
-cd apps/storefront && <pm> run lint    # next lint
-```
-
-### Test (backend only; the storefront has no test suite)
-
-```bash
-<pm> run test                                              # all test tasks via turbo
-cd apps/backend && <pm> run test:unit                      # **/src/**/__tests__/**/*.unit.spec.ts
-cd apps/backend && <pm> run test:integration:modules       # **/src/modules/*/__tests__/**
-cd apps/backend && <pm> run test:integration:http          # **/integration-tests/http/*.spec.ts
-```
-
-Single test — pass a path/pattern through to Jest, keeping `TEST_TYPE`:
-
-```bash
-cd apps/backend && <pm> run test:unit -- src/modules/foo/__tests__/service.unit.spec.ts
-cd apps/backend && <pm> run test:unit -- -t "returns the cart"
-```
-
-### Database
-
-```bash
-cd apps/backend
-<pm> exec medusa db:generate <module-name>   # generate migrations for a custom module
-<pm> exec medusa db:migrate                  # run migrations
-<pm> exec medusa user -e admin@test.com -p supersecret
-<pm> run backend:seed                        # from root; seeds initial data
-```
-
-## Medusa Skills & MCP Server
-
-These are optional but strongly recommended — they give documentation-backed answers instead of guesses about Medusa APIs. **Use them when available; if they are not, mention to the user that installing them meaningfully improves development on this project.**
-
-**Agentic skills** ([docs](https://docs.medusajs.com/learn/introduction/build-with-llms-ai/agentic-skills)) — if the `medusa-dev` skills are listed as available, load them *before* writing code, not after:
-
-- `building-with-medusa` — any backend work: modules, API routes, workflows, data models, module links
-- `building-admin-dashboard-customizations` — anything under `apps/backend/src/admin`
-- `building-storefronts` — anything under `apps/storefront`
-- `db-generate` / `db-migrate` / `new-user` — the DB and user commands above
-
-If they are not installed, suggest:
-
-```bash
-/plugin marketplace add medusajs/medusa-agent-skills
-/plugin install medusa-dev@medusa
-```
-
-**MCP server** ([docs](https://docs.medusajs.com/learn/introduction/build-with-llms-ai/mcp-server)) — a `medusa` MCP server exposing the official docs. Prefer it over web search or memory for any Medusa API, config, or upgrade question. If it is not connected, suggest:
-
-```bash
-claude mcp add --transport http medusa https://docs.medusajs.com/mcp # or agent equivalent
-```
-
-## Code Style
-
-- **The backend must satisfy `@medusajs/eslint-plugin`'s recommended config** (`eslint.config.ts`). Its rules encode Medusa framework requirements — correct route/workflow/module shapes, not just cosmetics — so a lint failure usually means the code is actually wrong, not just badly formatted. Never disable a `@medusajs/*` rule to make lint pass; fix the code.
-- No semicolons. Double quotes, 2-space indent.
-- Files: kebab-case. Types/classes: PascalCase. Functions/variables: camelCase. DB columns: snake_case.
-- No emojis in code, comments, or commit messages.
 
 ## Conventions
 
-- **Backend routing is file-based.** A store endpoint is `src/api/store/<path>/route.ts` exporting `GET`/`POST`/etc. Don't add a router or register routes manually.
-- **Business logic belongs in workflows**, not in route handlers. Routes resolve and run a workflow; workflows compose steps.
-- Adding a task to `turbo.json` requires declaring its `outputs`, or Turbo will cache nothing/the wrong thing.
+- **No API server.** Server components and server actions query D1 through
+  `db()` and the helpers in `@maktabah/db`. Do not add fetch-based data
+  layers between them.
+- **Money is an integer in minor units** in the database, and major units in
+  the view model. Convert at the boundary, never with floats.
+- **Regions are configuration, not data** (`packages/shared/src/regions.ts`).
+- **D1 has no interactive transactions.** Multi-step writes go through
+  `batch()`, stock is claimed with a compare-and-set against
+  `inventory_level.version`, and anything a provider can retry is guarded by
+  `idempotency_key`. `pnpm db:verify` asserts all three; run it after touching
+  carts, orders, stock or payments.
+- **An order is only created once money is confirmed.** A started payment is
+  recorded against the cart, not an order. Paid carts become orders only
+  through `finalizePaidCart`, which checks the payment belongs to the cart and
+  covers its current total in its currency; webhooks, the M-Pesa callback and
+  the browser all go through it. Ask the provider, never the browser.
+- **HTML from the admin is rendered only through `sanitizeHtml`** in
+  `@maktabah/shared` (on save and again on render). Nothing else goes into
+  `dangerouslySetInnerHTML`.
+- **Public forms are throttled** with `throttle()` in
+  `apps/storefront/src/lib/rate-limit.ts`: generous per IP (mobile networks
+  share addresses), strict per account or phone.
+- **Ids that act as secrets** (cart cookie, order links) come from `newId`,
+  which uses the CSPRNG. Never `Math.random` for those.
+- No semicolons. Double quotes, 2-space indent. Files kebab-case, types
+  PascalCase, functions camelCase, columns snake_case. No emojis.
 
-## Common Mistakes
+## Off-limits
 
-- Running storefront commands without checking that `apps/storefront/` exists.
-- Assuming a package manager instead of detecting it, or running a command that creates a second lockfile.
-- Installing a dependency at the root instead of inside the app that needs it (`cd apps/backend && <pm> add <pkg>`).
-- Editing a custom module's model without running `<pm> exec medusa db:generate <module>` — the migration is missing and the change silently never applies.
-- Writing raw SQL or importing DB clients directly in the backend instead of going through module services / workflows.
-- Calling the Medusa API from the storefront without `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`; requests fail with a publishable-key error, not an obvious 401.
-- Running the test task without a reachable PostgreSQL — integration suites need a live DB.
-- Silencing `@medusajs/*` ESLint rules instead of fixing the underlying pattern.
+- `.next/`, `.next-build/`, `.open-next/`, `.wrangler/`, `node_modules/` —
+  build output and state.
+- `packages/db/seed/catalog.sql` — generated by `pnpm db:seed:build`.
+- Existing files in `packages/db/migrations/` — add a new migration rather
+  than editing one that may already have been applied.
+- The lockfile — change it only through a package manager command.
+- Worker secrets. `wrangler.jsonc` lists which values are secrets; never put
+  them in the repo.
 
-## Off-Limits
+## The admin
 
-- `apps/backend/.medusa/`, `.next/`, `dist/`, `out/`, `.turbo/` — build output, excluded from the workspace and regenerated.
-- The lockfile (`pnpm-lock.yaml`, `yarn.lock`, `package-lock.json` — whichever this install produced) — never hand-edit or delete; change it only as a side effect of a package manager command.
-- `.env` / `.env.local` — never commit, print, or copy secret values out of them. Edit `.env.template` instead when documenting a new variable.
-- Existing migrations in `src/modules/*/migrations/` — add a new migration rather than rewriting one that may already have run.
-- Don't run destructive DB commands (drops, `db:migrate --help`-style flags that reset state) against the user's database without explicit confirmation.
+`apps/admin` is a second Worker, bound to the same D1 and meant to sit behind
+Cloudflare Access on its own hostname. There is **no admin user table and no
+password**: whoever the Access policy lets through is an administrator.
+`src/middleware.ts` runs `checkAccess` from `src/lib/access.ts` on every page
+and API route, verifying the Access token itself rather than trusting headers.
+
+**Hosts, not paths.** The router Worker picks the surface by `Host`: the shop
+on `PUBLIC_HOST`, the admin on `ADMIN_HOST` (see `apps/router/wrangler.jsonc`).
+The admin is served from the root of its own hostname and has no `basePath`.
+Do not put it back under `/admin` on the shop's host, and never put the shop's
+hostname behind Access.
+
+`ADMIN_OPEN` is currently `"true"`, which turns that gate off entirely and
+serves the dashboard to anyone. It is a temporary setting, shown as a red
+banner on every page. Do not remove the Access code to "simplify" it - the
+switch is how it gets turned back on.
+
+Its pages are ports of the previous Medusa dashboard, built on the same
+`@medusajs/ui` component library and Tailwind preset so they look and behave
+as before. Those packages are UI only - they do not bring a server back.
+
+Every page from the previous dashboard is ported. Two things changed because
+a Worker is not a Node server: uploads go to R2 rather than a disk, and test
+emails go through an HTTP email API rather than SMTP, which needs a raw
+socket.
+
+`pnpm db:verify` covers the catalogue save path, so run it after touching
+`apps/admin/src/lib/catalog-save.ts`.

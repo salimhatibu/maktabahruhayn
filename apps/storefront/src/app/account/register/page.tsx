@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { getRegionContext, listShippingCountries } from "@/lib/medusa"
+import { currentRegion, listShippingCountries } from "@/lib/region-context"
 import { RegisterForm } from "../forms"
 
 export const metadata: Metadata = { title: "Create an Account", robots: { index: false } }
@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Create an Account", robots: { index:
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const raw = (await searchParams).next
   const next = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/account"
-  const [region, countries] = await Promise.all([getRegionContext(), listShippingCountries()])
+  const [region, countries] = await Promise.all([currentRegion(), Promise.resolve(listShippingCountries())])
   return (
     <main className="wrap auth-page single">
       <section className="panel">

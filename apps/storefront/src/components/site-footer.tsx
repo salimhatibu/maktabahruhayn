@@ -1,11 +1,12 @@
 import Link from "next/link"
 import { SUBJECTS } from "@/lib/catalog"
+import { t, type Locale } from "@/lib/i18n"
 import type { SiteConfig } from "@/lib/site-config"
 import { ContactOptions } from "./contact-options"
 import { NewsletterForm } from "./newsletter"
 import { LogoText } from "./site-header"
 
-export function SiteFooter({ site, country = "KE" }: { site: SiteConfig; country?: string }) {
+export function SiteFooter({ site, country = "KE", locale = "en" }: { site: SiteConfig; country?: string; locale?: Locale }) {
   const b = site.business
   const socials = [
     { label: "Instagram", href: b.instagram },
@@ -17,8 +18,8 @@ export function SiteFooter({ site, country = "KE" }: { site: SiteConfig; country
     <footer className="site-footer">
       <div className="footer-news wrap">
         <div>
-          <h2>Stay in the Know</h2>
-          <p>Receive curated bookseller recommendations, new arrivals, pre-orders and offers. Unsubscribe anytime.</p>
+          <h2>{t(locale, "newsletter.title")}</h2>
+          <p>{t(locale, "newsletter.subtitle")}</p>
         </div>
         <NewsletterForm source="footer" layout="inline" defaultCountry={country} />
       </div>
@@ -69,7 +70,7 @@ export function SiteFooter({ site, country = "KE" }: { site: SiteConfig; country
           </ul>
         </div>
         <div>
-          <h2>Help</h2>
+          <h2>{t(locale, "nav.help")}</h2>
           <ul>
             {site.navigation.footerLinks.map((l) => (
               <li key={l.href + l.label}>
@@ -80,7 +81,7 @@ export function SiteFooter({ site, country = "KE" }: { site: SiteConfig; country
         </div>
       </div>
       <div className="footer-base wrap">
-        <p>&copy; {new Date().getFullYear()} {b.name}</p>
+        <p>{t(locale, "footer.copyright", { year: new Date().getFullYear(), name: b.name })}</p>
         <p>Lipa na M-Pesa in Kenya · Cards by Stripe · Rates by Shippo · FX by ExchangeRate-API</p>
       </div>
     </footer>

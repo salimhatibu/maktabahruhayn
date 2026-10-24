@@ -6,7 +6,7 @@ import {
   parsePhoneNumberFromString,
   type CountryCode,
 } from "libphonenumber-js"
-import { useEffect, useId, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 export type PhoneValue = { country: CountryCode; national: string; e164: string; valid: boolean }
 
@@ -82,8 +82,12 @@ export function PhoneInput({
   className?: string
   onChange?: (value: PhoneValue) => void
 }) {
-  const autoId = useId()
-  const inputId = id || `phone-${autoId}`
+  // `name` is unique inside a form, so it gives the field a stable id without
+  // useId(), whose value is derived from the React tree and can come out
+  // different on the server than during hydration - the label's htmlFor then
+  // mismatches and React discards the server HTML for this subtree. Pass `id`
+  // where two of these share a name on one page.
+  const inputId = id || `phone-${name}`
   const fallback = normaliseCountry(defaultCountry)
   const start = useMemo(() => initialValue(defaultValue, fallback), [defaultValue, fallback])
   const [country, setCountry] = useState<CountryCode>(start.country)

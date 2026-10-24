@@ -1,5 +1,6 @@
 "use client"
 
+import { keep } from "@/lib/keep-form"
 import Link from "next/link"
 import { useActionState, useState } from "react"
 import { submitReviewAction, type ReviewFormState } from "@/app/actions/account"
@@ -30,7 +31,7 @@ export function WriteReview({
     )
   }
   if (state.done) {
-    return <p className="form-success" role="status">Thank you! Your review is now live.</p>
+    return <p className="form-success" role="status">Thank you! Your review will appear here once it has been approved.</p>
   }
   if (!open) {
     return (
@@ -41,7 +42,7 @@ export function WriteReview({
   }
 
   return (
-    <form action={action} className="review-form">
+    <form action={action} onSubmit={keep(action)} className="review-form">
       <input type="hidden" name="product_id" value={productId} />
       <input type="hidden" name="handle" value={handle} />
       <input type="hidden" name="rating" value={rating} />
@@ -68,7 +69,7 @@ export function WriteReview({
       </label>
       <label>
         Your review
-        <textarea name="content" rows={5} minLength={10} maxLength={5000} required />
+        <textarea name="content" rows={5} minLength={10} maxLength={4000} required />
       </label>
       {state.error ? (
         <p className="form-error" role="alert">

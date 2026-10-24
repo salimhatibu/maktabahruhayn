@@ -1,21 +1,17 @@
+import { isHtml, sanitizeHtml } from "@maktabah/shared"
+
 /**
  * Product descriptions arrive either as plain text (seeded or imported books)
- * or as HTML from the admin editor. The backend sanitises on save; this keeps
- * the same allowlist as a second line of defence before rendering.
+ * or as HTML from the admin editor. The admin sanitises on save; this runs the
+ * same allowlist again before rendering, so a row written any other way
+ * (a CSV import, a direct SQL edit) still cannot carry script onto the page.
  */
-
-const TAGS = "p|br|h2|h3|strong|b|em|i|u|ul|ol|li|blockquote|a|code|pre|table|thead|tbody|tr|th|td"
-const ALLOWED = new RegExp(`<\\/?(${TAGS})(\\s[^>]*)?>`, "gi")
-const OTHER = new RegExp(`<(?!\\/?(${TAGS})\\b)[^>]*>`, "gi")
-const LOOKS_LIKE_HTML = new RegExp(`<\\/?(${TAGS})\\b[^>]*>`, "i")
 
 function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 }
 
-export function isHtml(value: string) {
-  return LOOKS_LIKE_HTML.test(value)
-}
+export { isHtml }
 
 /** Safe HTML for rendering: sanitised editor HTML, or plain text turned into paragraphs. */
 export function descriptionHtml(value: string): string {
@@ -27,24 +23,7 @@ export function descriptionHtml(value: string): string {
       .map((para) => `<p>${escapeHtml(para).replace(/\n/g, "<br>")}</p>`)
       .join("")
   }
-  return value
-    .replace(/<(script|style|iframe|object|embed|svg|math)[\s\S]*?<\/\1>/gi, "")
-    .replace(OTHER, "")
-    .replace(ALLOWED, (tag) => {
-      const name = tag.match(/^<\/?([a-z0-9]+)/i)?.[1]?.toLowerCase() || ""
-      if (tag.startsWith("</")) {
-        return `</${name}>`
-      }
-      if (name === "a") {
-        const href = tag.match(/href\s*=\s*"([^"]*)"/i)?.[1] || ""
-        if (!/^(https?:|mailto:|\/(?!\/))/i.test(href)) {
-          return "<a>"
-        }
-        const external = /^https?:/i.test(href)
-        return `<a href="${escapeHtml(href)}"${external ? ' rel="noopener noreferrer nofollow" target="_blank"' : ""}>`
-      }
-      return `<${name}>`
-    })
+  return sanitizeHtml(value)
 }
 
 /** Plain text for meta descriptions, JSON-LD and card blurbs. */

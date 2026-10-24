@@ -1,5 +1,6 @@
 "use client"
 
+import { keep } from "@/lib/keep-form"
 import { useActionState, useEffect, useState } from "react"
 import { useFormStatus } from "react-dom"
 import {
@@ -17,8 +18,10 @@ import { PhoneInput } from "@/components/phone-input"
 
 const initial: AccountFormState = { error: null }
 
-function Submit({ label, block = true }: { label: string; block?: boolean }) {
-  const { pending } = useFormStatus()
+function Submit({ label, block = true, pending: busy }: { label: string; block?: boolean; pending?: boolean }) {
+  // Forms submitted through keep() are not "form actions" to useFormStatus.
+  const status = useFormStatus()
+  const pending = busy ?? status.pending
   return (
     <button type="submit" className={`btn btn-primary ${block ? "btn-block" : ""}`} disabled={pending} aria-busy={pending}>
       {pending ? "Please wait…" : label}
@@ -64,9 +67,9 @@ function PasswordField({ autoComplete }: { autoComplete: "current-password" | "n
 }
 
 export function LoginForm({ next }: { next: string }) {
-  const [state, action] = useActionState(loginAction, initial)
+  const [state, action, pending] = useActionState(loginAction, initial)
   return (
-    <form action={action} className="stack auth-form">
+    <form action={action} onSubmit={keep(action)} className="stack auth-form">
       <Feedback state={state} />
       <input type="hidden" name="next" value={next} />
       <label>
@@ -74,7 +77,7 @@ export function LoginForm({ next }: { next: string }) {
         <input name="email" type="email" autoComplete="email" required />
       </label>
       <PasswordField autoComplete="current-password" />
-      <Submit label="Sign In" />
+      <Submit label="Sign In" pending={pending} />
     </form>
   )
 }
@@ -137,11 +140,11 @@ export function RegisterForm({
   countries: CountryOption[]
   defaultCountry: string
 }) {
-  const [state, action] = useActionState(registerAction, initial)
+  const [state, action, pending] = useActionState(registerAction, initial)
   const [addAddress, setAddAddress] = useState(false)
   const [addPayment, setAddPayment] = useState(false)
   return (
-    <form action={action} className="stack auth-form">
+    <form action={action} onSubmit={keep(action)} className="stack auth-form">
       <Feedback state={state} />
       <input type="hidden" name="next" value={next} />
       <div className="form-grid">
@@ -197,7 +200,7 @@ export function RegisterForm({
           <small>New arrivals and pre-orders. Unsubscribe anytime.</small>
         </span>
       </label>
-      <Submit label="Create Account" />
+      <Submit label="Create Account" pending={pending} />
     </form>
   )
 }
@@ -209,9 +212,9 @@ export function ProfileForm({
   customer: { first_name: string | null; last_name: string | null; phone: string | null; email: string }
   defaultCountry: string
 }) {
-  const [state, action] = useActionState(updateProfileAction, initial)
+  const [state, action, pending] = useActionState(updateProfileAction, initial)
   return (
-    <form action={action} className="stack auth-form">
+    <form action={action} onSubmit={keep(action)} className="stack auth-form">
       <Feedback state={state} />
       <div className="form-grid">
         <label>
@@ -230,20 +233,20 @@ export function ProfileForm({
       </label>
       <PhoneInput name="phone" label="Phone" defaultValue={customer.phone} defaultCountry={defaultCountry} />
       <div>
-        <Submit label="Save Details" block={false} />
+        <Submit label="Save Details" block={false} pending={pending} />
       </div>
     </form>
   )
 }
 
 export function PaymentPreferenceForm({ method, mpesaPhone }: { method: PaymentChoiceKey; mpesaPhone: string | null }) {
-  const [state, action] = useActionState(updatePaymentPreferenceAction, initial)
+  const [state, action, pending] = useActionState(updatePaymentPreferenceAction, initial)
   return (
-    <form action={action} className="stack auth-form">
+    <form action={action} onSubmit={keep(action)} className="stack auth-form">
       <Feedback state={state} />
       <PaymentPreferenceFields method={method} mpesaPhone={mpesaPhone} />
       <div>
-        <Submit label="Save Preference" block={false} />
+        <Submit label="Save Preference" block={false} pending={pending} />
       </div>
     </form>
   )
@@ -260,14 +263,14 @@ function AddressEditor({
   countries: CountryOption[]
   onDone: () => void
 }) {
-  const [state, action] = useActionState(saveAddressBookAction, initial)
+  const [state, action, pending] = useActionState(saveAddressBookAction, initial)
   useEffect(() => {
     if (state.message && !state.error) {
       onDone()
     }
   }, [state, onDone])
   return (
-    <form action={action} className="stack auth-form address-editor">
+    <form action={action} onSubmit={keep(action)} className="stack auth-form address-editor">
       <Feedback state={state} />
       {address ? <input type="hidden" name="address_id" value={address.id} /> : null}
       <AddressFields value={address || EMPTY_ADDRESS} countries={countries} />
@@ -278,7 +281,7 @@ function AddressEditor({
         </span>
       </label>
       <div className="button-row">
-        <Submit label={address ? "Save Address" : "Add Address"} block={false} />
+        <Submit label={address ? "Save Address" : "Add Address"} block={false} pending={pending} />
         <button type="button" className="btn btn-outline" onClick={onDone}>
           Cancel
         </button>

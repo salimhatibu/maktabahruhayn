@@ -1,7 +1,45 @@
 import { cookies } from "next/headers"
+import {
+  addLine as dbAddLine,
+  applyPromotion as dbApplyPromotion,
+  CartError,
+  convert,
+  createCart,
+  finalizePaidCart,
+  getCart as dbGetCart,
+  getFxRates,
+  getSettings,
+  listShippingOptions as dbListShippingOptions,
+  findPendingPayment,
+  orderKeyForCart,
+  placeOrder,
+  recordPendingPayment,
+  removeLine as dbRemoveLine,
+  repriceCart,
+  setCartFields,
+  shippingMethodFor,
+  STANDARD_SHIPPING_ID,
+  toMajor,
+  toMinor,
+  updateLine as dbUpdateLine,
+  type CartRow,
+  type D1,
+  type FinalizeResult,
+} from "@maktabah/db"
+import { resolveRegion } from "@maktabah/shared"
 import { getAuthToken } from "./auth"
-import { AFFILIATE_COOKIE, CART_COOKIE, mediaUrl, stripePublishableKey } from "./config"
-import { getRegionContext, medusaFetch, MedusaRequestError } from "./medusa"
+import { AFFILIATE_COOKIE, CART_COOKIE, LAST_ORDER_COOKIE, mediaUrl, stripePublishableKey } from "./config"
+import { db } from "./db"
+import { convertFromBase } from "./pricing"
+import { mpesa, mpesaConfig, shippo, shippoConfig, stripe, stripeConfig } from "./payments"
+import { currentRegion } from "./region-context"
+
+/**
+ * The shopping cart, stored in D1.
+ *
+ * Money crosses this boundary in major units, as the cart page, drawer and
+ * checkout forms expect, while the database keeps integer minor units.
+ */
 
 export type CartLine = {
   id: string
@@ -81,37 +119,6 @@ export type CartSummary = {
   }[]
 }
 
-const CART_FIELDS = [
-  "id",
-  "email",
-  "customer_id",
-  "currency_code",
-  "region_id",
-  "metadata",
-  "total",
-  "subtotal",
-  "item_subtotal",
-  "shipping_total",
-  "tax_total",
-  "discount_total",
-  "*items",
-  "*items.variant",
-  "*promotions",
-  "*shipping_address",
-  "*shipping_methods",
-  "*payment_collection",
-  "*payment_collection.payment_sessions",
-].join(",")
-
-function cartPath(id: string, suffix = "") {
-  return `/store/carts/${id}${suffix}?fields=${CART_FIELDS}`
-}
-
-/** Cart requests carry the customer token so carts attach to accounts. */
-async function cartFetch<T>(path: string, init?: RequestInit) {
-  return medusaFetch<T>(path, { ...init, revalidate: false, token: await getAuthToken() })
-}
-
 export function summarizeCart(cart: Cart | null): CartSummary | null {
   if (!cart) {
     return null
@@ -141,19 +148,79 @@ export function summarizeCart(cart: Cart | null): CartSummary | null {
   }
 }
 
+
+/** Gift details ride along on the cart and are copied onto the order. */
+type GiftMetadata = { is_gift?: boolean; gift_message?: string; gift_wrap?: boolean; affiliate_code?: string }
+
+function parseGift(note: string | null): GiftMetadata {
+  if (!note) {
+    return {}
+  }
+  try {
+    return JSON.parse(note) as GiftMetadata
+  } catch {
+    return {}
+  }
+}
+
+function toCart(row: CartRow): Cart {
+  const metadata = parseGift(row.giftNote)
+  return {
+    id: row.id,
+    email: row.email,
+    customer_id: row.customerId,
+    currency_code: row.currency,
+    region_id: row.currency,
+    metadata,
+    items: row.lines.map((line) => ({
+      id: line.id,
+      title: line.productTitle,
+      product_id: line.productId,
+      product_title: line.productTitle,
+      product_handle: line.productHandle,
+      product_subtitle: line.productSubtitle,
+      variant_title: line.variantTitle,
+      variant_id: line.variantId,
+      thumbnail: line.thumbnail,
+      quantity: line.quantity,
+      unit_price: toMajor(line.unitPriceMinor),
+      subtotal: toMajor(line.subtotalMinor),
+      variant: {
+        inventory_quantity: line.available,
+        manage_inventory: line.manageInventory,
+        allow_backorder: line.allowBackorder,
+      },
+    })),
+    promotions: row.promotionCode ? [{ id: row.promotionCode, code: row.promotionCode }] : [],
+    shipping_address: (row.shippingAddress as Address) || null,
+    shipping_methods: row.shippingOptionId
+      ? [{ shipping_option_id: row.shippingOptionId, amount: toMajor(row.totals.shippingMinor) }]
+      : [],
+    payment_collection: null,
+    item_subtotal: toMajor(row.totals.itemSubtotalMinor),
+    subtotal: toMajor(row.totals.itemSubtotalMinor),
+    discount_total: toMajor(row.totals.discountMinor),
+    shipping_total: toMajor(row.totals.shippingMinor),
+    tax_total: toMajor(row.totals.taxMinor),
+    total: toMajor(row.totals.totalMinor),
+  }
+}
+
+async function cartId(): Promise<string | null> {
+  return (await cookies()).get(CART_COOKIE)?.value || null
+}
+
 export async function getCart(): Promise<Cart | null> {
-  const jar = await cookies()
-  const id = jar.get(CART_COOKIE)?.value
+  const id = await cartId()
   if (!id) {
     return null
   }
-
-  try {
-    const data = await cartFetch<{ cart: Cart }>(cartPath(id))
-    return data.cart
-  } catch {
+  const row = await dbGetCart(await db(), id)
+  // A completed cart is history; the shopper starts a new one.
+  if (!row || row.completedOrderId) {
     return null
   }
+  return toCart(row)
 }
 
 async function setCartCookie(id: string) {
@@ -173,116 +240,83 @@ export async function ensureCart(): Promise<Cart> {
   if (existing) {
     return existing
   }
-
-  const region = await getRegionContext()
-  if (!region.regionId) {
-    throw new Error("No Medusa region is configured")
-  }
-
-  const affiliate = (await cookies()).get(AFFILIATE_COOKIE)?.value
-  const data = await cartFetch<{ cart: Cart }>(`/store/carts?fields=${CART_FIELDS}`, {
-    method: "POST",
-    body: JSON.stringify({
-      region_id: region.regionId,
-      // Carried onto the order, where the admin credits the affiliate.
-      ...(affiliate ? { metadata: { affiliate_code: affiliate } } : {}),
-    }),
+  const [database, region, jar] = await Promise.all([db(), currentRegion(), cookies()])
+  const affiliate = jar.get(AFFILIATE_COOKIE)?.value
+  // A cart started while signed in belongs to that account from the start.
+  const { getCustomer } = await import("./auth")
+  const customer = await getCustomer().catch(() => null)
+  const id = await createCart(database, {
+    currency: region.currency,
+    countryCode: region.country,
+    customerId: customer?.id ?? null,
+    email: customer?.email ?? null,
   })
-  await setCartCookie(data.cart.id)
-  return data.cart
+  if (affiliate) {
+    // Carried onto the order, where the admin credits the affiliate.
+    await setCartFields(database, id, { giftNote: JSON.stringify({ affiliate_code: affiliate }) })
+  }
+  await setCartCookie(id)
+  const row = await dbGetCart(database, id)
+  return toCart(row as CartRow)
 }
 
 export async function addLine(variantId: string, quantity = 1) {
-  let cart = await ensureCart()
-  const affiliate = (await cookies()).get(AFFILIATE_COOKIE)?.value
-  if (affiliate && !cart.metadata?.affiliate_code) {
-    cart = (
-      await cartFetch<{ cart: Cart }>(cartPath(cart.id), {
-        method: "POST",
-        body: JSON.stringify({ metadata: { ...(cart.metadata || {}), affiliate_code: affiliate } }),
-      })
-    ).cart
-  }
-  const data = await cartFetch<{ cart: Cart }>(cartPath(cart.id, "/line-items"), {
-    method: "POST",
-    body: JSON.stringify({ variant_id: variantId, quantity }),
-  })
-  return data.cart
-}
-
-export async function updateLine(lineId: string, quantity: number) {
-  const cart = await getCart()
-  if (!cart) {
-    return null
-  }
-  if (quantity <= 0) {
-    return removeLine(lineId)
-  }
-  const data = await cartFetch<{ cart: Cart }>(cartPath(cart.id, `/line-items/${lineId}`), {
-    method: "POST",
-    body: JSON.stringify({ quantity }),
-  })
-  return data.cart
-}
-
-export async function removeLine(lineId: string) {
-  const cart = await getCart()
-  if (!cart) {
-    return null
-  }
-  await cartFetch(`/store/carts/${cart.id}/line-items/${lineId}`, { method: "DELETE" })
+  const cart = await ensureCart()
+  await dbAddLine(await db(), cart.id, variantId, quantity, cart.currency_code || "usd")
   return getCart()
 }
 
-/** Moves an existing cart to the visitor's newly chosen region. */
+export async function updateLine(lineId: string, quantity: number) {
+  const cart = await ensureCart()
+  await dbUpdateLine(await db(), cart.id, lineId, quantity)
+  return getCart()
+}
+
+export async function removeLine(lineId: string) {
+  const cart = await ensureCart()
+  await dbRemoveLine(await db(), cart.id, lineId)
+  return getCart()
+}
+
+/** Moves the cart to another currency, re-pricing what is already in it. */
 export async function moveCartToRegion(regionId: string) {
   const cart = await getCart()
-  if (!cart || cart.region_id === regionId) {
+  if (!cart || cart.currency_code === regionId) {
     return cart
   }
-  const data = await cartFetch<{ cart: Cart }>(cartPath(cart.id), {
-    method: "POST",
-    body: JSON.stringify({ region_id: regionId }),
-  })
-  return data.cart
+  await repriceCart(await db(), cart.id, regionId)
+  return getCart()
 }
 
-/** Links the current cart to the signed-in customer. */
+/**
+ * Links the current cart to the signed-in customer, so the order lands in
+ * their account and their reviews count as verified purchases.
+ */
 export async function attachCartToCustomer() {
-  const cart = await getCart()
-  const token = await getAuthToken()
-  if (!cart || !token || cart.customer_id) {
+  const [cart, token] = await Promise.all([getCart(), getAuthToken()])
+  if (!cart || !token) {
     return
   }
-  try {
-    await medusaFetch(`/store/carts/${cart.id}/customer`, { method: "POST", token, revalidate: false })
-  } catch (error) {
-    console.error(error)
+  const { getCustomer } = await import("./auth")
+  const customer = await getCustomer().catch(() => null)
+  if (customer && cart.customer_id !== customer.id) {
+    await setCartFields(await db(), cart.id, { customerId: customer.id, email: cart.email || customer.email })
   }
 }
 
-export async function applyPromotion(code: string) {
+export async function applyPromotion(code: string): Promise<{ applied: boolean; cart: Cart | null }> {
   const cart = await ensureCart()
-  const data = await cartFetch<{ cart: Cart }>(cartPath(cart.id, "/promotions"), {
-    method: "POST",
-    body: JSON.stringify({ promo_codes: [code] }),
-  })
-  const applied = (data.cart.promotions || []).some(
-    (p) => p.code?.toLowerCase() === code.toLowerCase()
-  )
-  return { cart: data.cart, applied }
+  const applied = await dbApplyPromotion(await db(), cart.id, code)
+  return { applied, cart: await getCart() }
 }
 
 export async function removePromotion(code: string) {
-  const cart = await getCart()
-  if (!cart) {
-    return null
+  const cart = await ensureCart()
+  // Only clear the code the shopper actually asked to remove.
+  if (cart.promotions?.some((promotion) => promotion.code === code)) {
+    await setCartFields(await db(), cart.id, { promotionCode: null })
   }
-  const data = await cartFetch<{ cart: Cart }>(cartPath(cart.id, "/promotions"), {
-    method: "DELETE",
-    body: JSON.stringify({ promo_codes: [code] }),
-  })
-  return data.cart
+  return getCart()
 }
 
 export type GiftOptions = { is_gift: boolean; gift_message: string; gift_wrap: boolean }
@@ -296,21 +330,17 @@ export function readGiftOptions(cart: Cart | null): GiftOptions {
   }
 }
 
-/** Gift details travel with the order as cart metadata. */
+/** Gift details travel with the order on the cart. */
 export async function setGiftOptions(options: GiftOptions) {
   const cart = await ensureCart()
-  const data = await cartFetch<{ cart: Cart }>(cartPath(cart.id), {
-    method: "POST",
-    body: JSON.stringify({
-      metadata: {
-        ...(cart.metadata || {}),
-        is_gift: options.is_gift,
-        gift_message: options.is_gift ? options.gift_message.slice(0, 300) : "",
-        gift_wrap: options.is_gift && options.gift_wrap,
-      },
-    }),
-  })
-  return data.cart
+  const metadata: GiftMetadata = {
+    ...(cart.metadata as GiftMetadata),
+    is_gift: options.is_gift,
+    gift_message: options.is_gift ? options.gift_message.slice(0, 300) : "",
+    gift_wrap: options.is_gift && options.gift_wrap,
+  }
+  await setCartFields(await db(), cart.id, { giftNote: JSON.stringify(metadata) })
+  return getCart()
 }
 
 export async function updateCartAddress(input: {
@@ -337,12 +367,19 @@ export async function updateCartAddress(input: {
     phone: input.phone,
     province: input.province || input.city,
   }
-
-  const data = await cartFetch<{ cart: Cart }>(cartPath(cart.id), {
-    method: "POST",
-    body: JSON.stringify({ email: input.email, shipping_address: address, billing_address: address }),
+  const database = await db()
+  await setCartFields(database, cart.id, {
+    email: input.email,
+    shippingAddress: address,
+    billingAddress: address,
+    countryCode: address.country_code,
   })
-  return data.cart
+  // A delivery address in another currency region re-prices the cart.
+  const region = resolveRegion(address.country_code)
+  if (region.currency !== cart.currency_code) {
+    await repriceCart(database, cart.id, region.currency)
+  }
+  return getCart()
 }
 
 export type ShippingOption = {
@@ -352,48 +389,133 @@ export type ShippingOption = {
   price_type?: string
 }
 
-export async function listShippingOptions(cartId: string): Promise<ShippingOption[]> {
-  const data = await cartFetch<{ shipping_options: ShippingOption[] }>(
-    `/store/shipping-options?cart_id=${cartId}`
-  )
-  const options = data.shipping_options || []
+export async function listShippingOptions(id: string): Promise<ShippingOption[]> {
+  const database = await db()
+  const row = await dbGetCart(database, id)
+  if (!row) {
+    return []
+  }
+  const options = await dbListShippingOptions(database, {
+    countryCode: row.countryCode,
+    currency: row.currency,
+    subtotalMinor: row.totals.itemSubtotalMinor,
+  })
 
-  // Calculated (Shippo) options carry no amount until priced for this cart.
-  const priced = await Promise.all(
-    options.map(async (option) => {
-      if (option.price_type !== "calculated") {
-        return option
-      }
-      try {
-        const priced = await cartFetch<{ shipping_option: ShippingOption }>(
-          `/store/shipping-options/${option.id}/calculate`,
-          { method: "POST", body: JSON.stringify({ cart_id: cartId }) }
-        )
-        return { ...option, amount: priced.shipping_option.amount }
-      } catch {
-        return option
-      }
-    })
+  const flat: ShippingOption[] = options
+    .filter((option) => option.provider !== "shippo")
+    .map((option) => ({
+      id: option.id,
+      name: option.free ? `${option.name} (free)` : option.name,
+      amount: toMajor(option.amountMinor),
+      price_type: "flat",
+    }))
+  // Nothing set up for this destination: offer standard delivery at the
+  // admin's fallback rate, so a shopper is never left with no way to check out.
+  if (!flat.length) {
+    flat.push(await standardDelivery(database, row))
+  }
+
+  // Live courier rates, when Shippo is configured and we have somewhere to
+  // ship to. If it is unavailable the flat rates above still carry the order.
+  const config = shippoConfig()
+  const address = row.shippingAddress as Record<string, string> | null
+  if (!config || !options.some((option) => option.provider === "shippo") || !address?.address_1) {
+    return flat
+  }
+
+  const rates = await shippo.getRates(config, {
+    to: {
+      name: [address.first_name, address.last_name].filter(Boolean).join(" ") || "Customer",
+      street1: address.address_1,
+      street2: address.address_2 || undefined,
+      city: address.city || "",
+      state: address.province || undefined,
+      zip: address.postal_code || undefined,
+      country: (address.country_code || "").toUpperCase(),
+      phone: address.phone || undefined,
+    },
+    parcel: shippo.parcelFor(
+      row.lines.map((line) => ({ ...line.dimensions, quantity: line.quantity }))
+    ),
+  })
+
+  const live = await Promise.all(
+    rates.slice(0, 4).map(async (rate) => ({
+      id: `shippo:${rate.objectId}`,
+      name: `${rate.provider} ${rate.service}${rate.estimatedDays ? ` (${rate.estimatedDays} days)` : ""}`,
+      // Shippo quotes in its own currency; the cart charges in the shopper's.
+      amount:
+        rate.currency.toLowerCase() === row.currency
+          ? rate.amount
+          : await convertFromBase(rate.amount, row.currency),
+      price_type: "calculated",
+    }))
   )
-  // An option without a price in this currency cannot be selected.
-  return priced.filter((option) => typeof option.amount === "number")
+  return [...flat, ...live]
+}
+
+/**
+ * The fallback option: the admin's Shipping settings give a KES and a USD
+ * rate and free-shipping thresholds; other currencies convert the USD ones.
+ */
+async function standardDelivery(database: D1, row: CartRow): Promise<ShippingOption> {
+  const settings = await getSettings<{
+    shipping?: { fallbackUsd?: number; fallbackKes?: number; freeThresholdUsd?: number; freeThresholdKes?: number }
+  }>(database)
+  const s = settings.shipping || {}
+  const inCurrency = async (kes: number | undefined, usd: number | undefined) => {
+    if (row.currency === "kes" && Number(kes) > 0) return toMinor(Number(kes))
+    if (!(Number(usd) > 0)) return 0
+    return row.currency === "usd" ? toMinor(Number(usd)) : convert(toMinor(Number(usd)), row.currency, await getFxRates(database))
+  }
+  const rate = await inCurrency(s.fallbackKes, s.fallbackUsd)
+  const threshold = await inCurrency(s.freeThresholdKes, s.freeThresholdUsd)
+  const free = threshold > 0 && row.totals.itemSubtotalMinor >= threshold
+  return {
+    id: STANDARD_SHIPPING_ID,
+    name: free || !rate ? "Standard delivery (free)" : "Standard delivery",
+    amount: free ? 0 : toMajor(rate),
+    price_type: "flat",
+  }
 }
 
 export async function selectShipping(optionId: string) {
   const cart = await ensureCart()
-  if (cart.shipping_methods?.some((m) => m.shipping_option_id === optionId)) {
-    return cart
+  const options = await listShippingOptions(cart.id)
+  // Only an option we actually offer, at our price: an unknown id must not
+  // become free delivery.
+  const chosen = options.find((option) => option.id === optionId)
+  if (!chosen) {
+    throw new CartError("Choose a delivery option.")
   }
-  const data = await cartFetch<{ cart: Cart }>(cartPath(cart.id, "/shipping-methods"), {
-    method: "POST",
-    body: JSON.stringify({ option_id: optionId }),
+  await setCartFields(await db(), cart.id, {
+    shippingOptionId: chosen.id,
+    shippingTotalMinor: toMinor(chosen.amount || 0),
   })
-  return data.cart
+  return getCart()
 }
 
-/* ------------------------------------------------------------------ */
-/* Payments                                                            */
-/* ------------------------------------------------------------------ */
+/** What still stands between this cart and taking payment, in the shopper's words. */
+function notReadyForPayment(cart: Cart): string | null {
+  if (!cart.items?.length) return "Your cart is empty."
+  if (!cart.email || !cart.shipping_address?.address_1) return "Add your delivery address first."
+  if (!cart.shipping_methods?.length) return "Choose a delivery option."
+  if (!((cart.total || 0) > 0)) return "Your cart total is zero."
+  // Checked before any money moves, so nobody pays for a book that is gone.
+  const short = cart.items.find(
+    (item) =>
+      item.variant?.manage_inventory &&
+      !item.variant.allow_backorder &&
+      item.quantity > Number(item.variant.inventory_quantity ?? 0)
+  )
+  if (short) {
+    const left = Math.max(0, Number(short.variant?.inventory_quantity ?? 0))
+    return left
+      ? `Only ${left} of "${short.product_title || short.title}" left. Please update your cart.`
+      : `"${short.product_title || short.title}" just sold out. Please remove it from your cart.`
+  }
+  return null
+}
 
 export type PaymentChoice = { id: string; label: string; hint: string }
 
@@ -412,68 +534,132 @@ const PAYMENT_LABELS: Record<string, Omit<PaymentChoice, "id">> = {
   },
 }
 
-const PAYMENT_ORDER = ["pp_daraja_daraja", "pp_stripe_stripe", "pp_system_default"]
-
-/** Payment methods enabled for the region that this storefront can complete. */
-export async function listPaymentChoices(regionId: string): Promise<PaymentChoice[]> {
-  try {
-    const data = await medusaFetch<{ payment_providers: { id: string }[] }>(
-      `/store/payment-providers?region_id=${regionId}`,
-      { revalidate: false }
-    )
-    return (data.payment_providers || [])
-      .filter((p) => p.id in PAYMENT_LABELS)
-      // Card payments need the Stripe publishable key for Elements.
-      .filter((p) => p.id !== "pp_stripe_stripe" || Boolean(stripePublishableKey))
-      .map((p) => ({ id: p.id, ...PAYMENT_LABELS[p.id] }))
-      .sort((a, b) => PAYMENT_ORDER.indexOf(a.id) - PAYMENT_ORDER.indexOf(b.id))
-  } catch {
-    return []
-  }
+/** Payment methods the shopper's region offers, from configuration. */
+export async function listPaymentChoices(): Promise<PaymentChoice[]> {
+  const region = await currentRegion()
+  const ids = [
+    ...(region.mpesa && mpesaConfig() ? ["pp_daraja_daraja"] : []),
+    ...(stripePublishableKey && stripeConfig() ? ["pp_stripe_stripe"] : []),
+    ...(process.env.NODE_ENV === "production" ? [] : ["pp_system_default"]),
+  ]
+  return ids.map((id) => ({ id, ...PAYMENT_LABELS[id] }))
 }
 
-/**
- * Starts (or resumes) a payment session for the provider. An existing
- * session for the same provider is reused unless `restart` is set, so a page
- * refresh never sends a second M-Pesa prompt or Stripe intent.
- */
-export async function startPaymentSession(input: {
+export type PaymentSessionInput = {
   providerId: string
   data?: Record<string, unknown>
   restart?: boolean
-}): Promise<PaymentSession> {
-  let cart = await ensureCart()
-  let collectionId = cart.payment_collection?.id
+}
 
-  if (!collectionId) {
-    const created = await cartFetch<{ payment_collection: { id: string } }>(
-      "/store/payment-collections",
-      { method: "POST", body: JSON.stringify({ cart_id: cart.id }) }
-    )
-    collectionId = created.payment_collection.id
-    cart = (await getCart()) || cart
+/**
+ * Starts a payment with the chosen provider.
+ *
+ * M-Pesa pushes an STK prompt to the shopper's phone and returns while they
+ * approve it; Stripe returns a client secret for the card form to confirm.
+ * Neither creates the order - that happens once the money is confirmed, so a
+ * failed payment never leaves an order behind.
+ */
+export async function startPaymentSession(input: PaymentSessionInput): Promise<PaymentSession> {
+  const cart = await ensureCart()
+  const database = await db()
+  const problem = notReadyForPayment(cart)
+  if (problem) {
+    throw new CartError(problem)
+  }
+  const totalMinor = toMinor(cart.total || 0)
+  const currency = cart.currency_code || "usd"
+
+  if (input.providerId === "pp_system_default") {
+    return { id: "test", provider_id: input.providerId, status: "pending", data: {} }
   }
 
-  const existing = cart.payment_collection?.payment_sessions?.find(
-    (s) => s.provider_id === input.providerId
-  )
-  if (existing && !input.restart) {
-    return existing
+  if (input.providerId === "pp_daraja_daraja") {
+    const config = mpesaConfig()
+    if (!config) {
+      throw new CartError("M-Pesa is not available right now.")
+    }
+    if (currency !== "kes") {
+      throw new CartError("M-Pesa is only available for orders in Kenyan shillings.")
+    }
+    const phone = String(input.data?.phone || "")
+    if (!mpesa.isKenyanMobile(phone)) {
+      throw new CartError("Enter your M-Pesa number as 2547XXXXXXXX or 2541XXXXXXXX.")
+    }
+    // Daraja deals in whole shillings; the attempt records exactly what was asked for.
+    const shillings = Math.ceil(totalMinor / 100)
+    const push = await mpesa
+      .stkPush(config, {
+        phone,
+        amount: shillings,
+        accountReference: cart.id.slice(-12),
+        description: "Maktabah Ruhayn order",
+        callbackUrl: config.callbackUrl,
+      })
+      .catch((error) => {
+        console.error("STK push failed", error)
+        throw new CartError("We couldn't send the M-Pesa prompt. Check the number and try again.")
+      })
+    await recordPendingPayment(database, {
+      cartId: cart.id,
+      provider: "mpesa",
+      reference: push.checkoutRequestId,
+      amountMinor: shillings * 100,
+      currency,
+    })
+    return {
+      id: push.checkoutRequestId,
+      provider_id: input.providerId,
+      status: "pending",
+      data: { checkout_request_id: push.checkoutRequestId, message: push.customerMessage },
+    }
   }
 
-  const data = await cartFetch<{
-    payment_collection: { payment_sessions?: PaymentSession[] }
-  }>(`/store/payment-collections/${collectionId}/payment-sessions`, {
-    method: "POST",
-    body: JSON.stringify({ provider_id: input.providerId, data: input.data || {} }),
-  })
-  const session = data.payment_collection.payment_sessions?.find(
-    (s) => s.provider_id === input.providerId
-  )
-  if (!session) {
-    throw new Error("Payment session was not created")
+  if (input.providerId === "pp_stripe_stripe") {
+    const config = stripeConfig()
+    if (!config) {
+      throw new CartError("Card payments are unavailable right now.")
+    }
+    const intent = await stripe.createPaymentIntent(config, {
+      amountMinor: totalMinor,
+      currency,
+      email: cart.email,
+      orderReference: cart.id,
+      // One intent per cart and amount: returning to checkout reuses it, and a
+      // cart that changed gets a new intent for the new total. Stripe refuses
+      // to replay one key with different parameters.
+      idempotencyKey: `cart_intent_${cart.id}_${totalMinor}_${currency}`,
+    })
+    await recordPendingPayment(database, {
+      cartId: cart.id,
+      provider: "stripe",
+      reference: intent.id,
+      amountMinor: totalMinor,
+      currency,
+    })
+    return {
+      id: intent.id,
+      provider_id: input.providerId,
+      status: intent.status,
+      data: { client_secret: intent.clientSecret },
+    }
   }
-  return session
+
+  throw new CartError("That payment method is not available.")
+}
+
+/** Which provider this cart already started paying with, if any. */
+async function startedProvider(database: Awaited<ReturnType<typeof db>>, id: string): Promise<string> {
+  const [stripeAttempt, mpesaAttempt] = await Promise.all([
+    findPendingPayment(database, id, "stripe"),
+    findPendingPayment(database, id, "mpesa"),
+  ])
+  if (stripeAttempt) {
+    return "pp_stripe_stripe"
+  }
+  if (mpesaAttempt) {
+    return "pp_daraja_daraja"
+  }
+  return "pp_system_default"
 }
 
 export type CompleteResult =
@@ -481,29 +667,128 @@ export type CompleteResult =
   | { type: "pending"; message: string }
   | { type: "error"; message: string }
 
-/** Completes the cart; an unauthorized payment comes back as pending. */
-export async function completeCart(): Promise<CompleteResult> {
-  const cart = await ensureCart()
-  try {
-    const completed = await cartFetch<{
-      type: string
-      order?: { id: string }
-      error?: { message?: string }
-    }>(`/store/carts/${cart.id}/complete`, { method: "POST" })
+/** Hands the browser its order: the cart is spent, and the confirmation page may show this one. */
+async function orderPlaced(orderId: string): Promise<CompleteResult> {
+  const jar = await cookies()
+  jar.delete(CART_COOKIE)
+  jar.set(LAST_ORDER_COOKIE, orderId, {
+    path: "/",
+    sameSite: "lax",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24,
+  })
+  return { type: "order", orderId }
+}
 
-    if (completed.type === "order" && completed.order) {
-      const jar = await cookies()
-      jar.delete(CART_COOKIE)
-      return { type: "order", orderId: completed.order.id }
-    }
-    return { type: "pending", message: completed.error?.message || "Payment is not authorized yet." }
-  } catch (error) {
-    const message =
-      error instanceof MedusaRequestError ? error.publicMessage || error.message : String(error)
-    return /authoriz/i.test(message)
-      ? { type: "pending", message }
-      : { type: "error", message }
+function failure(result: FinalizeResult & { ok: false }): CompleteResult {
+  if (result.reason === "out_of_stock") {
+    return { type: "error", message: `${result.detail || "An item"} just sold out.` }
   }
+  if (result.reason === "amount_mismatch") {
+    // The cart changed after the payment was started; the shopper pays again
+    // for what is in it now, and the earlier payment is refunded.
+    console.error("Payment does not cover the cart", result.detail)
+    return { type: "error", message: "Your cart changed after you started paying. Please pay again for the updated total." }
+  }
+  if (result.reason === "conflict") {
+    return { type: "pending", message: "Your order is being placed." }
+  }
+  return { type: "error", message: "We could not place this order. Please try again." }
+}
+
+/**
+ * Turns the cart into an order once its payment is confirmed.
+ *
+ * The provider's webhook or callback usually gets there first and places the
+ * order on its own; then this just finds it. Otherwise it asks the provider
+ * (never the browser) whether the money arrived, and finishes the order
+ * through the same checks.
+ */
+export async function completeCart(provider?: string): Promise<CompleteResult> {
+  const database = await db()
+  const id = await cartId()
+  const row = id ? await dbGetCart(database, id) : null
+  if (!row) {
+    return { type: "error", message: "Your cart has expired. Please add your books again." }
+  }
+  if (row.completedOrderId) {
+    return orderPlaced(row.completedOrderId)
+  }
+  // Signed in after the cart was started? The order still goes to the account.
+  if (!row.customerId) {
+    await attachCartToCustomer()
+  }
+  const cart = toCart((await dbGetCart(database, row.id)) || row)
+
+  // When the caller does not say, the payment already started on this cart
+  // decides. Defaulting to the test payment here would place an unpaid order
+  // for a card or M-Pesa checkout.
+  const chosen = provider || (await startedProvider(database, cart.id))
+
+  if (chosen === "pp_system_default") {
+    // The test payment takes no money, so it must never run in production.
+    if (process.env.NODE_ENV === "production") {
+      return { type: "error", message: "Choose a payment method." }
+    }
+    const problem = notReadyForPayment(cart)
+    if (problem) {
+      return { type: "error", message: problem }
+    }
+    const result = await placeOrder(database, {
+      cartId: cart.id,
+      idempotencyKey: orderKeyForCart(cart.id),
+      email: cart.email || "",
+      payment: { provider: "manual", status: "captured" },
+      shippingMethod: await shippingMethodFor(database, row),
+    })
+    return result.ok ? orderPlaced(result.orderId) : failure(result)
+  }
+
+  if (chosen === "pp_daraja_daraja") {
+    const attempt = await findPendingPayment(database, cart.id, "mpesa")
+    if (!attempt?.reference) {
+      return { type: "error", message: "Start the M-Pesa payment first." }
+    }
+    if (attempt.status === "failed") {
+      return { type: "error", message: "The M-Pesa payment was not completed. Please try again." }
+    }
+    if (attempt.status !== "captured") {
+      // Safaricom has not called back yet; the checkout page keeps polling.
+      return { type: "pending", message: "Waiting for your M-Pesa confirmation." }
+    }
+    const result = await finalizePaidCart(database, {
+      cartId: cart.id,
+      provider: "mpesa",
+      reference: attempt.reference,
+      paidMinor: attempt.amountMinor,
+      currency: attempt.currency,
+    })
+    return result.ok ? orderPlaced(result.orderId) : failure(result)
+  }
+
+  if (chosen === "pp_stripe_stripe") {
+    const config = stripeConfig()
+    const attempt = await findPendingPayment(database, cart.id, "stripe")
+    if (!config || !attempt?.reference) {
+      return { type: "error", message: "Start the card payment first." }
+    }
+    // Ask Stripe directly rather than trusting the browser's word for it.
+    const intent = await stripe.retrievePaymentIntent(config, attempt.reference)
+    if (!stripe.intentIsPaid(intent.status)) {
+      return { type: "pending", message: "Your card payment is still being confirmed." }
+    }
+    const result = await finalizePaidCart(database, {
+      cartId: cart.id,
+      provider: "stripe",
+      reference: intent.id,
+      paidMinor: intent.amount,
+      currency: intent.currency,
+    })
+    return result.ok ? orderPlaced(result.orderId) : failure(result)
+  }
+
+  return { type: "error", message: "That payment method is not available." }
 }
 
 export async function validateAddress(address: {
@@ -516,8 +801,19 @@ export async function validateAddress(address: {
   country: string
   phone?: string
 }) {
-  return medusaFetch<{ is_valid: boolean; messages: string[] }>(
-    "/store/shipping/validate-address",
-    { method: "POST", body: JSON.stringify(address), revalidate: false }
-  )
+  const config = shippoConfig()
+  if (!config) {
+    return { is_valid: true, messages: [] as string[] }
+  }
+  const result = await shippo.validateAddress(config, {
+    name: address.name,
+    street1: address.street1,
+    street2: address.street2,
+    city: address.city,
+    state: address.state,
+    zip: address.zip,
+    country: address.country.toUpperCase(),
+    phone: address.phone,
+  })
+  return { is_valid: result.isValid, messages: result.messages }
 }

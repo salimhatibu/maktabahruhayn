@@ -5,15 +5,17 @@ import { HeroCarousel } from "@/components/hero-carousel"
 import { RecentlyViewed } from "@/components/recently-viewed"
 import { BookOpenIcon, HelpIcon, PhoneIcon, TruckIcon } from "@/components/icons"
 import { isTagKey } from "@/lib/catalog"
-import { getRegionContext, listBooks, searchBooks, type BookView } from "@/lib/medusa"
+import { getCatalogueFacets, listCatalogue } from "@/lib/catalogue"
+import type { CardBook } from "@/lib/view-types"
+import { currentRegion } from "@/lib/region-context"
 import { mediaUrl } from "@/lib/config"
 import { getSiteConfig, type SiteConfig } from "@/lib/site-config"
 
 /** Covers fanned out on a hero slide: the slide's own images, or books from a collection. */
-function CoverFan({ books, images }: { books: BookView[]; images?: string[] }) {
+function CoverFan({ books, images }: { books: CardBook[]; images?: string[] }) {
   const covers = images?.length
     ? images.slice(0, 5).map((src, i) => ({ key: `${src}-${i}`, book: { handle: src, title: "", cover: mediaUrl(src) } }))
-    : books.slice(0, 5).map((book) => ({ key: book.id, book }))
+    : books.slice(0, 5).map((book) => ({ key: book.id || book.handle, book }))
   return (
     <div className="cover-fan" aria-hidden="true">
       {covers.map(({ key, book }) => (
@@ -29,12 +31,12 @@ type Shelf = SiteConfig["content"]["homeSections"][number]
 
 async function shelfBooks(section: Shelf) {
   if (section.source === "sale") {
-    return listBooks({ onSale: true, limit: 12 })
+    return listCatalogue({ onSale: true, limit: 12 })
   }
   if (section.source === "category") {
-    return listBooks({ category: section.value, limit: 12 })
+    return listCatalogue({ category: section.value, limit: 12 })
   }
-  return isTagKey(section.value) ? listBooks({ tag: section.value, limit: 12 }) : { books: [], count: 0 }
+  return isTagKey(section.value) ? listCatalogue({ tag: section.value, limit: 12 }) : { books: [], count: 0 }
 }
 
 function seeAll(section: Shelf) {
@@ -44,8 +46,8 @@ function seeAll(section: Shelf) {
 }
 
 export default async function HomePage() {
-  const [region, site, facets] = await Promise.all([getRegionContext(), getSiteConfig(), searchBooks("*", {}, "relevance", 1)])
-  const publishers = (facets.facets.find((f) => f.field_name === "publisher")?.counts || []).slice(0, 10)
+  const [region, site, facets] = await Promise.all([currentRegion(), getSiteConfig(), getCatalogueFacets()])
+
   const slides = site.content.heroSlides
   const shelves = site.content.homeSections.filter((s) => s.enabled)
 
@@ -53,10 +55,10 @@ export default async function HomePage() {
     Promise.all(
       slides.map((s) =>
         s.images?.length
-          ? Promise.resolve({ books: [] as BookView[], count: 0 })
+          ? Promise.resolve({ books: [] as CardBook[], count: 0 })
           : isTagKey(s.coverTag)
-            ? listBooks({ tag: s.coverTag, limit: 5 })
-            : listBooks({ limit: 5 })
+            ? listCatalogue({ tag: s.coverTag, limit: 5 })
+            : listCatalogue({ limit: 5 })
       )
     ),
     Promise.all(shelves.map(shelfBooks)),
@@ -116,7 +118,7 @@ export default async function HomePage() {
         <section className="wrap empty-state">
           <h2>The shelves are empty</h2>
           <p>
-            Seed the catalog with <code>pnpm seed:catalog</code>, or add books in the admin.
+            Seed the catalogue with <code>pnpm db:seed:local</code>, or add books in the admin.
           </p>
         </section>
       ) : null}
@@ -141,26 +143,6 @@ export default async function HomePage() {
       {restShelves.slice(1).map(({ section, books }) => (
         <BookShelf key={section.title} title={section.title} books={books} seeAllHref={seeAll(section)} />
       ))}
-
-      {publishers.length ? (
-        <section className="wrap publishers" aria-labelledby="publishers-title">
-          <div className="shelf-head">
-            <h2 id="publishers-title">Our Publishers</h2>
-          </div>
-          <ul className="publisher-row">
-            {publishers.map((p) => (
-              <li key={p.value}>
-                <Link href={`/search?publisher=${encodeURIComponent(p.value)}`}>
-                  <span className="publisher-name">{p.value}</span>
-                  <span className="publisher-count">
-                    {p.count} title{p.count === 1 ? "" : "s"}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       <section className="wrap why" aria-labelledby="why-title">
         <div className="shelf-head">

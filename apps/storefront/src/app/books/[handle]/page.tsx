@@ -2,10 +2,12 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { AddToCartButton } from "@/components/add-to-cart-button"
+import { NotifyMe } from "@/components/notify-me"
 import { availabilityText, canPurchase } from "@/components/availability"
 import { BookShelf } from "@/components/book-shelf"
 import { FormatSelect } from "@/components/format-select"
 import { Gallery } from "@/components/gallery"
+import { Countdown } from "@/components/countdown"
 import { ClockIcon, GiftIcon, PhoneIcon, TruckIcon } from "@/components/icons"
 import { ReadMore } from "@/components/read-more"
 import { RecentlyViewed, RecordView } from "@/components/recently-viewed"
@@ -16,14 +18,15 @@ import { getCustomer } from "@/lib/auth"
 import { siteUrl } from "@/lib/config"
 import { bindingLabel, formatDate, formatMoney, scriptLabel, titleCase } from "@/lib/format"
 import {
-  getBookByHandle,
-  getFreeShippingThreshold,
-  getRegionContext,
-  listBooks,
-  listBooksByAuthor,
-  listReviews,
-  type BookView,
-} from "@/lib/medusa"
+  getCatalogueBook,
+  getFreeShipping,
+  listCatalogue,
+  listCatalogueByAuthor,
+  listCatalogueReviews,
+} from "@/lib/catalogue"
+import { currentLocale, t } from "@/lib/i18n"
+import type { BookView } from "@/lib/view-types"
+import { currentRegion } from "@/lib/region-context"
 import { WriteReview } from "./reviews"
 
 type Props = {
@@ -33,7 +36,7 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { handle } = await params
-  const book = await getBookByHandle(handle)
+  const book = await getCatalogueBook(handle)
   if (!book) {
     return { title: "Book not found" }
   }
@@ -107,22 +110,22 @@ function safeJson(value: unknown) {
 
 export default async function BookPage({ params, searchParams }: Props) {
   const [{ handle }, { format }] = await Promise.all([params, searchParams])
-  const book = await getBookByHandle(handle)
+  const book = await getCatalogueBook(handle)
   if (!book) {
     notFound()
   }
 
-  const region = await getRegionContext()
+  const [region, locale] = await Promise.all([currentRegion(), currentLocale()])
   const selected = book.formats.find((f) => f.variantId === format) || book.formats[0]
   const price = selected?.price
 
   const [threshold, related, byAuthor, reviews, customer] = await Promise.all([
-    getFreeShippingThreshold(region.currency),
+    getFreeShipping(region.currency),
     book.categories[0]
-      ? listBooks({ category: book.categories[0].handle, limit: 12, excludeId: book.id })
+      ? listCatalogue({ category: book.categories[0].handle, limit: 12, excludeId: book.id })
       : Promise.resolve({ books: [], count: 0 }),
-    book.author ? listBooksByAuthor(book.author, book.id) : Promise.resolve([]),
-    listReviews(book.id, 10),
+    book.author ? listCatalogueByAuthor(book.author, book.id) : Promise.resolve([]),
+    listCatalogueReviews(book.id, 10),
     getCustomer().catch(() => null),
   ])
 
@@ -185,21 +188,21 @@ export default async function BookPage({ params, searchParams }: Props) {
               {book.subtitle ? <p className="pdp-subtitle">{book.subtitle}</p> : null}
               {book.author ? (
                 <p className="pdp-byline">
-                  By <Link href={`/search?q=${encodeURIComponent(book.author)}`}>{book.author}</Link>
+                  {t(locale, "product.by")} <Link href={`/search?q=${encodeURIComponent(book.author)}`}>{book.author}</Link>
                 </p>
               ) : null}
               {meta?.translator ? (
                 <p className="pdp-credit">
-                  Translated by{" "}
+                  {t(locale, "product.translated_by")}{" "}
                   <Link href={`/search?q=${encodeURIComponent(meta.translator)}`}>{meta.translator}</Link>
                 </p>
               ) : null}
-              {meta?.commentator_tahqeeq ? <p className="pdp-credit">Commentary by {meta.commentator_tahqeeq}</p> : null}
-              {book.series ? <p className="pdp-credit muted">Series: {book.series}</p> : null}
+              {meta?.commentator_tahqeeq ? <p className="pdp-credit">{t(locale, "product.commentary_by")} {meta.commentator_tahqeeq}</p> : null}
+              {book.series ? <p className="pdp-credit muted">{t(locale, "product.series", { name: book.series })}</p> : null}
               <p className="pdp-rating">
                 {summary ? <RatingLine average={summary.average} count={summary.count} href="#reviews" /> : null}
                 <a href="#reviews" className="link-btn">
-                  Write a Review
+                  {t(locale, "product.write_review")}
                 </a>
               </p>
             </div>
@@ -210,8 +213,11 @@ export default async function BookPage({ params, searchParams }: Props) {
                 {price.onSale ? (
                   <span className="pdp-price-was">
                     <s>{formatMoney(price.original, price.currency)}</s>{" "}
-                    <span className="save-badge">Save {Math.round((1 - price.amount / price.original) * 100)}%</span>
+                    <span className="save-badge">{t(locale, "product.save", { percent: Math.round((1 - price.amount / price.original) * 100) })}</span>
                   </span>
+                ) : null}
+                {price.onSale && price.saleEndsAt ? (
+                  <Countdown endDate={price.saleEndsAt} label={t(locale, "product.sale_ends")} compact />
                 ) : null}
               </div>
             ) : null}
@@ -227,9 +233,9 @@ export default async function BookPage({ params, searchParams }: Props) {
           {book.formats.length ? (
             <section className="formats" aria-labelledby="formats-title">
               <div className="formats-head">
-                <h2 id="formats-title">Formats</h2>
+                <h2 id="formats-title">{t(locale, "product.formats")}</h2>
                 <Link href={`/search?q=${encodeURIComponent(book.title.replace(/\(.*?\)/g, "").trim())}`} className="link-btn">
-                  See All Formats &amp; Editions
+                  {t(locale, "product.see_all")}
                 </Link>
               </div>
               {book.optionDisplay === "dropdown" && book.formats.length > 1 ? (
@@ -294,12 +300,14 @@ export default async function BookPage({ params, searchParams }: Props) {
             {buyable ? (
               <AddToCartButton
                 variantId={selected!.variantId}
-                label={status === "preorder" ? "Pre-Order" : "Add to Cart"}
+                label={status === "preorder" ? t(locale, "product.preorder") : t(locale, "product.add_to_cart")}
                 className="btn btn-primary btn-wide"
               />
+            ) : status === "out_of_stock" ? (
+              <NotifyMe productId={book.id} variantId={selected?.variantId} />
             ) : (
               <button type="button" className="btn btn-primary btn-wide" disabled>
-                {selected?.price ? "Out of Stock" : "Unavailable in your region"}
+                {t(locale, "product.unavailable")}
               </button>
             )}
           </div>
@@ -320,7 +328,7 @@ export default async function BookPage({ params, searchParams }: Props) {
       <div className="wrap pdp-sections">
         <details className="accordion" open>
           <summary>
-            <h2>Overview</h2>
+            <h2>{t(locale, "product.overview")}</h2>
           </summary>
           <div className="overview">
             {book.booksellerNote ? (
@@ -356,7 +364,7 @@ export default async function BookPage({ params, searchParams }: Props) {
 
         <details className="accordion">
           <summary>
-            <h2>Product Details</h2>
+            <h2>{t(locale, "product.details")}</h2>
           </summary>
           <table className="details-table">
             <tbody>
@@ -389,8 +397,8 @@ export default async function BookPage({ params, searchParams }: Props) {
         ) : null}
       </div>
 
-      <BookShelf title="You May Also Like" books={related.books} />
-      {book.author && byAuthor.length ? <BookShelf title={`More by ${book.author}`} books={byAuthor} /> : null}
+      <BookShelf title={t(locale, "product.related")} books={related.books} />
+      {book.author && byAuthor.length ? <BookShelf title={t(locale, "product.by_author", { author: book.author })} books={byAuthor} /> : null}
 
       <div className="wrap pdp-sections">
         {book.authorBio ? (
@@ -425,7 +433,7 @@ export default async function BookPage({ params, searchParams }: Props) {
 
         <section id="reviews" className="reviews" aria-labelledby="reviews-title">
           <h2 id="reviews-title" className="serif-title center">
-            Customer Reviews
+            {t(locale, "product.reviews")}
           </h2>
           {summary ? (
             <div className="review-summary">

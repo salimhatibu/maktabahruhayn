@@ -1,5 +1,5 @@
 import Link from "next/link"
-import type { CardBook } from "@/lib/medusa"
+import type { CardBook } from "@/lib/view-types"
 import { formatMoney } from "@/lib/format"
 import { AddToCartButton } from "./add-to-cart-button"
 import { AvailabilityBadge, canPurchase } from "./availability"

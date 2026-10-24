@@ -1,5 +1,6 @@
+import { getSettings } from "@maktabah/db"
 import { NAV, POPULAR_SEARCHES, type NavItem } from "./catalog"
-import { medusaFetch } from "./medusa"
+import { db } from "./db"
 
 /** Storefront content edited in the admin (Storefront, Menus, Appearance, Business). */
 export type SiteConfig = {
@@ -17,7 +18,7 @@ export type SiteConfig = {
   theme: { brand: string; brandDark: string; accent: string; rose: string; promoBar: string; footer: string }
   content: {
     announcement: string
-    promoMessages: { text: string; href: string }[]
+    promoMessages: { text: string; href: string; endDate?: string }[]
     heroSlides: {
       kicker: string
       title: string
@@ -62,14 +63,19 @@ export const FALLBACK_CONFIG: SiteConfig = {
     items: NAV,
     footerLinks: [
       { label: "Help Center", href: "/help" },
+      { label: "FAQ", href: "/faq" },
       { label: "Order Status", href: "/order-status" },
     ],
   },
 }
 
+/**
+ * The storefront's own settings, read from D1. Each section falls back to the
+ * built-in defaults, so a database that has not been seeded still renders.
+ */
 export async function getSiteConfig(): Promise<SiteConfig> {
   try {
-    const data = await medusaFetch<Partial<SiteConfig>>("/store/site-config", { revalidate: 60 })
+    const data = await getSettings<Partial<SiteConfig>>(await db())
     return {
       business: { ...FALLBACK_CONFIG.business, ...data.business },
       theme: { ...FALLBACK_CONFIG.theme, ...data.theme },

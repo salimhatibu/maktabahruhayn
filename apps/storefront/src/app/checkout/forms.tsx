@@ -1,5 +1,6 @@
 "use client"
 
+import { keep } from "@/lib/keep-form"
 import { useRouter } from "next/navigation"
 import { useActionState, useEffect, useRef, useState, useTransition } from "react"
 import { useFormStatus } from "react-dom"
@@ -18,8 +19,10 @@ import { callAction } from "@/lib/stale-action"
 
 const initial: FormState = { error: null }
 
-function Submit({ children }: { children: React.ReactNode }) {
-  const { pending } = useFormStatus()
+function Submit({ children, pending: busy }: { children: React.ReactNode; pending?: boolean }) {
+  // Forms submitted through keep() are not "form actions" to useFormStatus.
+  const status = useFormStatus()
+  const pending = busy ?? status.pending
   return (
     <button type="submit" className="btn btn-primary btn-block" disabled={pending} aria-busy={pending}>
       {pending ? "Please wait…" : children}
@@ -52,7 +55,7 @@ export function AddressForm({
   saved: SavedCheckoutAddress[]
   signedIn: boolean
 }) {
-  const [state, action] = useActionState(saveAddressAction, initial)
+  const [state, action, pending] = useActionState(saveAddressAction, initial)
   const [choice, setChoice] = useState<string>(() => {
     const match = saved.find((a) => a.address_1 === defaults.address_1 && a.city === defaults.city)
     return match ? match.id : saved.length && !defaults.address_1 ? saved[0].id : "new"
@@ -61,7 +64,7 @@ export function AddressForm({
   const value: AddressValue = picked || (choice === "new" && saved.some((a) => a.address_1 === defaults.address_1) ? { ...defaults, address_1: "", address_2: "", city: "", province: "", postal_code: "" } : defaults)
 
   return (
-    <form action={action} className="stack checkout-address">
+    <form action={action} onSubmit={keep(action)} className="stack checkout-address">
       <ErrorBanner message={state.error} />
       <label>
         Email
@@ -117,7 +120,7 @@ export function AddressForm({
           </span>
         </label>
       ) : null}
-      <Submit>Continue to Delivery</Submit>
+      <Submit pending={pending}>Continue to Delivery</Submit>
     </form>
   )
 }

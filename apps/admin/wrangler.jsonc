@@ -1,0 +1,63 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// The Maktabah admin: a Worker bound to the same D1 as the storefront and
+	// served on its own hostname (ADMIN_HOST, admin.maktabahruhayn.com) by the
+	// router Worker in apps/router. It is never served from a path of the shop.
+	"name": "maktabah-admin",
+	// Once admin.maktabahruhayn.com is attached and behind Access, switch off
+	// this Worker's own workers.dev and preview addresses so Access is the only
+	// way in (the service binding from the router keeps working):
+	// "workers_dev": false,
+	// "preview_urls": false,
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-09-01",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	// Media uploaded through the admin. The storefront reads these URLs; set
+	// R2_PUBLIC_URL to the bucket's public hostname.
+	"r2_buckets": [
+		{
+			"binding": "MEDIA",
+			"bucket_name": "maktabah-media"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "maktabah",
+			"database_id": "c9f8b8be-f0c3-4ab9-a4b6-588a8a59d20e",
+			"migrations_dir": "../../packages/db/migrations"
+		}
+	],
+	"vars": {
+		// Who may sign in is decided by the Cloudflare Access policy on the
+		// admin hostname, not by the application. middleware.ts verifies the
+		// Access token on every request against these two values:
+		//   Zero Trust > Access > Applications > your app > Overview
+		// With ADMIN_OPEN "false" and either left empty, the admin stays locked.
+		"ACCESS_TEAM_DOMAIN": "",
+		"ACCESS_AUD": "",
+		// No sign-in: anyone who knows the hostname is an administrator, and a
+		// red banner says so on every page. Set this to "false" once an Access
+		// policy is on the hostname.
+		"ADMIN_OPEN": "true",
+		// M-Pesa prompts for phone and WhatsApp orders use the storefront's
+		// callback, so this Worker needs DARAJA_CALLBACK_URL and DARAJA_SHORTCODE
+		// as vars, and DARAJA_CONSUMER_KEY, DARAJA_CONSUMER_SECRET, DARAJA_PASSKEY
+		// and DARAJA_CALLBACK_TOKEN as secrets, the token identical to the
+		// storefront's (wrangler secret put ...).
+		// The shop's public origin, for "View store" and cover images. After
+		// the cutover: "https://maktabahruhayn.com".
+		"STOREFRONT_URL": "https://maktabah-storefront.arruhayn-87f.workers.dev",
+		"R2_PUBLIC_URL": ""
+	},
+	"observability": {
+		"enabled": true
+	}
+}

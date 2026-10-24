@@ -9,18 +9,20 @@ import { PromoStrip } from "@/components/site-header"
 import { SaveForLaterButton } from "@/components/wishlist"
 import { getCart, readGiftOptions, summarizeCart } from "@/lib/cart"
 import { formatMoney } from "@/lib/format"
-import { getFreeShippingThreshold, getRegionContext, listBooks, toCardBook } from "@/lib/medusa"
+import { getFreeShipping, listCatalogue } from "@/lib/catalogue"
+import { currentLocale, t } from "@/lib/i18n"
+import { currentRegion } from "@/lib/region-context"
 import { GiftForm, PromoForm } from "./forms"
 
 export const metadata: Metadata = { title: "Cart", robots: { index: false } }
 
 export default async function CartPage() {
-  const [cart, region] = await Promise.all([getCart(), getRegionContext()])
+  const [cart, region, locale] = await Promise.all([getCart(), currentRegion(), currentLocale()])
   const summary = summarizeCart(cart)
   const currency = summary?.currency || region.currency
   const [threshold, suggestions] = await Promise.all([
-    getFreeShippingThreshold(currency),
-    listBooks({ tag: "bestseller", limit: 8 }),
+    getFreeShipping(currency),
+    listCatalogue({ tag: "bestseller", limit: 8 }),
   ])
 
   const inCart = new Set(summary?.items.map((i) => i.handle))
@@ -37,8 +39,8 @@ export default async function CartPage() {
     return v.allow_backorder ? "On backorder or pre-order: ships when stock arrives." : "Not enough stock for this quantity."
   }
   const promoCodes = (cart?.promotions || []).map((p) => p.code).filter((c): c is string => Boolean(c))
-  const suggestion = suggestions.books.find((b) => !inCart.has(b.handle) && b.formats[0]?.price)
-  const suggestionCard = suggestion ? toCardBook(suggestion) : null
+  const suggestion = suggestions.books.find((b) => !inCart.has(b.handle) && b.price)
+  const suggestionCard = suggestion || null
 
   return (
     <main>
@@ -58,7 +60,7 @@ export default async function CartPage() {
                   </Link>
                   {suggestion.author ? <p className="muted">{suggestion.author}</p> : null}
                   <p className="strong">{suggestionCard.format}</p>
-                  {suggestion.description ? <p className="suggest-desc">{suggestion.description}</p> : null}
+                  {suggestion.blurb ? <p className="suggest-desc">{suggestion.blurb}</p> : null}
                 </div>
                 <div className="suggest-buy">
                   <strong>{formatMoney(suggestionCard.price.amount, suggestionCard.price.currency)}</strong>
@@ -68,14 +70,14 @@ export default async function CartPage() {
             </section>
           ) : null}
 
-          <h1 className="serif-title page-title">Shopping Cart</h1>
+          <h1 className="serif-title page-title">{t(locale, "cart.title")}</h1>
 
           {!summary?.items.length ? (
             <section className="panel empty-state">
-              <h2>Your cart is empty</h2>
+              <h2>{t(locale, "cart.empty")}</h2>
               <p>Find your next read among our bestsellers and new releases.</p>
               <Link href="/books" className="btn btn-primary">
-                Continue Shopping
+                {t(locale, "cart.continue_shopping")}
               </Link>
             </section>
           ) : (

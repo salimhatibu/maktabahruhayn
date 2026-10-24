@@ -52,5 +52,9 @@ for (const [key, value] of Object.entries(fromFile)) {
 }
 
 const bin = path.resolve(appDir, "node_modules/.bin/opennextjs-cloudflare")
-const child = spawn(bin, [command, ...rest], { stdio: "inherit", cwd: appDir, env })
+const args = [command, ...rest]
+if (command === "build" && !rest.includes("--dangerouslyUseUnsupportedNextVersion")) {
+  args.push("--dangerouslyUseUnsupportedNextVersion")
+}
+const child = spawn(bin, args, { stdio: "inherit", cwd: appDir, env })
 child.on("exit", (code) => process.exit(code ?? 0))

@@ -1,1 +1,7 @@
 node_modules
+
+# Build output and local state
+.next/
+.turbo/
+.open-next/
+.wrangler/

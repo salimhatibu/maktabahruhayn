@@ -5,3 +5,6 @@ export type {
   BookMetadata,
   ScriptType,
 } from "./book"
+
+export * from "./html"
+export * from "./regions"

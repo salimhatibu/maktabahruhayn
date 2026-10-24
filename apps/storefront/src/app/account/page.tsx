@@ -5,7 +5,7 @@ import { logoutAction } from "@/app/actions/account"
 import { orderStatusLabel } from "@/components/order-details"
 import { getCustomer, listOrders, paymentPreference } from "@/lib/auth"
 import { formatMoney } from "@/lib/format"
-import { getRegionContext, listShippingCountries } from "@/lib/medusa"
+import { currentRegion, listShippingCountries } from "@/lib/region-context"
 import { AddressBook, PaymentPreferenceForm, ProfileForm, type SavedAddress } from "./forms"
 
 export const metadata: Metadata = { title: "My Account", robots: { index: false } }
@@ -22,7 +22,7 @@ export default async function AccountPage() {
   if (!customer) {
     redirect("/account/login?next=/account")
   }
-  const [orders, countries, region] = await Promise.all([listOrders().catch(() => []), listShippingCountries(), getRegionContext()])
+  const [orders, countries, region] = await Promise.all([listOrders().catch(() => []), Promise.resolve(listShippingCountries()), currentRegion()])
   const preference = paymentPreference(customer)
   const addresses: SavedAddress[] = (customer.addresses || [])
     .map((a) => ({

@@ -7,6 +7,8 @@ export const metadata: Metadata = { title: "Order Confirmed", robots: { index: f
 
 export default async function CheckoutCompletePage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
   const { order: id } = await searchParams
+  // Shown only to the browser that placed it or the account it belongs to;
+  // anyone else following this link sees the generic confirmation.
   const order = id ? await getOrder(id) : null
 
   return (

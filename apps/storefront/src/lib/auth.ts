@@ -1,6 +1,35 @@
 import { cookies } from "next/headers"
-import { AUTH_COOKIE, backendUrl } from "./config"
-import { medusaFetch, MedusaRequestError } from "./medusa"
+import {
+  createCustomer,
+  createSession,
+  customerForSession,
+  deleteAddress as dbDeleteAddress,
+  endSession,
+  findCustomerByEmail,
+  getOrder as dbGetOrder,
+  listOrdersForCustomer,
+  pruneSessions,
+  saveAddress as dbSaveAddress,
+  setDefaultAddress as dbSetDefaultAddress,
+  toMajor,
+  updateCustomer,
+  verifyPassword,
+  type AddressInput,
+  type CustomerRow,
+  type OrderSummary as DbOrderSummary,
+} from "@maktabah/db"
+import { AUTH_COOKIE, LAST_ORDER_COOKIE } from "./config"
+import { db } from "./db"
+
+/**
+ * Customer accounts, stored in D1.
+ *
+ * A session is an opaque random token in a cookie; only its hash is kept, so
+ * the table cannot be replayed as a login and signing out truly ends it.
+ * Passwords are PBKDF2-HMAC-SHA256 through Web Crypto, which is what a Worker
+ * has available.
+
+ */
 
 export type Customer = {
   id: string
@@ -47,40 +76,59 @@ async function setAuthToken(token: string) {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 24 * 30,
   })
 }
 
 export async function clearAuthToken() {
+  const token = await getAuthToken()
   const jar = await cookies()
   jar.delete(AUTH_COOKIE)
+  await endSession(await db(), token)
 }
 
-/** POSTs to Medusa's auth routes (no publishable key needed). */
-async function authRequest(path: string, body: unknown): Promise<string> {
-  const response = await fetch(`${backendUrl()}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  })
-  const data = (await response.json().catch(() => ({}))) as { token?: string; message?: string }
-  if (!response.ok || !data.token) {
-    throw new Error(data.message || "Authentication failed")
+/** The old shape kept metadata; these two fields are columns now. */
+function toCustomer(row: CustomerRow): Customer {
+  return {
+    id: row.id,
+    email: row.email,
+    first_name: row.firstName,
+    last_name: row.lastName,
+    phone: row.phone,
+    metadata: { preferred_payment: row.paymentPref, mpesa_phone: row.mpesaPhone },
+    addresses: row.addresses.map((address) => ({
+      id: address.id,
+      first_name: address.firstName,
+      last_name: address.lastName,
+      address_1: address.address1,
+      address_2: address.address2,
+      city: address.city,
+      province: address.province,
+      postal_code: address.postalCode,
+      country_code: address.countryCode,
+      phone: address.phone,
+      is_default_shipping: address.isDefault,
+    })),
   }
-  return data.token
 }
+
+export class AuthError extends Error {}
 
 export async function login(email: string, password: string) {
-  const token = await authRequest("/auth/customer/emailpass", { email, password })
-  await setAuthToken(token)
-  return token
+  const database = await db()
+  const existing = await findCustomerByEmail(database, email)
+  // The same message and the same work either way (a missing account still
+  // runs a hash), so neither the answer nor its timing reveals which
+  // addresses have accounts.
+  const valid = await verifyPassword(password, existing?.password_hash ?? null)
+  if (!existing || !valid) {
+    throw new AuthError("Those details do not match an account.")
+  }
+  await pruneSessions(database)
+  await setAuthToken(await createSession(database, existing.id))
+  return existing.id
 }
 
-/**
- * Registers an email/password identity, creates the customer record, then
- * signs in so the token carries the new customer id.
- */
 export async function register(input: {
   email: string
   password: string
@@ -89,40 +137,67 @@ export async function register(input: {
   phone?: string
   metadata?: Record<string, unknown>
 }) {
-  const registrationToken = await authRequest("/auth/customer/emailpass/register", {
+  const metadata = input.metadata || {}
+  const created = await createCustomer(await db(), {
     email: input.email,
     password: input.password,
+    firstName: input.first_name,
+    lastName: input.last_name,
+    phone: input.phone,
+    paymentPref: typeof metadata.preferred_payment === "string" ? metadata.preferred_payment : null,
+    mpesaPhone: typeof metadata.mpesa_phone === "string" ? metadata.mpesa_phone : null,
   })
-  await medusaFetch("/store/customers", {
-    method: "POST",
-    token: registrationToken,
-    body: JSON.stringify({
-      email: input.email,
-      first_name: input.first_name,
-      last_name: input.last_name,
-      phone: input.phone || undefined,
-      metadata: input.metadata,
-    }),
-  })
+  if (!created.ok) {
+    throw new AuthError("An account already exists for that email address.")
+  }
   return login(input.email, input.password)
 }
 
 export async function getCustomer(): Promise<Customer | null> {
-  const token = await getAuthToken()
-  if (!token) {
-    return null
+  const row = await customerForSession(await db(), await getAuthToken())
+  return row ? toCustomer(row) : null
+}
+
+/** Updates the signed-in customer's details. */
+export async function saveProfile(fields: {
+  first_name?: string | null
+  last_name?: string | null
+  phone?: string | null
+  preferred_payment?: string | null
+  mpesa_phone?: string | null
+}) {
+  const customer = await getCustomer()
+  if (!customer) {
+    throw new AuthError("Please sign in again.")
   }
-  try {
-    const data = await medusaFetch<{ customer: Customer }>(
-      "/store/customers/me?fields=id,email,first_name,last_name,phone,metadata,*addresses",
-      { token }
-    )
-    return data.customer
-  } catch (error) {
-    if (error instanceof MedusaRequestError && error.status === 401) {
-      return null
-    }
-    throw error
+  await updateCustomer(await db(), customer.id, {
+    firstName: fields.first_name,
+    lastName: fields.last_name,
+    phone: fields.phone,
+    paymentPref: fields.preferred_payment,
+    mpesaPhone: fields.mpesa_phone,
+  })
+}
+
+export async function saveCustomerAddress(input: AddressInput & { id?: string | null }) {
+  const customer = await getCustomer()
+  if (!customer) {
+    throw new AuthError("Please sign in again.")
+  }
+  return dbSaveAddress(await db(), customer.id, input)
+}
+
+export async function removeCustomerAddress(addressId: string) {
+  const customer = await getCustomer()
+  if (customer) {
+    await dbDeleteAddress(await db(), customer.id, addressId)
+  }
+}
+
+export async function makeDefaultAddress(addressId: string) {
+  const customer = await getCustomer()
+  if (customer) {
+    await dbSetDefaultAddress(await db(), customer.id, addressId)
   }
 }
 
@@ -162,31 +237,77 @@ export type OrderSummary = {
   discount_total?: number
 }
 
-const ORDER_FIELDS =
-  "id,display_id,created_at,status,fulfillment_status,payment_status,currency_code,total,email,item_subtotal,shipping_total,tax_total,discount_total,*items,*shipping_address,*shipping_methods,*fulfillments,*fulfillments.labels"
 
-export async function listOrders(): Promise<OrderSummary[]> {
-  const token = await getAuthToken()
-  if (!token) {
-    return []
+function toOrderSummary(order: DbOrderSummary): OrderSummary {
+  return {
+    id: order.id,
+    display_id: order.displayId,
+    created_at: order.createdAt,
+    status: order.status,
+    fulfillment_status: order.fulfillmentStatus,
+    payment_status: order.paymentStatus,
+    currency_code: order.currency,
+    total: toMajor(order.totalMinor),
+    item_subtotal: toMajor(order.subtotalMinor),
+    discount_total: toMajor(order.discountMinor),
+    shipping_total: toMajor(order.shippingMinor),
+    tax_total: toMajor(order.taxMinor),
+    shipping_address: order.shippingAddress,
+    shipping_methods: order.shippingMethod
+      ? [{ name: order.shippingMethod.name, amount: toMajor(order.shippingMinor) }]
+      : [],
+    fulfillments: order.shipments.map((shipment, index) => ({
+      id: `${order.id}_shipment_${index}`,
+      shipped_at: shipment.createdAt,
+      delivered_at: order.fulfillmentStatus === "delivered" ? shipment.createdAt : null,
+      labels: shipment.trackingNumber
+        ? [{ tracking_number: shipment.trackingNumber, tracking_url: shipment.trackingUrl || "" }]
+        : [],
+    })),
+    email: order.email,
+    items: order.items.map((item, index) => ({
+      id: `${order.id}_${index}`,
+      product_title: item.title,
+      title: item.title,
+      variant_title: item.variantTitle,
+      thumbnail: item.thumbnail,
+      quantity: item.quantity,
+      unit_price: toMajor(item.unitPriceMinor),
+      total: toMajor(item.unitPriceMinor * item.quantity),
+    })),
   }
-  const data = await medusaFetch<{ orders: OrderSummary[] }>(
-    `/store/orders?fields=${ORDER_FIELDS}&order=-created_at&limit=50`,
-    { token }
-  )
-  return data.orders || []
 }
 
-/** Order by id; signed-in customers only see their own orders. */
-export async function getOrder(id: string): Promise<OrderSummary | null> {
-  const token = await getAuthToken()
-  try {
-    const data = await medusaFetch<{ order: OrderSummary }>(
-      `/store/orders/${encodeURIComponent(id)}?fields=${ORDER_FIELDS}`,
-      { token, revalidate: false }
-    )
-    return data.order
-  } catch {
+export async function listOrders(): Promise<OrderSummary[]> {
+  const customer = await getCustomer()
+  if (!customer) {
+    return []
+  }
+  const orders = await listOrdersForCustomer(await db(), customer.id)
+  return orders.map(toOrderSummary)
+}
+
+/**
+ * An order, for whoever is entitled to see it:
+ *   - the signed-in customer it belongs to (by account, or by their email),
+ *   - a guest who supplies the email it was placed with, or
+ *   - the browser that just placed it (its confirmation page).
+ * Anyone else gets nothing, even with the order id in hand.
+ */
+export async function getOrder(id: string, proof: { email?: string | null } = {}): Promise<OrderSummary | null> {
+  if (!id || id.length > 64) {
     return null
   }
+  const order = await dbGetOrder(await db(), id)
+  if (!order) {
+    return null
+  }
+  const email = order.email.trim().toLowerCase()
+  const customer = await getCustomer().catch(() => null)
+  const ownsIt = customer
+    ? order.customerId === customer.id || email === customer.email.toLowerCase()
+    : false
+  const knowsEmail = Boolean(proof.email) && proof.email!.trim().toLowerCase() === email
+  const justPlaced = (await cookies()).get(LAST_ORDER_COOKIE)?.value === order.id
+  return ownsIt || knowsEmail || justPlaced ? toOrderSummary(order) : null
 }

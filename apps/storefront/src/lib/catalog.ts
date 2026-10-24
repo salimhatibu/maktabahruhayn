@@ -158,5 +158,5 @@ export const NAV: NavItem[] = [
   { label: "Islamic Living", href: "/books?category=islamic-living" },
   { label: "Children's Books", href: "/books?category=childrens-books" },
   { label: "Gifts", href: "/books?category=gifts" },
-  { label: "Sale Items", href: "/books?sale=1" },
+  { label: "Sale", href: "/books?sale=1" },
 ]

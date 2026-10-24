@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { OrderDetails } from "@/components/order-details"
 import { getCustomer, getOrder } from "@/lib/auth"
+import { LIMITS, throttle } from "@/lib/rate-limit"
 
 export const metadata: Metadata = { title: "Order Status", robots: { index: false } }
 
@@ -20,11 +21,13 @@ export default async function OrderStatusPage({
   let error: string | null = null
 
   if (ref && email) {
-    const found = await getOrder(ref.trim())
-    if (found && found.email?.toLowerCase() === email.trim().toLowerCase()) {
+    // Throttled so the form cannot be used to try reference/email pairs at scale.
+    const limited = await throttle("order_lookup", LIMITS.orderLookup.ip)
+    const found = limited ? null : await getOrder(ref.trim(), { email })
+    if (found) {
       order = found
     } else {
-      error = "We couldn't find an order with that reference and email."
+      error = limited || "We couldn't find an order with that reference and email."
     }
   }
 

@@ -21,28 +21,42 @@ import {
   validateAddress,
   type CartSummary,
 } from "@/lib/cart"
-import { getAuthToken } from "@/lib/auth"
+import { saveCustomerAddress } from "@/lib/auth"
 import { REGION_COOKIE } from "@/lib/config"
-import { getRegionContext, listRegions, medusaFetch, MedusaRequestError } from "@/lib/medusa"
-import { regionFromCountry } from "@/lib/region"
+import { LIMITS, throttle } from "@/lib/rate-limit"
+import { currentRegion } from "@/lib/region-context"
+import { CartError, clampQuantity } from "@maktabah/db"
+import { resolveRegion } from "@maktabah/shared"
+import { manualRegion } from "@/lib/region"
+
+const EMAIL = /^[^@\s<>"]{1,64}@[^@\s<>"]{1,190}\.[^@\s<>".]{2,}$/
+
+/** A region the shopper picked stays picked; see middleware.ts. */
+async function rememberRegion(country: string) {
+  const jar = await cookies()
+  jar.set(REGION_COOKIE, JSON.stringify(manualRegion(country)), {
+    path: "/",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+  })
+}
 
 export type CartActionResult =
   | { ok: true; cart: CartSummary }
   | { ok: false; error: string }
 
+/** Shows the shopper a message we wrote for them, never an internal one. */
 function publicError(error: unknown, fallback: string) {
-  if (error instanceof MedusaRequestError && error.publicMessage) {
-    return error.publicMessage
-  }
-  return fallback
+  return error instanceof CartError && error.message ? error.message : fallback
 }
 
 export async function addToCartAction(variantId: string, quantity = 1): Promise<CartActionResult> {
-  if (!variantId) {
+  // Server action arguments arrive from the network as-is: check their types.
+  if (typeof variantId !== "string" || !variantId || variantId.length > 100) {
     return { ok: false, error: "This edition is not available." }
   }
   try {
-    const cart = await addLine(variantId, Math.max(1, Math.min(quantity, 99)))
+    const cart = await addLine(variantId, clampQuantity(quantity))
     revalidatePath("/cart")
     return { ok: true, cart: summarizeCart(cart)! }
   } catch (error) {
@@ -88,21 +102,15 @@ export async function removeLineFromDrawerAction(lineId: string): Promise<CartAc
 
 export async function setRegionAction(formData: FormData) {
   const country = String(formData.get("country") || "").toUpperCase()
-  const regions = await listRegions()
-  const region = regions.find((r) => r.countries?.some((c) => c.iso_2 === country.toLowerCase()))
-  if (!region) {
+  const region = resolveRegion(country)
+  if (!region.served) {
     return
   }
 
-  const jar = await cookies()
-  jar.set(REGION_COOKIE, JSON.stringify(regionFromCountry(country)), {
-    path: "/",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-  })
+  await rememberRegion(country)
 
   try {
-    await moveCartToRegion(region.id)
+    await moveCartToRegion(region.currency)
   } catch (error) {
     console.error(error)
   }
@@ -113,9 +121,14 @@ export async function setRegionAction(formData: FormData) {
 export type FormState = { error: string | null; message?: string | null }
 
 export async function applyPromoAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const code = String(formData.get("code") || "").trim()
+  const code = String(formData.get("code") || "").trim().slice(0, 40)
   if (!code) {
     return { error: "Enter a promo code." }
+  }
+  // Codes are short; without a limit they could be guessed by brute force.
+  const limited = await throttle("promo", LIMITS.promo.ip)
+  if (limited) {
+    return { error: limited }
   }
   try {
     const { applied } = await applyPromotion(code)
@@ -152,7 +165,8 @@ export async function saveGiftOptionsAction(_prev: FormState, formData: FormData
 }
 
 export async function saveAddressAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const field = (name: string) => String(formData.get(name) || "").trim()
+  const LIMITS: Record<string, number> = { email: 254, first_name: 80, last_name: 80, city: 100, province: 100, postal_code: 20, phone: 32, country_code: 2 }
+  const field = (name: string) => String(formData.get(name) || "").trim().slice(0, LIMITS[name] ?? 200)
   const phone = field("phone")
   const address = {
     email: field("email"),
@@ -172,21 +186,24 @@ export async function saveAddressAction(_prev: FormState, formData: FormData): P
   if (missing.length) {
     return { error: `Please fill in: ${missing.join(", ")}.` }
   }
+  if (!EMAIL.test(address.email)) {
+    return { error: "Enter a valid email address." }
+  }
   if (!isValidPhoneNumber(phone)) {
     return { error: "Check the phone number and its country code." }
   }
 
   // Shipping to a country in another currency region moves the cart (and the
   // shopper's region) there, so prices and payment methods follow.
-  const [current, regions] = await Promise.all([getRegionContext(), listRegions()])
-  const target = regions.find((r) => r.countries?.some((c) => c.iso_2 === address.country_code))
-  if (!target) {
+  const current = await currentRegion()
+  const target = resolveRegion(address.country_code)
+  if (!target.canShip) {
     return { error: "We don't ship to that country yet. Contact us and we'll try to help." }
   }
 
   try {
-    if (target.id !== current.regionId) {
-      await moveCartToRegion(target.id)
+    if (target.currency !== current.currency) {
+      await moveCartToRegion(target.currency)
     }
     const validation = await validateAddress({
       name: `${address.first_name} ${address.last_name}`,
@@ -207,27 +224,22 @@ export async function saveAddressAction(_prev: FormState, formData: FormData): P
     return { error: publicError(error, "We could not save your address. Please try again.") }
   }
 
-  if (target.id !== current.regionId) {
-    const jar = await cookies()
-    jar.set(REGION_COOKIE, JSON.stringify(regionFromCountry(address.country_code)), {
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30,
-    })
+  if (target.currency !== current.currency) {
+    await rememberRegion(address.country_code)
   }
 
   if (formData.get("save_address") === "on") {
-    const token = await getAuthToken()
-    if (token) {
-      const { email: _email, ...book } = address
-      void _email
-      await medusaFetch("/store/customers/me/addresses", {
-        method: "POST",
-        token,
-        revalidate: false,
-        body: JSON.stringify(book),
-      }).catch((error) => console.error(error))
-    }
+    await saveCustomerAddress({
+      firstName: address.first_name,
+      lastName: address.last_name,
+      address1: address.address_1,
+      address2: address.address_2,
+      city: address.city,
+      province: address.province,
+      postalCode: address.postal_code,
+      countryCode: address.country_code,
+      phone: address.phone,
+    }).catch((error) => console.error(error))
   }
 
   revalidatePath("/", "layout")
@@ -248,8 +260,7 @@ async function prepare(optionId: string, providerId: string) {
   if (!optionId) {
     return "Choose a delivery option."
   }
-  const region = await getRegionContext()
-  const choices = region.regionId ? await listPaymentChoices(region.regionId) : []
+  const choices = await listPaymentChoices()
   if (!choices.some((c) => c.id === providerId)) {
     return "Choose a payment method."
   }
@@ -279,8 +290,14 @@ export async function startPaymentAction(input: {
       if (!/^254[17]\d{8}$/.test(phone)) {
         return { kind: "error", error: "Enter your M-Pesa number as 2547XXXXXXXX or 2541XXXXXXXX." }
       }
+      // Each attempt rings a real phone, so neither a visitor nor a number
+      // can be used to send a stream of payment prompts.
+      const limited = await throttle("stk", LIMITS.stk.ip, { ...LIMITS.stk.key, key: phone })
+      if (limited) {
+        return { kind: "error", error: limited }
+      }
       await startPaymentSession({ providerId: input.providerId, data: { phone }, restart: input.restart })
-      const result = await completeCart()
+      const result = await completeCart(input.providerId)
       if (result.type === "order") {
         return { kind: "done", orderId: result.orderId }
       }
@@ -297,7 +314,7 @@ export async function startPaymentAction(input: {
     }
 
     await startPaymentSession({ providerId: input.providerId })
-    const result = await completeCart()
+    const result = await completeCart(input.providerId)
     if (result.type === "order") {
       return { kind: "done", orderId: result.orderId }
     }

@@ -5,15 +5,11 @@ import { BookCard } from "@/components/book-card"
 import { FiltersPanel } from "@/components/filters-panel"
 import { bindingLabel, titleCase } from "@/lib/format"
 import {
-  getBooksByIds,
-  hitToCardBook,
-  SEARCH_FACETS,
-  searchBooks,
-  toCardBook,
-  withRatings,
-  type SearchFacetName,
-  type SearchSort,
-} from "@/lib/medusa"
+  SEARCH_FACET_NAMES as SEARCH_FACETS,
+  searchCatalogue,
+  type SearchFacetKey as SearchFacetName,
+} from "@/lib/catalogue"
+import type { SearchSort } from "@/lib/view-types"
 
 type Params = Partial<Record<SearchFacetName | "q" | "sort", string | string[]>>
 
@@ -62,12 +58,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const sortParam = list(params.sort)[0]
   const sort = (SORTS.find((s) => s.value === sortParam)?.value || "relevance") as SearchSort
 
-  const result = q || hasFilters ? await searchBooks(q, selected, sort) : null
-
-  const live = await getBooksByIds((result?.hits || []).map((hit) => hit.id))
-  const cards = await withRatings(
-    (result?.hits || []).map((hit) => (live.has(hit.id) ? toCardBook(live.get(hit.id)!) : hitToCardBook(hit)))
-  )
+  const result = q || hasFilters ? await searchCatalogue(q, selected, sort) : null
+  const cards = result?.cards || []
 
   const toggleHref = (facet: SearchFacetName, value: string) => {
     const next = new URLSearchParams()
@@ -148,7 +140,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <section className="listing-results" aria-label="Results">
             <div className="listing-toolbar">
               <p>
-                {result.found} {result.found === 1 ? "result" : "results"}
+                {result.count} {result.count === 1 ? "result" : "results"}
               </p>
               <form action="/search" className="sort-form">
                 {q ? <input type="hidden" name="q" value={q} /> : null}
@@ -176,10 +168,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 </div>
               ) : null}
             </div>
-            {result.hits.length ? (
+            {cards.length ? (
               <div className="book-grid">
                 {cards.map((card) => (
-                  <BookCard key={card.handle} book={card} blurb={live.get(card.id || "")?.description?.slice(0, 280)} />
+                  <BookCard key={card.handle} book={card} blurb={card.blurb || undefined} />
                 ))}
               </div>
             ) : (

@@ -1,5 +1,7 @@
 "use client"
 
+import { keep } from "@/lib/keep-form"
+import { usePathname } from "next/navigation"
 import { useActionState, useEffect, useState } from "react"
 import { newsletterAction, type NewsletterState } from "@/app/actions/account"
 import { CloseIcon } from "./icons"
@@ -25,7 +27,7 @@ export function NewsletterForm({
     )
   }
   return (
-    <form action={action} className={`newsletter-form is-${layout}`}>
+    <form action={action} onSubmit={keep(action)} className={`newsletter-form is-${layout}`}>
       <input type="hidden" name="source" value={source} />
       <label>
         <span>Name</span>
@@ -35,7 +37,7 @@ export function NewsletterForm({
         <span>Email</span>
         <input name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
       </label>
-      <PhoneInput name="phone" label="Phone" required defaultCountry={defaultCountry} />
+      <PhoneInput id={`phone-newsletter-${source}`} name="phone" label="Phone" required defaultCountry={defaultCountry} />
       <button type="submit" className="btn btn-primary" disabled={pending}>
         {pending ? "Signing up…" : "Sign up"}
       </button>
@@ -51,10 +53,25 @@ export function NewsletterForm({
 const POPUP_KEY = "mr_newsletter_popup"
 
 /** Shown once after a while on site, with "don't show again" (as on Darussalam). */
+/** Nobody paying or signing in should have a marketing popup put over the form. */
+const QUIET_PATHS = /^\/(cart|checkout|account|order-status)(\/|$)/
+
 export function NewsletterPopup({ defaultCountry = "KE" }: { defaultCountry?: string }) {
   const [open, setOpen] = useState(false)
+  const pathname = usePathname()
+  const quiet = QUIET_PATHS.test(pathname || "")
 
   useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && close(false)
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open])
+
+  useEffect(() => {
+    if (quiet) {
+      return
+    }
     let dismissed = false
     try {
       dismissed = Boolean(window.localStorage.getItem(POPUP_KEY))
@@ -66,7 +83,7 @@ export function NewsletterPopup({ defaultCountry = "KE" }: { defaultCountry?: st
     }
     const timer = window.setTimeout(() => setOpen(true), 30000)
     return () => window.clearTimeout(timer)
-  }, [])
+  }, [quiet])
 
   const close = (forever: boolean) => {
     setOpen(false)
@@ -77,7 +94,7 @@ export function NewsletterPopup({ defaultCountry = "KE" }: { defaultCountry?: st
     }
   }
 
-  if (!open) {
+  if (!open || quiet) {
     return null
   }
   return (

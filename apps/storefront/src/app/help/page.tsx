@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { formatMoney } from "@/lib/format"
-import { getFreeShippingThreshold, getRegionContext } from "@/lib/medusa"
+import { getFreeShipping } from "@/lib/catalogue"
+import { currentRegion } from "@/lib/region-context"
 import { getSiteConfig } from "@/lib/site-config"
 
 export const metadata: Metadata = {
@@ -10,8 +11,8 @@ export const metadata: Metadata = {
 }
 
 export default async function HelpPage() {
-  const region = await getRegionContext()
-  const threshold = await getFreeShippingThreshold(region.currency)
+  const region = await currentRegion()
+  const threshold = await getFreeShipping(region.currency)
   const site = await getSiteConfig()
   const supportEmail = site.business.email || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || ""
 

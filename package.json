@@ -6,50 +6,40 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm infra:up && pnpm -r --parallel --filter @maktabah/backend --filter @maktabah/storefront dev",
-    "dev:apps": "pnpm -r --parallel --filter @maktabah/backend --filter @maktabah/storefront dev",
+    "admin:cf:build": "pnpm --filter @maktabah/admin cf:build",
+    "admin:cf:deploy": "pnpm --filter @maktabah/admin cf:deploy",
+    "admin:dev": "pnpm --filter @maktabah/admin dev",
     "build": "pnpm -r build",
-    "start": "turbo start",
+    "db:console:local": "pnpm --filter @maktabah/storefront exec wrangler d1 execute maktabah --local --persist-to ../../.wrangler/state --command",
+    "db:create": "pnpm --filter @maktabah/storefront exec wrangler d1 create maktabah",
+    "db:migrate": "pnpm --filter @maktabah/storefront exec wrangler d1 migrations apply maktabah --remote",
+    "db:migrate:local": "pnpm --filter @maktabah/storefront exec wrangler d1 migrations apply maktabah --local --persist-to ../../.wrangler/state",
+    "db:seed": "pnpm db:seed:build && pnpm --filter @maktabah/storefront exec wrangler d1 execute maktabah --remote --file=../../packages/db/seed/catalog.sql",
+    "db:seed:build": "node --experimental-strip-types ./packages/db/scripts/build-catalog-seed.mjs",
+    "db:seed:local": "pnpm db:seed:build && pnpm --filter @maktabah/storefront exec wrangler d1 execute maktabah --local --persist-to ../../.wrangler/state --file=../../packages/db/seed/catalog.sql",
+    "db:test": "node ./packages/db/scripts/integration.mjs",
+    "html:test": "node --experimental-strip-types --no-warnings ./packages/shared/scripts/html.test.mts",
+    "db:verify": "node ./packages/db/scripts/verify.mjs",
+    "dev": "pnpm -r --parallel --filter @maktabah/storefront --filter @maktabah/admin dev",
     "lint": "turbo lint",
-    "test": "turbo test",
-    "infra:up": "bash ./scripts/infra-up.sh",
-    "infra:down": "bash ./scripts/infra-down.sh",
-    "db:ensure": "bash ./scripts/ensure-postgres.sh",
-    "setup": "pnpm infra:up && pnpm db:migrate && pnpm seed:typesense && pnpm seed:regions && pnpm seed:fulfillment && pnpm seed:catalog && pnpm seed:promotions && bash ./scripts/sync-storefront-env.sh",
-    "sync:storefront-env": "bash ./scripts/sync-storefront-env.sh",
-    "backend:dev": "pnpm --filter @maktabah/backend dev",
-    "backend:seed:typesense": "pnpm --filter @maktabah/backend seed:typesense",
-    "seed:typesense": "pnpm --filter @maktabah/backend seed:typesense",
-    "seed:regions": "pnpm --filter @maktabah/backend seed:regions",
-    "seed:fulfillment": "pnpm --filter @maktabah/backend seed:fulfillment",
-    "seed:catalog": "pnpm --filter @maktabah/backend seed:catalog",
-    "db:generate": "pnpm --filter @maktabah/backend db:generate",
-    "db:migrate": "pnpm --filter @maktabah/backend db:migrate",
-    "storefront:dev": "pnpm --filter @maktabah/storefront dev",
-    "seed:promotions": "pnpm --filter @maktabah/backend seed:promotions",
-    "seed:store-products": "pnpm --filter @maktabah/backend seed:store-products",
-    "cleanup:legacy": "pnpm --filter @maktabah/backend cleanup:legacy",
-    "cleanup:orphan-images": "pnpm --filter @maktabah/backend cleanup:orphan-images",
-    "test:unit": "pnpm --filter @maktabah/backend test:unit",
+    "setup": "pnpm db:migrate:local && pnpm db:seed:local",
+    "start": "turbo start",
     "storefront:cf:build": "pnpm --filter @maktabah/storefront cf:build",
-    "storefront:cf:preview": "pnpm --filter @maktabah/storefront cf:preview",
     "storefront:cf:deploy": "pnpm --filter @maktabah/storefront cf:deploy",
-    "storefront:cf:typegen": "pnpm --filter @maktabah/storefront cf:typegen"
+    "storefront:cf:preview": "pnpm --filter @maktabah/storefront cf:preview",
+    "storefront:cf:typegen": "pnpm --filter @maktabah/storefront cf:typegen",
+    "storefront:dev": "pnpm --filter @maktabah/storefront dev",
+    "test": "pnpm db:verify && pnpm db:test && pnpm html:test"
   },
   "pnpm": {
     "overrides": {
       "@types/react": "19.0.5",
-      "@types/react-dom": "19.0.5",
-      "tsconfig-paths": "^4.2.0"
+      "@types/react-dom": "19.0.5"
     }
   },
   "devDependencies": {
-    "@medusajs/eslint-plugin": "2.21.2",
     "eslint": "^9.39.4",
-    "jiti": "^2.7.0",
     "prettier": "^3.2.5",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
     "turbo": "^2.0.14"
   }
 }

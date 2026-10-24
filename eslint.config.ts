@@ -1,4 +1,12 @@
 import { defineConfig } from "eslint/config"
-import medusa from "@medusajs/eslint-plugin"
 
-export default defineConfig([...medusa.configs.recommended])
+/**
+ * The storefront carries its own Next.js config (apps/storefront/eslint.config.mjs);
+ * this root config exists so `turbo lint` has something to resolve at the top
+ * of the workspace.
+ */
+export default defineConfig([
+  {
+    ignores: ["**/node_modules/**", "**/.next/**", "**/.next-build/**", "**/.open-next/**", "**/.wrangler/**"],
+  },
+])

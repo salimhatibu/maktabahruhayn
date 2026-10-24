@@ -1,23 +1,22 @@
 import Link from "next/link"
-import type { BookView } from "@/lib/medusa"
-import { toCardBook, withRatings } from "@/lib/medusa"
+import type { CardBook } from "@/lib/view-types"
 import { BookCard } from "./book-card"
 import { Carousel } from "./carousel"
 
 /** A titled carousel row of books with a "See All" link. */
-export async function BookShelf({
+export function BookShelf({
   title,
   books,
   seeAllHref,
 }: {
   title: string
-  books: BookView[]
+  books: CardBook[]
   seeAllHref?: string
 }) {
   if (!books.length) {
     return null
   }
-  const cards = await withRatings(books.map((b) => toCardBook(b)))
+  const cards = books
 
   return (
     <section className="shelf wrap">
@@ -30,9 +29,9 @@ export async function BookShelf({
         ) : null}
       </div>
       <Carousel label={title}>
-        {cards.map((card, i) => (
+        {cards.map((card) => (
           <div className="carousel-item" key={card.handle}>
-            <BookCard book={card} blurb={books[i].description?.slice(0, 280)} />
+            <BookCard book={card} blurb={card.blurb || undefined} />
           </div>
         ))}
       </Carousel>

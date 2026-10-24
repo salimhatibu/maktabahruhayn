@@ -6,9 +6,11 @@ import { BookShelf } from "@/components/book-shelf"
 import { FiltersPanel } from "@/components/filters-panel"
 import { PromoStrip } from "@/components/site-header"
 import { isTagKey, SUBJECTS, subjectByHandle, TAGS, type TagKey } from "@/lib/catalog"
-import { listBooks, toCardBook, withRatings, type BookSort } from "@/lib/medusa"
+import { listCatalogue, withCatalogueRatings } from "@/lib/catalogue"
+import { type BookSort } from "@/lib/view-types"
 
-const PAGE_SIZE = 24
+const PAGE_SIZES = [20, 50]
+const DEFAULT_PAGE_SIZE = 20
 
 const SORTS: { value: BookSort; label: string }[] = [
   { value: "featured", label: "Featured" },
@@ -19,7 +21,7 @@ const SORTS: { value: BookSort; label: string }[] = [
   { value: "price-desc", label: "Price: High to Low" },
 ]
 
-type Params = { category?: string; tag?: string; sort?: string; page?: string; sale?: string }
+type Params = { category?: string; tag?: string; sort?: string; page?: string; sale?: string; per?: string; priceMin?: string; priceMax?: string }
 
 function heading(category?: string, tag?: TagKey, sale?: boolean) {
   const subject = subjectByHandle(category)
@@ -60,31 +62,39 @@ export default async function BooksPage({ searchParams }: { searchParams: Promis
   const sort = (SORTS.find((s) => s.value === params.sort)?.value || "featured") as BookSort
   const page = Math.max(1, Number(params.page) || 1)
   const sale = params.sale === "1"
+  const perPage = PAGE_SIZES.includes(Number(params.per)) ? Number(params.per) : DEFAULT_PAGE_SIZE
+  const priceMin = params.priceMin ? Number(params.priceMin) : undefined
+  const priceMax = params.priceMax ? Number(params.priceMax) : undefined
 
   const [{ books, count }, highlight] = await Promise.all([
-    listBooks({
+    listCatalogue({
       category: subject?.handle,
       tag,
       sort,
       onSale: sale,
-      limit: PAGE_SIZE,
-      offset: (page - 1) * PAGE_SIZE,
+      priceMin: priceMin && !isNaN(priceMin) ? priceMin : undefined,
+      priceMax: priceMax && !isNaN(priceMax) ? priceMax : undefined,
+      limit: perPage,
+      offset: (page - 1) * perPage,
     }),
     // Like B&N category pages, lead with that subject's bestsellers.
     subject && !tag && !sale && page === 1
-      ? listBooks({ category: subject.handle, tag: "bestseller", limit: 12 })
+      ? listCatalogue({ category: subject.handle, tag: "bestseller", limit: 12 })
       : Promise.resolve(null),
   ])
 
   const title = heading(subject?.handle, tag, sale)
-  const pages = Math.max(1, Math.ceil(count / PAGE_SIZE))
+  const pages = Math.max(1, Math.ceil(count / perPage))
   const current: Params = {
     category: subject?.handle,
     tag,
     sale: sale ? "1" : undefined,
     sort: sort === "featured" ? undefined : sort,
+    per: perPage !== DEFAULT_PAGE_SIZE ? String(perPage) : undefined,
+    priceMin: priceMin ? String(priceMin) : undefined,
+    priceMax: priceMax ? String(priceMax) : undefined,
   }
-  const cards = await withRatings(books.map((b) => toCardBook(b)))
+  const cards = await withCatalogueRatings(books)
 
   return (
     <main>
@@ -160,6 +170,24 @@ export default async function BooksPage({ searchParams }: { searchParams: Promis
               </li>
             ))}
           </ul>
+
+          <h2>Price</h2>
+          <form action="/books" className="price-filter-form">
+            {subject ? <input type="hidden" name="category" value={subject.handle} /> : null}
+            {tag ? <input type="hidden" name="tag" value={tag} /> : null}
+            {sale ? <input type="hidden" name="sale" value="1" /> : null}
+            {sort !== "featured" ? <input type="hidden" name="sort" value={sort} /> : null}
+            {perPage !== DEFAULT_PAGE_SIZE ? <input type="hidden" name="per" value={String(perPage)} /> : null}
+            <div className="price-inputs">
+              <input type="number" name="priceMin" placeholder="Min" defaultValue={priceMin || ""} min="0" step="1" />
+              <span>–</span>
+              <input type="number" name="priceMax" placeholder="Max" defaultValue={priceMax || ""} min="0" step="1" />
+            </div>
+            <button type="submit" className="btn btn-outline btn-sm">Apply</button>
+            {(priceMin || priceMax) ? (
+              <a href={hrefWith({ ...current, priceMin: undefined, priceMax: undefined }, { page: undefined })} className="clear-filter">Clear price filter</a>
+            ) : null}
+          </form>
         </FiltersPanel>
 
         <section className="listing-results" aria-label="Results">
@@ -167,30 +195,51 @@ export default async function BooksPage({ searchParams }: { searchParams: Promis
             <p>
               {count} {count === 1 ? "result" : "results"}
             </p>
-            <form action="/books" className="sort-form">
-              {subject ? <input type="hidden" name="category" value={subject.handle} /> : null}
-              {tag ? <input type="hidden" name="tag" value={tag} /> : null}
-              {sale ? <input type="hidden" name="sale" value="1" /> : null}
-              <label htmlFor="sort">Sort by</label>
-              <AutoSubmitSelect id="sort" name="sort" defaultValue={sort}>
-                {SORTS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </AutoSubmitSelect>
-              <noscript>
-                <button type="submit" className="btn btn-outline btn-sm">
-                  Apply
-                </button>
-              </noscript>
-            </form>
+            <div className="toolbar-controls">
+              <form action="/books" className="per-page-form">
+                {subject ? <input type="hidden" name="category" value={subject.handle} /> : null}
+                {tag ? <input type="hidden" name="tag" value={tag} /> : null}
+                {sale ? <input type="hidden" name="sale" value="1" /> : null}
+                {sort !== "featured" ? <input type="hidden" name="sort" value={sort} /> : null}
+                {priceMin ? <input type="hidden" name="priceMin" value={String(priceMin)} /> : null}
+                {priceMax ? <input type="hidden" name="priceMax" value={String(priceMax)} /> : null}
+                <label htmlFor="per">Show</label>
+                <AutoSubmitSelect id="per" name="per" defaultValue={String(perPage)}>
+                  {PAGE_SIZES.map((n) => (
+                    <option key={n} value={String(n)}>
+                      {n} per page
+                    </option>
+                  ))}
+                </AutoSubmitSelect>
+              </form>
+              <form action="/books" className="sort-form">
+                {subject ? <input type="hidden" name="category" value={subject.handle} /> : null}
+                {tag ? <input type="hidden" name="tag" value={tag} /> : null}
+                {sale ? <input type="hidden" name="sale" value="1" /> : null}
+                {perPage !== DEFAULT_PAGE_SIZE ? <input type="hidden" name="per" value={String(perPage)} /> : null}
+                {priceMin ? <input type="hidden" name="priceMin" value={String(priceMin)} /> : null}
+                {priceMax ? <input type="hidden" name="priceMax" value={String(priceMax)} /> : null}
+                <label htmlFor="sort">Sort by</label>
+                <AutoSubmitSelect id="sort" name="sort" defaultValue={sort}>
+                  {SORTS.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </AutoSubmitSelect>
+                <noscript>
+                  <button type="submit" className="btn btn-outline btn-sm">
+                    Apply
+                  </button>
+                </noscript>
+              </form>
+            </div>
           </div>
 
           {books.length ? (
             <div className="book-grid">
               {cards.map((card, i) => (
-                <BookCard key={card.handle} book={card} priority={i < 4} blurb={books[i].description?.slice(0, 280)} />
+                <BookCard key={card.handle} book={card} priority={i < 4} blurb={card.blurb || undefined} />
               ))}
             </div>
           ) : (

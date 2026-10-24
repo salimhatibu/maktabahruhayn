@@ -44,7 +44,7 @@ export function BookCover({
   if (book.cover) {
     return (
       <div className={`cover-frame ${className}`}>
-        {/* Catalog images come from Medusa uploads or R2 on arbitrary hosts. */}
+        {/* Covers come from the Worker's static assets or from R2. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           className="cover-img"

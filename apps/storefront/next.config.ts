@@ -1,4 +1,13 @@
 import type { NextConfig } from "next"
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare"
+
+// Makes the Worker bindings (D1, R2) reachable from `next dev`. Both apps
+// point at one state directory at the repo root, so the storefront, the admin
+// and the db:* commands all read the same local database - otherwise each app
+// gets its own empty copy and the admin finds no tables.
+if (process.env.NODE_ENV === "development") {
+  void initOpenNextCloudflareForDev({ persist: { path: "../../.wrangler/state/v3" } })
+}
 
 const isProd = process.env.NODE_ENV === "production"
 
@@ -13,7 +22,6 @@ if (process.env.DEPLOY_TARGET === "cloudflare") {
   const isLocal = (url: string) => !url || /^https?:\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(url)
   const problems = (
     [
-      ["NEXT_PUBLIC_MEDUSA_BACKEND_URL", process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL],
       ["NEXT_PUBLIC_SITE_URL", process.env.NEXT_PUBLIC_SITE_URL],
     ] as const
   )
@@ -39,16 +47,12 @@ const nextConfig: NextConfig = {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
-  images: {
-    remotePatterns: [
-      { protocol: "http", hostname: "localhost" },
-      { protocol: "https", hostname: "**" },
-    ],
-  },
+  // Covers are plain <img> tags served from static assets or R2, so the
+  // /_next/image optimizer is switched off rather than left as an endpoint
+  // that fetches arbitrary URLs on request.
+  images: { unoptimized: true },
   async rewrites() {
-    const backend = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
-    // Serve the backend's locally stored uploads from the storefront origin.
-    return [{ source: "/static/:path*", destination: `${backend}/static/:path*` }]
+    return []
   },
   async headers() {
     const security = [
@@ -60,9 +64,18 @@ const nextConfig: NextConfig = {
           // Nothing on this domain may be framed, and it frames nothing but
           // its own payment widgets. The admin lives on another origin.
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), usb=(), interest-cohort=(), payment=(self \"https://js.stripe.com\")",
+          },
+          // The rest of the policy (script nonces) is per request, in middleware.ts.
         ],
       },
     ]
+    if (isProd) {
+      security[0].headers.push({ key: "Strict-Transport-Security", value: "max-age=63072000" })
+    }
     // Dev chunk names are not content-hashed, so immutable caching would pin
     // stale chunks in the browser and cause ChunkLoadError after rebuilds.
     if (!isProd) {

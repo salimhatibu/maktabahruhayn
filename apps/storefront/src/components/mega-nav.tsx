@@ -49,48 +49,6 @@ export function MegaNav({
     <nav className="mega-nav" aria-label="Shop by category" onMouseLeave={() => schedule(null, 150)}>
       <div className="mega-row wrap">
         {leading}
-        <ul className="mega-list">
-          {items.map((item, i) => (
-            <li
-              key={item.label}
-              onMouseEnter={() => schedule(item.columns ? i : null, open === null ? 180 : 60)}
-              onFocus={() => item.columns && setOpen(i)}
-            >
-              <Link
-                href={item.href}
-                className={`mega-link ${open === i ? "is-open" : ""} ${currentHref === item.href ? "is-current" : ""}`}
-                aria-expanded={item.columns ? open === i : undefined}
-                aria-haspopup={item.columns ? "true" : undefined}
-              >
-                {item.label}
-              </Link>
-              {item.columns ? (
-                <div className="mega-panel" hidden={open !== i}>
-                  <div className="mega-panel-inner wrap">
-                    {item.columns.map((column) => (
-                      <div key={column.heading} className="mega-col">
-                        {column.href ? (
-                          <Link href={column.href} className="mega-heading">
-                            {column.heading} <ChevronRight size={16} />
-                          </Link>
-                        ) : (
-                          <p className="mega-heading">{column.heading}</p>
-                        )}
-                        <ul>
-                          {column.links.map((link) => (
-                            <li key={link.label}>
-                              <Link href={link.href}>{link.label}</Link>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </li>
-          ))}
-        </ul>
         <div className="mega-actions">{actions}</div>
       </div>
     </nav>

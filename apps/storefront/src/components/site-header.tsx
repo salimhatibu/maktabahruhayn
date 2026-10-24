@@ -2,11 +2,14 @@ import Link from "next/link"
 import { Suspense } from "react"
 import type { Customer } from "@/lib/auth"
 import { countryName, formatMoney } from "@/lib/format"
-import type { RegionContext, StoreRegion } from "@/lib/medusa"
+import type { RegionContext } from "@/lib/region-context"
+import type { StoreRegion } from "@/lib/view-types"
 import type { SiteConfig } from "@/lib/site-config"
+import { t, type Locale } from "@/lib/i18n"
 import { HeaderCartButton } from "./cart-context"
 import { ContactOptions } from "./contact-options"
 import { HelpIcon, TruckIcon, UserIcon } from "./icons"
+import { LanguageSwitcher } from "./language-switcher"
 import { MegaNav } from "./mega-nav"
 import { PromoBar, type PromoMessage } from "./promo-bar"
 import { RegionSwitcher, type RegionOption } from "./region-switcher"
@@ -20,12 +23,14 @@ export function SiteHeader({
   freeShippingThreshold,
   customer,
   site,
+  locale,
 }: {
   region: RegionContext
   regions: StoreRegion[]
   freeShippingThreshold: number | null
   customer: Customer | null
   site: SiteConfig
+  locale: Locale
 }) {
   const messages: PromoMessage[] = [
     ...(freeShippingThreshold
@@ -39,7 +44,11 @@ export function SiteHeader({
     region.mpesa
       ? { text: "Pay with M-Pesa: Lipa na M-Pesa at Checkout", href: "/help#payments" }
       : { text: `Prices in ${region.currency.toUpperCase()}: Shipping Worldwide`, href: "/help#currency" },
-    ...site.content.promoMessages.filter((m) => m.text),
+    ...site.content.promoMessages.filter((m) => m.text).map((m) => ({
+      text: m.text,
+      href: m.href,
+      ...(m.endDate ? { endDate: m.endDate } : {}),
+    })),
   ]
 
   const options: RegionOption[] = regions
@@ -55,7 +64,7 @@ export function SiteHeader({
   return (
     <MenuProvider>
       <a href="#main" className="skip-link">
-        Skip to content
+        {t(locale, "header.skip")}
       </a>
       <PromoBar messages={messages} />
       <header className="site-header">
@@ -64,18 +73,19 @@ export function SiteHeader({
           <Link href="/" className="logo" aria-label={`${site.business.name} home`}>
             <LogoText name={site.business.name} />
           </Link>
-          <SearchBox popular={site.content.popularSearches.filter(Boolean)} />
+          <SearchBox popular={site.content.popularSearches.filter(Boolean)} placeholder={t(locale, "header.search_placeholder")} />
           <div className="header-utils">
             {options.length ? (
               <RegionSwitcher current={region.country} currency={region.currency} options={options} />
             ) : null}
+            <LanguageSwitcher current={locale} />
             <Link href="/order-status" className="util-link util-optional">
               <TruckIcon size={20} />
-              <span>Order Status</span>
+              <span>{t(locale, "nav.order_status")}</span>
             </Link>
-            <Link href={customer ? "/account" : "/account/login"} className="util-link" aria-label={customer ? "My account" : "Sign in"}>
+            <Link href={customer ? "/account" : "/account/login"} className="util-link" aria-label={customer ? t(locale, "nav.account") : t(locale, "nav.signin")}>
               <UserIcon size={20} />
-              <span>{customer ? `Hi, ${customer.first_name || "Reader"}` : "Sign In"}</span>
+              <span>{customer ? t(locale, "header.greeting", { name: customer.first_name || "Reader" }) : t(locale, "nav.signin")}</span>
             </Link>
             <span className="util-optional">
               <ContactOptions
@@ -86,12 +96,12 @@ export function SiteHeader({
                   whatsapp: site.business.whatsapp,
                   instagram: site.business.instagram,
                 }}
-                label="Contact"
+                label={t(locale, "nav.contact")}
               />
             </span>
             <Link href="/help" className="util-link util-optional">
               <HelpIcon size={20} />
-              <span>Help</span>
+              <span>{t(locale, "nav.help")}</span>
             </Link>
             <span className="header-cart-mobile">
               <HeaderCartButton />
@@ -101,7 +111,7 @@ export function SiteHeader({
         <Suspense fallback={<div className="mega-nav" />}>
           <MegaNav
             items={site.navigation.items}
-            leading={<MenuButton label="Menu" className="menu-toggle-desktop" />}
+            leading={<MenuButton label={t(locale, "header.menu")} className="menu-toggle-desktop" />}
             actions={
               <>
                 <HeaderWishlistLink />

@@ -1,5 +1,6 @@
 "use client"
 
+import { keep } from "@/lib/keep-form"
 import { useActionState, useState } from "react"
 import {
   applyPromoAction,
@@ -16,7 +17,7 @@ export function PromoForm({ applied }: { applied: string[] }) {
   const [state, action, pending] = useActionState(applyPromoAction, initial)
   return (
     <div className="promo">
-      <form action={action} className="promo-form">
+      <form action={action} onSubmit={keep(action)} className="promo-form">
         <label htmlFor="promo-code">Promo Code</label>
         <div>
           <input id="promo-code" name="code" placeholder="Enter code" autoComplete="off" />
@@ -54,7 +55,7 @@ export function GiftForm({ options }: { options: GiftOptions }) {
   const [state, action, pending] = useActionState(saveGiftOptionsAction, initial)
   const [isGift, setIsGift] = useState(options.is_gift)
   return (
-    <form action={action} className="gift-form">
+    <form action={action} onSubmit={keep(action)} className="gift-form">
       <label className="gift-toggle">
         <input type="checkbox" name="is_gift" checked={isGift} onChange={(e) => setIsGift(e.target.checked)} />
         <GiftIcon size={18} /> Make it a Gift

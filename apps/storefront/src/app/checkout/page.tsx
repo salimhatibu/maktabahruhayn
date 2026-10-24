@@ -4,7 +4,8 @@ import { FreeShippingMeter, SummaryRows } from "@/components/order-summary"
 import { getCustomer, paymentPreference } from "@/lib/auth"
 import { getCart, listPaymentChoices, listShippingOptions, readGiftOptions, summarizeCart } from "@/lib/cart"
 import { countryName, formatMoney } from "@/lib/format"
-import { getFreeShippingThreshold, getRegionContext, listShippingCountries } from "@/lib/medusa"
+import { getFreeShipping } from "@/lib/catalogue"
+import { currentRegion, listShippingCountries } from "@/lib/region-context"
 import { AddressForm, DeliveryPaymentForm } from "./forms"
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } }
@@ -17,8 +18,8 @@ export default async function CheckoutPage({
   const [{ step, payment }, cart, region, countries, customer] = await Promise.all([
     searchParams,
     getCart(),
-    getRegionContext(),
-    listShippingCountries(),
+    currentRegion(),
+    Promise.resolve(listShippingCountries()),
     getCustomer().catch(() => null),
   ])
   const summary = summarizeCart(cart)
@@ -40,9 +41,9 @@ export default async function CheckoutPage({
   const currency = summary.currency
 
   const [threshold, options, payments] = await Promise.all([
-    getFreeShippingThreshold(currency),
+    getFreeShipping(currency),
     onDelivery ? listShippingOptions(cart.id).catch(() => []) : Promise.resolve([]),
-    onDelivery && cart.region_id ? listPaymentChoices(cart.region_id) : Promise.resolve([]),
+    onDelivery ? listPaymentChoices() : Promise.resolve([]),
   ])
 
   const shippingMethod = cart.shipping_methods?.[0]

@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "./theme.css";
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--mr-page-bg, oklch(0.967 0.008 170));
+}

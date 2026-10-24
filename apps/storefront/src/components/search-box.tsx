@@ -31,7 +31,7 @@ function writeRecent(list: string[]) {
  * Header search with instant, typo-tolerant suggestions from Typesense, plus
  * recent searches (with delete) and popular searches before typing.
  */
-export function SearchBox({ popular }: { popular: string[] }) {
+export function SearchBox({ popular, placeholder }: { popular: string[]; placeholder?: string }) {
   const router = useRouter()
   // One header search per page, so a fixed id is stable across server and client renders.
   const listId = "site-search-suggestions"
@@ -129,7 +129,7 @@ export function SearchBox({ popular }: { popular: string[] }) {
             setOpen(false)
           }
         }}
-        placeholder="Search by Title, Author, Translator, Publisher, ISBN"
+        placeholder={placeholder || "Search by Title, Author, Translator, Publisher, ISBN"}
         aria-label="Search books"
         role="combobox"
         aria-expanded={open}

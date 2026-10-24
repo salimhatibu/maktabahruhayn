@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import type { CardBook } from "@/lib/medusa"
+import type { CardBook } from "@/lib/view-types"
 import { formatMoney } from "@/lib/format"
 import { AddToCartButton } from "./add-to-cart-button"
 import { availabilityText, canPurchase } from "./availability"

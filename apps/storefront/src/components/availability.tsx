@@ -1,4 +1,4 @@
-import type { Availability } from "@/lib/medusa"
+import type { Availability } from "@/lib/view-types"
 
 export function availabilityText(a: Availability | null): string | null {
   switch (a?.status) {

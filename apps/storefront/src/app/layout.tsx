@@ -8,8 +8,10 @@ import { SiteHeader } from "@/components/site-header"
 import { StaleActionGuard } from "@/components/stale-action-guard"
 import { getCustomer } from "@/lib/auth"
 import { getCart, summarizeCart } from "@/lib/cart"
-import { getFreeShippingThreshold, getRegionContext, listRegions } from "@/lib/medusa"
+import { getFreeShipping } from "@/lib/catalogue"
+import { currentRegion, listRegionOptions } from "@/lib/region-context"
 import { siteUrl } from "@/lib/config"
+import { currentLocale, isRtl } from "@/lib/i18n"
 import { getSiteConfig, themeCss, whatsappLink } from "@/lib/site-config"
 import "./globals.css"
 
@@ -42,23 +44,27 @@ export const metadata: Metadata = {
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const region = await getRegionContext()
+  const [region, locale] = await Promise.all([currentRegion(), currentLocale()])
   const [regions, cart, threshold, customer, site] = await Promise.all([
-    listRegions(),
+    Promise.resolve(listRegionOptions()),
     getCart(),
-    getFreeShippingThreshold(region.currency),
+    getFreeShipping(region.currency),
     getCustomer().catch(() => null),
     getSiteConfig(),
   ])
   const whatsapp = whatsappLink(site.business.whatsapp, `Assalamu alaikum ${site.business.name}, `)
 
   return (
-    <html lang="en">
+    <html lang={locale} dir={isRtl(locale) ? "rtl" : "ltr"}>
       <head>
         <style dangerouslySetInnerHTML={{ __html: themeCss(site.theme) }} />
       </head>
       <body className={`${sans.variable} ${serif.variable} ${arabic.variable}`}>
-        <CartProvider initialSummary={summarizeCart(cart)} freeShippingThreshold={threshold}>
+        <CartProvider
+          initialSummary={summarizeCart(cart)}
+          freeShippingThreshold={threshold}
+          currency={region.currency}
+        >
           {site.content.announcement ? <div className="announcement">{site.content.announcement}</div> : null}
           <SiteHeader
             region={region}
@@ -66,9 +72,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             freeShippingThreshold={threshold}
             customer={customer}
             site={site}
+            locale={locale}
           />
           <div id="main">{children}</div>
-          <SiteFooter site={site} country={region.country} />
+          <SiteFooter site={site} country={region.country} locale={locale} />
           <BackToTop />
           {whatsapp ? (
             <a className="whatsapp-fab" href={whatsapp} target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp">
