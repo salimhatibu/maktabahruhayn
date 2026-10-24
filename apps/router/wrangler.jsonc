@@ -22,13 +22,11 @@
 		// Where /admin on the shop sends people. Until admin.maktabahruhayn.com
 		// is attached this is the admin Worker's own address; afterwards set it
 		// to "https://admin.maktabahruhayn.com".
-		"ADMIN_ORIGIN": "https://maktabah-admin.arruhayn-87f.workers.dev"
+		"ADMIN_ORIGIN": "https://admin.maktabahruhayn.com"
 	},
-	// Attach both hostnames once the maktabahruhayn.com zone is on this
-	// Cloudflare account, then put an Access application on ADMIN_HOST only:
-	// "routes": [
-	// 	{ "pattern": "maktabahruhayn.com", "custom_domain": true },
-	// 	{ "pattern": "admin.maktabahruhayn.com", "custom_domain": true }
-	// ],
+	"routes": [
+		{ "pattern": "maktabahruhayn.com", "custom_domain": true },
+		{ "pattern": "admin.maktabahruhayn.com", "custom_domain": true }
+	],
 	"observability": { "enabled": true }
 }

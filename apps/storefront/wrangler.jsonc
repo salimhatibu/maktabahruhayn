@@ -19,7 +19,7 @@
 		{
 			"binding": "DB",
 			"database_name": "maktabah",
-			"database_id": "c9f8b8be-f0c3-4ab9-a4b6-588a8a59d20e",
+			"database_id": "72b1d9a6-280b-4051-824f-94adf1ce7679",
 			"migrations_dir": "../../packages/db/migrations"
 		}
 	],

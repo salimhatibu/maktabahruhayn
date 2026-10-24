@@ -10,6 +10,8 @@
     "admin:cf:deploy": "pnpm --filter @maktabah/admin cf:deploy",
     "admin:dev": "pnpm --filter @maktabah/admin dev",
     "build": "pnpm -r build",
+    "deploy": "bash scripts/deploy-all.sh",
+    "deploy:all": "bash scripts/deploy-all.sh",
     "db:console:local": "pnpm --filter @maktabah/storefront exec wrangler d1 execute maktabah --local --persist-to ../../.wrangler/state --command",
     "db:create": "pnpm --filter @maktabah/storefront exec wrangler d1 create maktabah",
     "db:migrate": "pnpm --filter @maktabah/storefront exec wrangler d1 migrations apply maktabah --remote",
@@ -27,6 +29,7 @@
     "storefront:cf:build": "pnpm --filter @maktabah/storefront cf:build",
     "storefront:cf:deploy": "pnpm --filter @maktabah/storefront cf:deploy",
     "storefront:cf:preview": "pnpm --filter @maktabah/storefront cf:preview",
+    "router:deploy": "cd apps/router && npx wrangler deploy",
     "storefront:cf:typegen": "pnpm --filter @maktabah/storefront cf:typegen",
     "storefront:dev": "pnpm --filter @maktabah/storefront dev",
     "test": "pnpm db:verify && pnpm db:test && pnpm html:test"

@@ -4,11 +4,11 @@
 	// served on its own hostname (ADMIN_HOST, admin.maktabahruhayn.com) by the
 	// router Worker in apps/router. It is never served from a path of the shop.
 	"name": "maktabah-admin",
-	// Once admin.maktabahruhayn.com is attached and behind Access, switch off
-	// this Worker's own workers.dev and preview addresses so Access is the only
-	// way in (the service binding from the router keeps working):
-	// "workers_dev": false,
-	// "preview_urls": false,
+	// Access guards admin.maktabahruhayn.com; switch off the direct workers.dev
+	// and preview addresses so Access is the only way in (the service binding
+	// from the router keeps working):
+	"workers_dev": false,
+	"preview_urls": false,
 	"main": ".open-next/worker.js",
 	"compatibility_date": "2026-09-01",
 	"compatibility_flags": [
@@ -31,7 +31,7 @@
 		{
 			"binding": "DB",
 			"database_name": "maktabah",
-			"database_id": "c9f8b8be-f0c3-4ab9-a4b6-588a8a59d20e",
+			"database_id": "72b1d9a6-280b-4051-824f-94adf1ce7679",
 			"migrations_dir": "../../packages/db/migrations"
 		}
 	],
@@ -41,12 +41,12 @@
 		// Access token on every request against these two values:
 		//   Zero Trust > Access > Applications > your app > Overview
 		// With ADMIN_OPEN "false" and either left empty, the admin stays locked.
-		"ACCESS_TEAM_DOMAIN": "",
-		"ACCESS_AUD": "",
+		"ACCESS_TEAM_DOMAIN": "salimhatibu786.cloudflareaccess.com",
+		"ACCESS_AUD": "0c9126ec29a4d2d1c35ff4586c8c2f1a0108f480a52e66e0eff344cb8b47d8fb",
 		// No sign-in: anyone who knows the hostname is an administrator, and a
 		// red banner says so on every page. Set this to "false" once an Access
 		// policy is on the hostname.
-		"ADMIN_OPEN": "true",
+		"ADMIN_OPEN": "false",
 		// M-Pesa prompts for phone and WhatsApp orders use the storefront's
 		// callback, so this Worker needs DARAJA_CALLBACK_URL and DARAJA_SHORTCODE
 		// as vars, and DARAJA_CONSUMER_KEY, DARAJA_CONSUMER_SECRET, DARAJA_PASSKEY
@@ -54,7 +54,7 @@
 		// storefront's (wrangler secret put ...).
 		// The shop's public origin, for "View store" and cover images. After
 		// the cutover: "https://maktabahruhayn.com".
-		"STOREFRONT_URL": "https://maktabah-storefront.arruhayn-87f.workers.dev",
+		"STOREFRONT_URL": "https://maktabahruhayn.com",
 		"R2_PUBLIC_URL": ""
 	},
 	"observability": {
