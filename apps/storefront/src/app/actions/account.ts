@@ -169,11 +169,12 @@ export async function registerAction(_prev: AccountFormState, formData: FormData
     })
     await attachCartToCustomer()
   } catch (error) {
-    const message = error instanceof Error ? error.message : ""
+    const message = error instanceof Error ? error.message : String(error)
+    console.error("Registration failed:", message, error)
     return {
       error: /exist/i.test(message)
         ? "An account with this email already exists. Sign in instead."
-        : "We could not create your account. Please try again.",
+        : `We could not create your account: ${message || "unknown error"}`,
     }
   }
 
