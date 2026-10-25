@@ -37,7 +37,7 @@ const NewsletterPage = () => {
     setImporting(true)
     try {
       const text = await file.text()
-      const res = await api("/api/newsletter", { method: "POST", body: text, headers: { "Content-Type": "text/plain" } })
+      const res = await api<{ imported: number; skipped: number }>("/api/newsletter", { method: "POST", body: text, headers: { "Content-Type": "text/plain" } })
       toast.success(`Imported ${res.imported} subscribers (${res.skipped} duplicates skipped)`)
       reload()
     } catch (e) {

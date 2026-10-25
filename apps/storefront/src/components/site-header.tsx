@@ -9,7 +9,6 @@ import { t, type Locale } from "@/lib/i18n"
 import { HeaderCartButton } from "./cart-context"
 import { ContactOptions } from "./contact-options"
 import { HelpIcon, TruckIcon, UserIcon } from "./icons"
-import { LanguageSwitcher } from "./language-switcher"
 import { MegaNav } from "./mega-nav"
 import { PromoBar, type PromoMessage } from "./promo-bar"
 import { RegionSwitcher, type RegionOption } from "./region-switcher"
@@ -78,7 +77,6 @@ export function SiteHeader({
             {options.length ? (
               <RegionSwitcher current={region.country} currency={region.currency} options={options} />
             ) : null}
-            <LanguageSwitcher current={locale} />
             <Link href="/order-status" className="util-link util-optional">
               <TruckIcon size={20} />
               <span>{t(locale, "nav.order_status")}</span>

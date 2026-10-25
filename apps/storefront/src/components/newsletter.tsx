@@ -8,6 +8,23 @@ import { CloseIcon } from "./icons"
 import { PhoneInput } from "./phone-input"
 
 const initial: NewsletterState = { error: null }
+const SUBSCRIBED_KEY = "mr_newsletter_subscribed"
+
+function isAlreadySubscribed(): boolean {
+  try {
+    return Boolean(window.localStorage.getItem(SUBSCRIBED_KEY))
+  } catch {
+    return false
+  }
+}
+
+function markSubscribed() {
+  try {
+    window.localStorage.setItem(SUBSCRIBED_KEY, String(Date.now()))
+  } catch {
+    // Ignore storage errors.
+  }
+}
 
 export function NewsletterForm({
   source = "footer",
@@ -19,13 +36,26 @@ export function NewsletterForm({
   layout?: "stacked" | "inline"
 }) {
   const [state, action, pending] = useActionState(newsletterAction, initial)
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false)
+
+  useEffect(() => {
+    setAlreadySubscribed(isAlreadySubscribed())
+  }, [])
+
+  useEffect(() => {
+    if (state.done) markSubscribed()
+  }, [state.done])
+
   if (state.done) {
     return (
       <p className="newsletter-done" role="status">
-        Thank you. You&apos;re on the list.
+        You&apos;ve successfully signed up! We&apos;ll keep you updated with new arrivals, offers and recommendations.
       </p>
     )
   }
+
+  if (alreadySubscribed) return null
+
   return (
     <form action={action} onSubmit={keep(action)} className={`newsletter-form is-${layout}`}>
       <input type="hidden" name="source" value={source} />
@@ -74,7 +104,7 @@ export function NewsletterPopup({ defaultCountry = "KE" }: { defaultCountry?: st
     }
     let dismissed = false
     try {
-      dismissed = Boolean(window.localStorage.getItem(POPUP_KEY))
+      dismissed = Boolean(window.localStorage.getItem(POPUP_KEY)) || isAlreadySubscribed()
     } catch {
       dismissed = true
     }
@@ -114,6 +144,34 @@ export function NewsletterPopup({ defaultCountry = "KE" }: { defaultCountry?: st
           <input type="checkbox" onChange={(e) => e.target.checked && close(true)} /> Don&apos;t show this popup again
         </label>
       </div>
+    </div>
+  )
+}
+
+export function FooterNewsletter({
+  title,
+  subtitle,
+  country = "KE",
+}: {
+  title: string
+  subtitle: string
+  country?: string
+}) {
+  const [subscribed, setSubscribed] = useState(false)
+
+  useEffect(() => {
+    setSubscribed(isAlreadySubscribed())
+  }, [])
+
+  if (subscribed) return null
+
+  return (
+    <div className="footer-news wrap">
+      <div>
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
+      </div>
+      <NewsletterForm source="footer" layout="inline" defaultCountry={country} />
     </div>
   )
 }

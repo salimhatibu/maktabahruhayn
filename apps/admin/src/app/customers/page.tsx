@@ -92,7 +92,7 @@ function parseCsv(text: string): Record<string, string>[] {
     .map((line) => {
       const cols = splitCsvLine(line)
       const email = cols.find((c) => emailRe.test(c.trim()))
-      return email ? { email: email.trim() } : null
+      return email ? { email: email.trim() } as Record<string, string> : null
     })
     .filter((r): r is Record<string, string> => r !== null)
 }

@@ -3,7 +3,7 @@ import { SUBJECTS } from "@/lib/catalog"
 import { t, type Locale } from "@/lib/i18n"
 import type { SiteConfig } from "@/lib/site-config"
 import { ContactOptions } from "./contact-options"
-import { NewsletterForm } from "./newsletter"
+import { FooterNewsletter } from "./newsletter"
 import { LogoText } from "./site-header"
 
 export function SiteFooter({ site, country = "KE", locale = "en" }: { site: SiteConfig; country?: string; locale?: Locale }) {
@@ -16,13 +16,11 @@ export function SiteFooter({ site, country = "KE", locale = "en" }: { site: Site
 
   return (
     <footer className="site-footer">
-      <div className="footer-news wrap">
-        <div>
-          <h2>{t(locale, "newsletter.title")}</h2>
-          <p>{t(locale, "newsletter.subtitle")}</p>
-        </div>
-        <NewsletterForm source="footer" layout="inline" defaultCountry={country} />
-      </div>
+      <FooterNewsletter
+        title={t(locale, "newsletter.title")}
+        subtitle={t(locale, "newsletter.subtitle")}
+        country={country}
+      />
       <div className="footer-grid wrap">
         <div className="footer-brand">
           <p className="logo logo-invert">
