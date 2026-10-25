@@ -56,8 +56,38 @@ export function RecordView({ book }: { book: Viewed }) {
   return null
 }
 
+let pruned = false
+
+async function pruneStale() {
+  if (pruned) return
+  pruned = true
+  const items = read()
+  if (!items.length) return
+  try {
+    const res = await fetch("/api/validate-handles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ handles: items.map((b) => b.handle) }),
+    })
+    if (!res.ok) return
+    const { valid } = (await res.json()) as { valid: string[] }
+    const set = new Set(valid)
+    const filtered = items.filter((b) => set.has(b.handle))
+    if (filtered.length < items.length) {
+      window.localStorage.setItem(KEY, JSON.stringify(filtered))
+      cacheRaw = null
+      window.dispatchEvent(new Event(EVENT))
+    }
+  } catch {
+    // Validation failed; keep items as-is until next load.
+  }
+}
+
 export function RecentlyViewed({ exclude }: { exclude?: string }) {
   const items = useSyncExternalStore(subscribe, read, () => EMPTY).filter((b) => b.handle !== exclude)
+
+  useEffect(() => { void pruneStale() }, [])
+
   if (!items.length) {
     return null
   }

@@ -31,6 +31,7 @@ type CatalogRow = {
   base_max: number | null
   stock: number
   managed: number
+  low_stock_threshold: number | null
 }
 
 export async function GET(request: NextRequest) {
@@ -59,7 +60,8 @@ export async function GET(request: NextRequest) {
                 WHERE v.product_id = p.id AND vp.kind = 'base' AND vp.currency_code = 'usd') AS base_max,
               (SELECT COALESCE(SUM(il.stocked_quantity), 0) FROM inventory_level il
                  JOIN variant v ON v.id = il.variant_id WHERE v.product_id = p.id) AS stock,
-              (SELECT COUNT(*) FROM variant WHERE product_id = p.id AND manage_inventory = 1) AS managed
+              (SELECT COUNT(*) FROM variant WHERE product_id = p.id AND manage_inventory = 1) AS managed,
+              (SELECT MIN(v.low_stock_threshold) FROM variant v WHERE v.product_id = p.id AND v.low_stock_threshold IS NOT NULL) AS low_stock_threshold
          FROM product p LEFT JOIN book b ON b.product_id = p.id
         WHERE p.deleted_at IS NULL
         ORDER BY p.product_number DESC`
@@ -88,6 +90,7 @@ export async function GET(request: NextRequest) {
     price_max: inKes(row.price_max, row.base_max),
     variants: row.variants,
     stock: row.managed ? row.stock : null,
+    low_stock_threshold: row.low_stock_threshold,
     updated_at: row.updated_at,
   }))
 

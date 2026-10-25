@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams
   const q = (params.get("q") || "").trim().toLowerCase()
   const max = params.get("max") ? Number(params.get("max")) : null
+  const lowOnly = params.get("low") === "1"
   const database = await db()
 
   const { results } = await database
@@ -51,6 +52,12 @@ export async function GET(request: NextRequest) {
   const rows = results
     .filter((row) => (q ? `${row.product_title} ${row.variant_title} ${row.custom_sku || row.system_sku}`.toLowerCase().includes(q) : true))
     .filter((row) => (max === null ? true : Number(row.stocked_quantity || 0) <= max))
+    .filter((row) => {
+      if (!lowOnly) return true
+      const available = Number(row.stocked_quantity || 0) - Number(row.reserved_quantity || 0)
+      const threshold = row.low_stock_threshold ?? 5
+      return available <= threshold
+    })
     .map((row) => ({
       variant_id: row.variant_id,
       product_id: row.product_id,

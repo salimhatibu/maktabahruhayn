@@ -24,6 +24,7 @@ type Row = {
   price_max: number | null
   variants: number
   stock: number | null
+  low_stock_threshold: number | null
   updated_at: string
 }
 
@@ -290,6 +291,8 @@ const ProductsPage = () => {
                         <span className="text-ui-fg-muted">Not tracked</span>
                       ) : row.stock === 0 ? (
                         <span className="text-ui-fg-error">Out of stock</span>
+                      ) : row.low_stock_threshold !== null && row.stock <= row.low_stock_threshold ? (
+                        <span className="text-ui-fg-warning">{row.stock} <span className="txt-compact-xsmall text-ui-fg-muted">low</span></span>
                       ) : (
                         row.stock
                       )}

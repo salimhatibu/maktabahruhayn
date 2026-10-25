@@ -1,49 +1,49 @@
 "use client"
 
-import { Badge, Button, Input, StatusBadge, Switch, Table, Text, toast } from "@medusajs/ui"
+import { Button, Input, StatusBadge, Switch, Table, Text, toast } from "@medusajs/ui"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { api, useApi } from "@/lib/api"
 
 type Row = {
-  inventory_item_id: string
+  variant_id: string
   sku: string | null
-  title: string
-  product_id: string | null
+  product_id: string
+  product_title: string
   variant_title: string | null
   location_id: string | null
-  stocked: number
-  reserved: number
-  available: number
-  allow_backorder: boolean
+  location_name: string | null
+  stocked_quantity: number
+  reserved_quantity: number
+  low_stock_threshold: number | null
 }
 
 /** Copies on hand per variant, editable in place. */
 export function StockTable({ q }: { q: string }) {
   const router = useRouter()
   const [lowOnly, setLowOnly] = useState(false)
-  const { data, error, loading, reload } = useApi<{ rows: Row[] }>(
-    `/api/stock?q=${encodeURIComponent(q)}${lowOnly ? "&max=5" : ""}`
+  const { data, error, loading, reload } = useApi<{ stock: Row[] }>(
+    `/api/stock?q=${encodeURIComponent(q)}${lowOnly ? "&low=1" : ""}`
   )
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<string | null>(null)
 
   const save = async (row: Row) => {
-    const value = Number(edits[row.inventory_item_id])
+    const value = Number(edits[row.variant_id])
     if (!row.location_id || !Number.isInteger(value) || value < 0) {
       toast.error("Enter a whole number of copies")
       return
     }
-    setSaving(row.inventory_item_id)
+    setSaving(row.variant_id)
     try {
       await api("/api/stock", {
         method: "POST",
-        json: { inventory_item_id: row.inventory_item_id, location_id: row.location_id, stocked_quantity: value },
+        json: { variant_id: row.variant_id, location_id: row.location_id, stocked_quantity: value },
       })
-      toast.success(`${row.title}: ${value} on hand`)
+      toast.success(`${row.product_title}: ${value} on hand`)
       setEdits((e) => {
         const next = { ...e }
-        delete next[row.inventory_item_id]
+        delete next[row.variant_id]
         return next
       })
       reload()
@@ -54,7 +54,7 @@ export function StockTable({ q }: { q: string }) {
     }
   }
 
-  const rows = data?.rows || []
+  const rows = data?.stock || []
 
   return (
     <div>
@@ -64,7 +64,7 @@ export function StockTable({ q }: { q: string }) {
         </Text>
         <label className="flex items-center gap-2">
           <Switch size="small" checked={lowOnly} onCheckedChange={setLowOnly} />
-          <Text size="small">5 or fewer available</Text>
+          <Text size="small">Low stock only</Text>
         </label>
       </div>
       {error ? (
@@ -85,34 +85,30 @@ export function StockTable({ q }: { q: string }) {
         </Table.Header>
         <Table.Body>
           {rows.map((row) => {
-            const edit = edits[row.inventory_item_id]
-            const changed = edit !== undefined && edit !== String(row.stocked)
+            const available = row.stocked_quantity - row.reserved_quantity
+            const edit = edits[row.variant_id]
+            const changed = edit !== undefined && edit !== String(row.stocked_quantity)
             return (
-              <Table.Row key={row.inventory_item_id}>
+              <Table.Row key={row.variant_id}>
                 <Table.Cell>
                   <button
                     type="button"
                     className="txt-compact-small-plus text-ui-fg-base max-w-[26rem] truncate text-left hover:underline"
-                    onClick={() => row.product_id && router.push(`/products/catalog/${row.product_id}`)}
+                    onClick={() => router.push(`/products/${row.product_id}`)}
                   >
-                    {row.title}
+                    {row.product_title}
                   </button>
                   {row.variant_title && row.variant_title !== "Default" ? (
                     <Text size="xsmall" className="text-ui-fg-subtle">
                       {row.variant_title}
                     </Text>
                   ) : null}
-                  {row.allow_backorder ? (
-                    <Badge size="2xsmall" className="mt-0.5">
-                      Backorders allowed
-                    </Badge>
-                  ) : null}
                 </Table.Cell>
                 <Table.Cell className="text-ui-fg-subtle font-mono text-xs">{row.sku || "—"}</Table.Cell>
-                <Table.Cell className="mr-tabular text-right">{row.reserved}</Table.Cell>
+                <Table.Cell className="mr-tabular text-right">{row.reserved_quantity}</Table.Cell>
                 <Table.Cell className="text-right">
-                  <StatusBadge color={row.available <= 0 ? "red" : row.available <= 5 ? "orange" : "green"}>
-                    <span className="mr-tabular">{row.available}</span>
+                  <StatusBadge color={available <= 0 ? "red" : (row.low_stock_threshold !== null && available <= row.low_stock_threshold) ? "orange" : "green"}>
+                    <span className="mr-tabular">{available}</span>
                   </StatusBadge>
                 </Table.Cell>
                 <Table.Cell>
@@ -129,11 +125,11 @@ export function StockTable({ q }: { q: string }) {
                       size="small"
                       inputMode="numeric"
                       className="mr-tabular w-20 text-right"
-                      value={edit ?? String(row.stocked)}
-                      onChange={(e) => setEdits((s) => ({ ...s, [row.inventory_item_id]: e.target.value.replace(/\D/g, "") }))}
-                      aria-label={`Copies on hand for ${row.title}`}
+                      value={edit ?? String(row.stocked_quantity)}
+                      onChange={(e) => setEdits((s) => ({ ...s, [row.variant_id]: e.target.value.replace(/\D/g, "") }))}
+                      aria-label={`Copies on hand for ${row.product_title}`}
                     />
-                    <Button size="small" type="submit" variant={changed ? "primary" : "transparent"} disabled={!changed} isLoading={saving === row.inventory_item_id}>
+                    <Button size="small" type="submit" variant={changed ? "primary" : "transparent"} disabled={!changed} isLoading={saving === row.variant_id}>
                       Save
                     </Button>
                   </form>
