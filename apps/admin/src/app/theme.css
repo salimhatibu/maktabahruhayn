@@ -1,9 +1,10 @@
 /*
  * Maktabah Ruhayn admin.
  *
- * Soft teal surfaces, rounded cards and Funnel Display / Funnel Sans, after
- * the "Haven" dashboard pen. Every token is written over Medusa UI's own
- * variables so its components (buttons, tables, drawers, badges) follow.
+ * Sage-green accents on warm neutral paper, after the BuraPesa console:
+ * Geologica for text, JetBrains Mono for figures, quiet cards and a floating
+ * glass topbar. Every token is written over Medusa UI's own variables so its
+ * components (buttons, tables, drawers, badges) follow.
  *
  * This file is hoisted above Tailwind's output by PostCSS, so any rule that
  * overrides a Medusa or Tailwind class is prefixed with `html` or `.mr-app`
@@ -19,40 +20,42 @@ html:root.dark {
   color-scheme: light;
 
   /* ---- Palette -------------------------------------------------------- */
-  --mr-accent: oklch(0.405 0.075 175);
-  --mr-accent-hover: oklch(0.36 0.07 175);
-  --mr-accent-deep: oklch(0.32 0.065 175);
-  --mr-accent-soft: oklch(0.927 0.025 172);
-  --mr-hero: oklch(0.355 0.06 180);
-  --mr-ink: oklch(0.255 0.027 180);
-  --mr-subtle: oklch(0.43 0.022 172);
-  --mr-muted: oklch(0.53 0.018 170);
-  --mr-border: oklch(0.9 0.012 170);
-  --mr-border-strong: oklch(0.8 0.016 170);
-  --mr-surface: oklch(0.997 0.003 165);
-  --mr-surface-subtle: oklch(0.975 0.006 170);
-  --mr-surface-hover: oklch(0.95 0.01 170);
-  --mr-sidebar-bg: oklch(0.997 0.003 165);
-  --mr-page-bg: oklch(0.962 0.009 170);
-  --mr-radius: 18px;
-  --mr-radius-sm: 11px;
-  --mr-shadow: 0 1px 2px oklch(0.25 0.03 175 / 0.05), 0 8px 24px -12px oklch(0.25 0.03 175 / 0.14);
-  --mr-font-body: "Funnel Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mr-font-heading: "Funnel Display", "Funnel Sans", ui-sans-serif, system-ui, sans-serif;
+  --mr-accent: #6b8e70;
+  --mr-accent-hover: #527057;
+  --mr-accent-deep: #445e49;
+  --mr-accent-soft: #eef2ef;
+  --mr-hero: #3f5844;
+  --mr-ink: #2a2a28;
+  --mr-subtle: #3a3a38;
+  --mr-muted: #6a6a68;
+  --mr-border: rgba(0, 0, 0, 0.08);
+  --mr-border-strong: rgba(0, 0, 0, 0.14);
+  --mr-surface: #ffffff;
+  --mr-surface-subtle: #f6f6f4;
+  --mr-surface-hover: #eef2ef;
+  --mr-sidebar-bg: rgba(255, 255, 255, 0.92);
+  --mr-page-bg: #f7f7f6;
+  --mr-radius: 12px;
+  --mr-radius-sm: 10px;
+  --mr-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 8px 24px -14px rgba(0, 0, 0, 0.14);
+  --mr-font-body: "Geologica", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mr-font-heading: "Geologica", ui-sans-serif, system-ui, sans-serif;
+  --mr-font-nums: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mr-font-serif: "Cormorant Garamond", Georgia, serif;
 
   /* Area colours for icon chips, charts and metrics. */
-  --mr-green: oklch(0.45 0.09 168);
-  --mr-green-soft: oklch(0.93 0.03 170);
-  --mr-gold: oklch(0.5 0.1 70);
-  --mr-gold-soft: oklch(0.95 0.04 82);
-  --mr-plum: oklch(0.45 0.08 300);
-  --mr-plum-soft: oklch(0.945 0.025 300);
-  --mr-rose: oklch(0.52 0.15 22);
-  --mr-rose-soft: oklch(0.945 0.03 22);
-  --mr-teal: oklch(0.5 0.08 215);
-  --mr-teal-soft: oklch(0.94 0.03 215);
-  --mr-slate: oklch(0.43 0.022 172);
-  --mr-slate-soft: oklch(0.95 0.01 170);
+  --mr-green: #6b8e70;
+  --mr-green-soft: #eef2ef;
+  --mr-gold: #8a6a32;
+  --mr-gold-soft: #f5efe2;
+  --mr-plum: #6b5a7a;
+  --mr-plum-soft: #f1eef4;
+  --mr-rose: #9a4d4d;
+  --mr-rose-soft: #f6eaea;
+  --mr-teal: #4a7d7a;
+  --mr-teal-soft: #e9f1f0;
+  --mr-slate: #5a5a58;
+  --mr-slate-soft: #f0f0ee;
 
   /* ---- Medusa tokens: surfaces ---------------------------------------- */
   --bg-base: var(--mr-surface);
@@ -61,27 +64,27 @@ html:root.dark {
   --bg-subtle: var(--mr-surface-subtle);
   --bg-subtle-hover: var(--mr-surface-hover);
   --bg-subtle-pressed: var(--mr-border);
-  --bg-component: oklch(0.997 0.003 165);
-  --bg-component-hover: oklch(0.965 0.01 170);
-  --bg-component-pressed: oklch(0.94 0.012 170);
+  --bg-component: #ffffff;
+  --bg-component-hover: #f6f6f4;
+  --bg-component-pressed: #eef2ef;
   --elevation-flyout: 0px 0px 0px 1px rgba(0, 0, 0, 0.1), 0px 4px 12px 0px rgba(0, 0, 0, 0.12), 0px 8px 24px 0px rgba(0, 0, 0, 0.1);
   --bg-field: var(--mr-surface);
   --bg-field-hover: var(--mr-surface-subtle);
   --bg-field-component: var(--mr-surface);
   --bg-field-component-hover: var(--mr-surface-subtle);
-  --bg-disabled: oklch(0.945 0.01 170);
+  --bg-disabled: #f0f0ee;
   --bg-highlight: var(--mr-accent-soft);
-  --bg-highlight-hover: oklch(0.89 0.035 172);
+  --bg-highlight-hover: #e2e9e3;
   --bg-interactive: var(--mr-accent);
-  --bg-overlay: oklch(0.2 0.02 175 / 0.45);
-  --bg-switch-off: oklch(0.72 0.018 170);
-  --bg-switch-off-hover: oklch(0.6 0.022 170);
+  --bg-overlay: rgba(22, 26, 23, 0.45);
+  --bg-switch-off: #c4c4c2;
+  --bg-switch-off-hover: #adadab;
 
   /* ---- Medusa tokens: text -------------------------------------------- */
   --fg-base: var(--mr-ink);
   --fg-subtle: var(--mr-subtle);
   --fg-muted: var(--mr-muted);
-  --fg-disabled: oklch(0.72 0.014 170);
+  --fg-disabled: #a8a8a6;
   --fg-on-color: var(--mr-surface);
   --fg-on-inverted: var(--mr-surface);
   --fg-interactive: var(--mr-accent);
@@ -101,8 +104,8 @@ html:root.dark {
   --button-inverted-hover: var(--mr-accent-hover);
   --button-inverted-pressed: var(--mr-accent-deep);
   --button-danger: var(--mr-rose);
-  --button-danger-hover: oklch(0.47 0.15 22);
-  --button-danger-pressed: oklch(0.42 0.14 22);
+  --button-danger-hover: #8a4444;
+  --button-danger-pressed: #793b3b;
   --button-neutral: var(--mr-surface);
   --button-neutral-hover: var(--mr-surface-hover);
   --button-neutral-pressed: var(--mr-border);
@@ -111,21 +114,21 @@ html:root.dark {
   --button-transparent-pressed: var(--mr-border);
 
   --contrast-bg-base: var(--mr-ink);
-  --contrast-bg-base-hover: oklch(0.32 0.025 180);
-  --contrast-bg-base-pressed: oklch(0.2 0.02 180);
-  --contrast-bg-subtle: oklch(0.32 0.025 180);
+  --contrast-bg-base-hover: #3a3a38;
+  --contrast-bg-base-pressed: #1d1d1b;
+  --contrast-bg-subtle: #3a3a38;
   --contrast-border-base: rgba(255, 255, 255, 0.12);
   --contrast-border-top: rgba(255, 255, 255, 0.18);
   --contrast-border-bot: rgba(0, 0, 0, 0.35);
-  --contrast-fg-primary: oklch(0.98 0.008 165);
-  --contrast-fg-secondary: oklch(0.87 0.025 172 / 0.7);
+  --contrast-fg-primary: #f7f7f6;
+  --contrast-fg-secondary: rgba(247, 247, 246, 0.7);
 
   --tag-red-bg: var(--mr-rose-soft);
-  --tag-red-text: oklch(0.45 0.15 22);
-  --tag-red-border: oklch(0.88 0.05 22);
+  --tag-red-text: #9a4d4d;
+  --tag-red-border: #e8d2d2;
   --tag-green-bg: var(--mr-green-soft);
-  --tag-green-text: oklch(0.4 0.09 168);
-  --tag-green-border: oklch(0.86 0.05 168);
+  --tag-green-text: #527057;
+  --tag-green-border: #d6e0d7;
 }
 
 /* Radix portals (dropdowns, popovers, selects) must sit above sticky bars. */
@@ -160,6 +163,18 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+/* Figures read as figures: tabular mono for anything numeric. */
+.mr-app td,
+.mr-kpi-value,
+.mr-hero-figure,
+.mr-row-amount,
+.mr-order-no,
+.mr-count {
+  font-family: var(--mr-font-nums);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Medusa's text classes each hard-code Inter; these hand them our faces. */
@@ -175,7 +190,8 @@ html .h2-core,
 html .h3-core,
 html [class*="-webs"] {
   font-family: var(--mr-font-heading);
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   text-wrap: balance;
 }
 
@@ -190,26 +206,80 @@ html input:focus-visible,
 html select:focus-visible,
 html textarea:focus-visible,
 html [tabindex]:focus-visible {
-  outline: 3px solid oklch(0.61 0.13 175);
+  outline: 2px solid var(--mr-accent);
   outline-offset: 3px;
 }
 
 /* ---- App frame ---------------------------------------------------------- */
 .mr-app {
+  position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: 17rem minmax(0, 1fr);
+  grid-template-columns: 18rem minmax(0, 1fr);
   min-height: 100vh;
+}
+
+/*
+ * Ambient wash: a faint sage grain that drifts, plus a glow that tracks the
+ * pointer. Both sit behind everything and never take clicks.
+ */
+.mr-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--mr-page-bg);
+  pointer-events: none;
+}
+
+.mr-sky-rotation {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  animation: mr-sky-drift 300s linear infinite;
+}
+
+.mr-sky-grain {
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(circle, rgba(107, 142, 112, 0.3) 1px, transparent 1px),
+    radial-gradient(circle, rgba(107, 142, 112, 0.16) 1px, transparent 1px);
+  background-size: 100px 100px, 180px 180px;
+  background-position: 0 0, 40px 60px;
+}
+
+@keyframes mr-sky-drift {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mr-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: radial-gradient(
+    circle 280px at calc(var(--mr-mouse-x, 0.5) * 100vw) calc(var(--mr-mouse-y, 0.5) * 100vh),
+    rgba(107, 142, 112, 0.1),
+    transparent 100%
+  );
 }
 
 .mr-sidebar {
   position: sticky;
   top: 0;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 1.5rem 1rem 1.25rem;
+  padding: 1.15rem 0.9rem 1rem;
   overflow-y: auto;
   background: var(--mr-sidebar-bg);
+  backdrop-filter: blur(16px);
   border-right: 1px solid var(--mr-border);
 }
 
@@ -217,7 +287,9 @@ html [tabindex]:focus-visible {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0 0.5rem 1.5rem;
+  margin: 0 0.25rem 0.25rem;
+  padding: 0.25rem 0.4rem 1rem;
+  border-bottom: 1px solid var(--mr-border);
   color: var(--mr-ink);
   text-decoration: none;
 }
@@ -228,7 +300,7 @@ html [tabindex]:focus-visible {
   width: 2.75rem;
   height: 2.75rem;
   flex-shrink: 0;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--mr-accent);
   color: var(--mr-surface);
   font-family: var(--mr-font-heading);
@@ -236,11 +308,11 @@ html [tabindex]:focus-visible {
   font-weight: 800;
   letter-spacing: -0.06em;
   line-height: 1;
-  box-shadow: 0 6px 14px -6px oklch(0.3 0.06 175 / 0.6);
+  box-shadow: 0 6px 14px -8px rgba(42, 42, 40, 0.45);
 }
 
 .mr-brand-mark span {
-  color: oklch(0.82 0.1 165);
+  color: #b7cdba;
 }
 
 .mr-brand-logo {
@@ -273,25 +345,26 @@ html [tabindex]:focus-visible {
 .mr-nav {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.1rem;
+  padding-top: 0.75rem;
 }
 
 .mr-nav ul {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .mr-nav-heading {
-  margin: 0;
-  padding: 0 0.75rem 0.4rem;
+  margin: 0 0 0.4rem;
+  padding: 0 0.75rem;
   color: var(--mr-muted);
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -299,48 +372,57 @@ html [tabindex]:focus-visible {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  min-height: 2.6rem;
+  min-height: 2.5rem;
   padding: 0 0.75rem;
   border-radius: var(--mr-radius-sm);
-  color: var(--mr-subtle);
+  color: var(--mr-ink);
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 600;
   text-decoration: none;
-  transition: background-color 160ms ease, color 160ms ease;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 .mr-nav-link svg {
   flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .mr-nav-link:hover {
   background: var(--mr-accent-soft);
-  color: var(--mr-accent-deep);
+}
+
+.mr-nav-link:hover svg {
+  color: var(--mr-accent);
 }
 
 .mr-nav-link.is-active {
-  background: var(--mr-accent);
-  color: var(--mr-surface);
-  box-shadow: 0 6px 14px -8px oklch(0.3 0.06 175 / 0.7);
+  background: var(--mr-accent-soft);
+  color: var(--mr-accent-hover);
+}
+
+.mr-nav-link.is-active svg {
+  color: var(--mr-accent);
 }
 
 .mr-sidebar-foot {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.6rem;
   margin-top: auto;
-  padding-top: 1.5rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--mr-border);
 }
 
 .mr-store-card {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.8rem 0.9rem;
+  padding: 0.7rem 0.8rem;
   border: 1px solid var(--mr-border);
-  border-radius: 14px;
+  border-radius: var(--mr-radius-sm);
   background: var(--mr-surface-subtle);
-  color: var(--mr-accent-deep);
+  color: var(--mr-accent-hover);
   text-decoration: none;
   transition: border-color 160ms ease, background-color 160ms ease;
 }
@@ -402,9 +484,10 @@ html [tabindex]:focus-visible {
   height: 2.4rem;
   flex-shrink: 0;
   border-radius: 50%;
-  background: oklch(0.87 0.036 68);
-  color: oklch(0.36 0.05 65);
-  font-size: 0.8rem;
+  background: var(--mr-accent-soft);
+  color: var(--mr-accent-hover);
+  font-family: var(--mr-font-nums);
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -415,28 +498,40 @@ html [tabindex]:focus-visible {
 }
 
 .mr-workspace {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.mr-topbar {
+/* The bar floats as a rounded glass capsule rather than spanning the page. */
+.mr-topbar-wrap {
   position: sticky;
   top: 0;
   z-index: 30;
+  padding: 0.75rem clamp(1rem, 2.5vw, 2.5rem) 0;
+}
+
+.mr-topbar {
   display: flex;
   align-items: center;
   gap: 1rem;
-  min-height: 4.75rem;
-  padding: 0.75rem clamp(1rem, 2.5vw, 2.5rem);
-  border-bottom: 1px solid var(--mr-border);
-  background: oklch(0.962 0.009 170 / 0.88);
-  backdrop-filter: saturate(1.4) blur(10px);
+  max-width: 1600px;
+  min-height: 3.5rem;
+  margin: 0 auto;
+  padding: 0 1.1rem;
+  border: 1px solid var(--mr-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
 }
 
 .mr-topbar-title {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 0.6rem;
   min-width: 0;
   line-height: 1.2;
 }
@@ -444,17 +539,20 @@ html [tabindex]:focus-visible {
 .mr-topbar-title small {
   color: var(--mr-muted);
   font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.mr-topbar-title small::after {
+  content: "/";
+  margin-left: 0.6rem;
+  opacity: 0.45;
 }
 
 .mr-topbar-title strong {
   overflow: hidden;
-  font-family: var(--mr-font-heading);
-  font-size: 1.2rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -462,25 +560,25 @@ html [tabindex]:focus-visible {
 .mr-topbar-right {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.6rem;
   margin-left: auto;
 }
 
 .mr-date {
-  color: var(--mr-subtle);
-  font-size: 0.88rem;
+  color: var(--mr-muted);
+  font-size: 0.82rem;
   white-space: nowrap;
 }
 
 .mr-icon-btn {
   display: grid;
   place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border: 0;
-  border-radius: var(--mr-radius-sm);
-  background: transparent;
-  color: var(--mr-ink);
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--mr-border);
+  border-radius: 8px;
+  background: var(--mr-surface);
+  color: var(--mr-accent);
   cursor: pointer;
 }
 
@@ -490,9 +588,7 @@ html [tabindex]:focus-visible {
 
 .mr-menu-btn {
   display: none;
-  margin-left: -0.4rem;
-  border: 1px solid var(--mr-border);
-  background: var(--mr-surface);
+  margin-left: -0.25rem;
 }
 
 .mr-btn-ghost,
@@ -500,10 +596,9 @@ html [tabindex]:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 2.5rem;
-  padding: 0 1rem;
-  border-radius: var(--mr-radius-sm);
-  font-size: 0.9rem;
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
@@ -511,21 +606,23 @@ html [tabindex]:focus-visible {
 }
 
 .mr-btn-ghost {
-  border: 1px solid var(--mr-border);
+  border: 1px solid var(--mr-border-strong);
+  border-radius: 8px;
   background: var(--mr-surface);
   color: var(--mr-ink);
 }
 
 .mr-btn-ghost:hover {
   border-color: var(--mr-accent);
-  background: var(--mr-accent-soft);
-  color: var(--mr-accent-deep);
+  color: var(--mr-accent-hover);
 }
 
 .mr-btn-primary {
   border: 1px solid var(--mr-accent);
+  border-radius: 999px;
   background: var(--mr-accent);
-  color: var(--mr-surface);
+  color: #ffffff;
+  font-weight: 700;
 }
 
 .mr-btn-primary:hover {
@@ -536,7 +633,26 @@ html [tabindex]:focus-visible {
   width: 100%;
   max-width: 1600px;
   margin-inline: auto;
-  padding: clamp(1.25rem, 2.5vw, 2.25rem) clamp(1rem, 2.5vw, 2.5rem) 3rem;
+  padding: clamp(1.25rem, 2.5vw, 1.75rem) clamp(1rem, 2.5vw, 2.5rem) 3rem;
+}
+
+/* ---- Workspace footer ---------------------------------------------------- */
+.mr-foot {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  padding: 0.9rem clamp(1rem, 2.5vw, 2.5rem) 1.1rem;
+  border-top: 1px solid var(--mr-border);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.mr-foot p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.2rem;
+  margin: 0;
+  color: var(--mr-muted);
+  font-size: 0.75rem;
 }
 
 .mr-alert {
@@ -546,7 +662,7 @@ html [tabindex]:focus-visible {
   margin-bottom: 1.5rem;
   padding: 0.9rem 1.1rem;
   border: 1px solid var(--tag-red-border);
-  border-radius: 14px;
+  border-radius: var(--mr-radius-sm);
   background: var(--mr-rose-soft);
   color: var(--tag-red-text);
   font-size: 0.92rem;
@@ -587,7 +703,7 @@ html [tabindex]:focus-visible {
   padding: 1.25rem 1rem;
   overflow-y: auto;
   background: var(--mr-surface);
-  box-shadow: 0 20px 50px oklch(0.2 0.02 175 / 0.3);
+  box-shadow: 0 20px 50px rgba(22, 26, 23, 0.25);
 }
 
 .mr-drawer-head {
@@ -619,13 +735,15 @@ html [tabindex]:focus-visible {
   }
 
   .mr-topbar {
-    min-height: 4rem;
+    padding: 0 0.75rem;
   }
 }
 
 /* ---- Medusa components, restyled ----------------------------------------- */
+/* Panels are quiet: a hairline and almost no lift, as on the BuraPesa board. */
 .mr-app .shadow-elevation-card-rest {
-  box-shadow: 0 0 0 1px var(--mr-border), var(--mr-shadow);
+  background: var(--mr-surface);
+  box-shadow: 0 0 0 1px var(--mr-border);
 }
 
 .mr-app .shadow-elevation-card-rest.rounded-lg,
@@ -648,16 +766,16 @@ html [tabindex]:focus-visible {
 }
 
 .mr-main h1 {
-  font-size: clamp(1.6rem, 1.1rem + 1vw, 2.1rem);
-  font-weight: 650;
-  line-height: 1.2;
+  font-size: clamp(1.5rem, 1.1rem + 0.9vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.15;
   letter-spacing: -0.03em;
 }
 
 .mr-main .h2-core,
 .mr-main h2 {
-  font-size: 1.1rem;
-  font-weight: 650;
+  font-size: 1.05rem;
+  font-weight: 700;
   line-height: 1.3;
 }
 
@@ -666,9 +784,9 @@ html [tabindex]:focus-visible {
   font-weight: 600;
 }
 
-/* Buttons and fields: rounder, and a touch taller. */
+/* Buttons and fields: 8px corners, as across the BuraPesa console. */
 .mr-app [class*="shadow-buttons-"] {
-  border-radius: 10px;
+  border-radius: 8px;
   font-weight: 600;
 }
 
@@ -681,7 +799,7 @@ html [tabindex]:focus-visible {
 }
 
 .mr-app [class*="shadow-borders-base"] {
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .mr-app input.h-7,
@@ -700,10 +818,11 @@ html [tabindex]:focus-visible {
 }
 
 .mr-app thead th {
-  color: var(--mr-subtle);
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  color: var(--mr-muted);
+  font-family: var(--mr-font-body);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -782,7 +901,7 @@ html [tabindex]:focus-visible {
   gap: 0.7rem;
   padding: 0.7rem 1rem;
   border: 1px solid var(--mr-border);
-  border-radius: 14px;
+  border-radius: var(--mr-radius-sm);
   background: var(--mr-surface);
   font-size: 0.92rem;
   font-weight: 600;
@@ -800,8 +919,8 @@ html [tabindex]:focus-visible {
   height: 0.55rem;
   flex-shrink: 0;
   border-radius: 50%;
-  background: oklch(0.6 0.13 160);
-  box-shadow: 0 0 0 4px oklch(0.6 0.13 160 / 0.18);
+  background: var(--mr-accent);
+  box-shadow: 0 0 0 4px rgba(107, 142, 112, 0.2);
 }
 
 .mr-bento {
@@ -823,11 +942,10 @@ html [tabindex]:focus-visible {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 1.4rem 1.5rem;
+  padding: 1.25rem 1.35rem;
   border: 1px solid var(--mr-border);
   border-radius: var(--mr-radius);
   background: var(--mr-surface);
-  box-shadow: var(--mr-shadow);
   color: var(--mr-ink);
   text-decoration: none;
 }
@@ -870,13 +988,13 @@ html [tabindex]:focus-visible {
   grid-area: hero;
   border-color: var(--mr-hero);
   background:
-    radial-gradient(120% 90% at 100% 0%, oklch(0.45 0.07 170 / 0.9), transparent 60%),
+    radial-gradient(120% 90% at 100% 0%, rgba(107, 142, 112, 0.55), transparent 62%),
     var(--mr-hero);
-  color: oklch(0.98 0.008 165);
+  color: #f7f7f6;
 }
 
 .mr-card-hero h2 {
-  color: oklch(0.88 0.03 172);
+  color: rgba(247, 247, 246, 0.82);
   font-family: var(--mr-font-body);
   font-size: 0.95rem;
   font-weight: 500;
@@ -885,20 +1003,18 @@ html [tabindex]:focus-visible {
 
 .mr-hero-chip {
   padding: 0.25rem 0.65rem;
-  border: 1px solid oklch(0.6 0.04 175);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 999px;
-  color: oklch(0.88 0.03 172);
+  color: rgba(247, 247, 246, 0.82);
   font-size: 0.75rem;
 }
 
 .mr-hero-figure {
   margin: 0;
-  font-family: var(--mr-font-heading);
-  font-size: clamp(2.4rem, 1.6rem + 2vw, 3.6rem);
-  font-weight: 500;
-  letter-spacing: -0.05em;
+  font-size: clamp(2.2rem, 1.5rem + 1.8vw, 3.1rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
   line-height: 1.05;
-  font-variant-numeric: tabular-nums;
 }
 
 .mr-hero-stats {
@@ -913,7 +1029,7 @@ html [tabindex]:focus-visible {
 }
 
 .mr-hero-stats dt {
-  color: oklch(0.85 0.03 172);
+  color: rgba(247, 247, 246, 0.75);
   font-size: 0.78rem;
 }
 
@@ -940,16 +1056,16 @@ html [tabindex]:focus-visible {
   flex: 1;
   min-width: 0;
   border-radius: 5px 5px 2px 2px;
-  background: oklch(0.6 0.06 172 / 0.65);
+  background: rgba(255, 255, 255, 0.32);
   transition: background-color 150ms ease;
 }
 
 .mr-hero-chart span:hover {
-  background: oklch(0.8 0.08 168);
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .mr-hero-chart span.is-today {
-  background: oklch(0.86 0.12 160);
+  background: #b7cdba;
 }
 
 .mr-hero-axis {
@@ -957,19 +1073,18 @@ html [tabindex]:focus-visible {
   justify-content: space-between;
   margin-top: 0.5rem;
   padding-top: 0.6rem;
-  border-top: 1px solid oklch(0.55 0.04 175);
-  color: oklch(0.85 0.03 172);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(247, 247, 246, 0.75);
   font-size: 0.75rem;
 }
 
 .mr-kpi {
   gap: 0.2rem;
-  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  transition: border-color 160ms ease;
 }
 
 .mr-kpi:hover {
   border-color: var(--mr-accent);
-  transform: translateY(-2px);
 }
 
 .mr-chip {
@@ -979,7 +1094,7 @@ html [tabindex]:focus-visible {
   height: 2.6rem;
   flex-shrink: 0;
   margin-bottom: 0.75rem;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--mr-tone-soft);
   color: var(--mr-tone);
 }
@@ -991,12 +1106,10 @@ html [tabindex]:focus-visible {
 }
 
 .mr-kpi-value {
-  font-family: var(--mr-font-heading);
-  font-size: 2.1rem;
-  font-weight: 550;
-  letter-spacing: -0.04em;
+  font-size: 1.85rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1.15;
-  font-variant-numeric: tabular-nums;
 }
 
 .mr-kpi-note {
@@ -1128,7 +1241,7 @@ html [tabindex]:focus-visible {
   padding: 1.25rem 1.5rem;
   border: 1px solid var(--mr-border);
   border-radius: var(--mr-radius);
-  background: oklch(0.947 0.017 170);
+  background: var(--mr-surface-subtle);
 }
 
 .mr-actions-intro {
@@ -1162,10 +1275,10 @@ html [tabindex]:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 2.75rem;
-  padding: 0 1.1rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
   border: 1px solid var(--mr-border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--mr-surface);
   color: var(--mr-ink);
   font-size: 0.92rem;

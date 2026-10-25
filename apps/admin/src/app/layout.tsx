@@ -24,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@400..800&family=Funnel+Sans:ital,wght@0,400..700;1,400..700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Geologica:wght@300..700&family=JetBrains+Mono:wght@400..700&family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700&display=swap"
           rel="stylesheet"
         />
       </head>

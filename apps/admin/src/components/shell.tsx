@@ -170,10 +170,27 @@ export function Shell({
     setToday(new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date()))
   }, [])
 
+  // Feeds the pointer-tracking glow behind the console.
+  useEffect(() => {
+    const onMove = (event: MouseEvent) => {
+      const root = document.documentElement
+      root.style.setProperty("--mr-mouse-x", String(event.clientX / window.innerWidth))
+      root.style.setProperty("--mr-mouse-y", String(event.clientY / window.innerHeight))
+    }
+    document.addEventListener("mousemove", onMove)
+    return () => document.removeEventListener("mousemove", onMove)
+  }, [])
+
   return (
     // Medusa UI components that carry a tooltip - Copy among them - throw
     // unless a provider sits above them, so the whole console is wrapped once.
     <TooltipProvider>
+      <div className="mr-sky" aria-hidden="true">
+        <div className="mr-sky-rotation">
+          <div className="mr-sky-grain" />
+        </div>
+      </div>
+      <div className="mr-glow" aria-hidden="true" />
       <div className="mr-app">
         <aside className="mr-sidebar">
           <Brand />
@@ -198,38 +215,40 @@ export function Shell({
         ) : null}
 
         <div className="mr-workspace">
-          <header className="mr-topbar">
-            <button
-              type="button"
-              className="mr-icon-btn mr-menu-btn"
-              aria-expanded={menuOpen}
-              aria-label="Open menu"
-              onClick={() => setMenuOpen(true)}
-            >
-              <BarsThree />
-            </button>
-            <div className="mr-topbar-title">
-              <small>{page.group}</small>
-              <strong>{page.label}</strong>
-            </div>
-            <div className="mr-topbar-right">
-              {today ? <span className="mr-date">{today}</span> : null}
-              {!verified && !open ? (
-                <span className="mr-pill mr-pill-warn" title="The Cloudflare Access assertion was not verified">
-                  Unverified
+          <div className="mr-topbar-wrap">
+            <header className="mr-topbar">
+              <button
+                type="button"
+                className="mr-icon-btn mr-menu-btn"
+                aria-expanded={menuOpen}
+                aria-label="Open menu"
+                onClick={() => setMenuOpen(true)}
+              >
+                <BarsThree />
+              </button>
+              <div className="mr-topbar-title">
+                <small>{page.group}</small>
+                <strong>{page.label}</strong>
+              </div>
+              <div className="mr-topbar-right">
+                {today ? <span className="mr-date">{today}</span> : null}
+                {!verified && !open ? (
+                  <span className="mr-pill mr-pill-warn" title="The Cloudflare Access assertion was not verified">
+                    Unverified
+                  </span>
+                ) : null}
+                {storefrontUrl ? (
+                  <a className="mr-btn-ghost" href={storefrontUrl} target="_blank" rel="noopener noreferrer">
+                    <ArrowUpRightOnBox />
+                    <span>View store</span>
+                  </a>
+                ) : null}
+                <span className="mr-avatar mr-avatar-sm" title={email} aria-hidden="true">
+                  {initials(email)}
                 </span>
-              ) : null}
-              {storefrontUrl ? (
-                <a className="mr-btn-ghost" href={storefrontUrl} target="_blank" rel="noopener noreferrer">
-                  <ArrowUpRightOnBox />
-                  <span>View store</span>
-                </a>
-              ) : null}
-              <span className="mr-avatar mr-avatar-sm" title={email} aria-hidden="true">
-                {initials(email)}
-              </span>
-            </div>
-          </header>
+              </div>
+            </header>
+          </div>
 
           <main className="mr-main">
             {open ? (
@@ -244,6 +263,14 @@ export function Shell({
             ) : null}
             {children}
           </main>
+
+          <footer className="mr-foot">
+            <p>
+              <span>Maktabah Ruhayn</span>
+              <span>Shop admin</span>
+              <span>{open ? "Access off" : verified ? "Access verified" : "Access unverified"}</span>
+            </p>
+          </footer>
         </div>
       </div>
     </TooltipProvider>
