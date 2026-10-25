@@ -1,10 +1,10 @@
 "use client"
 
-import { Newspaper } from "@medusajs/icons"
-import { Button, StatusBadge, Table, Text } from "@medusajs/ui"
-import { useMemo, useState } from "react"
+import { ArrowDownTray, Newspaper } from "@medusajs/icons"
+import { Button, StatusBadge, Table, Text, toast } from "@medusajs/ui"
+import { useRef, useMemo, useState } from "react"
 import { ErrorNote, PageHeader, Section } from "@/components/kit"
-import { dateTime, useApi } from "@/lib/api"
+import { api, dateTime, useApi } from "@/lib/api"
 import { csvCell } from "@/lib/csv"
 
 type Subscriber = {
@@ -21,8 +21,10 @@ type Subscriber = {
 const SOURCES: Record<string, string> = { popup: "Pop-up", footer: "Footer", register: "Sign-up", checkout: "Checkout" }
 
 const NewsletterPage = () => {
-  const { data, error, loading } = useApi<{ subscribers: Subscriber[]; count: number }>("/api/newsletter?limit=500")
+  const { data, error, loading, reload } = useApi<{ subscribers: Subscriber[]; count: number }>("/api/newsletter?limit=500")
   const [q, setQ] = useState("")
+  const [importing, setImporting] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const rows = useMemo(
     () =>
       (data?.subscribers || []).filter((s) =>
@@ -30,6 +32,21 @@ const NewsletterPage = () => {
       ),
     [data, q]
   )
+
+  const importCsv = async (file: File) => {
+    setImporting(true)
+    try {
+      const text = await file.text()
+      const res = await api("/api/newsletter", { method: "POST", body: text, headers: { "Content-Type": "text/plain" } })
+      toast.success(`Imported ${res.imported} subscribers (${res.skipped} duplicates skipped)`)
+      reload()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setImporting(false)
+      if (fileRef.current) fileRef.current.value = ""
+    }
+  }
 
   const exportCsv = () => {
     const lines = [
@@ -54,9 +71,15 @@ const NewsletterPage = () => {
         title="Newsletter"
         subtitle={`${data?.count ?? "…"} subscribers from the sign-up pop-up, footer and account forms.`}
         actions={
-          <Button size="small" variant="secondary" onClick={exportCsv} disabled={!rows.length}>
-            Export CSV
-          </Button>
+          <div className="flex gap-2">
+            <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={(e) => e.target.files?.[0] && importCsv(e.target.files[0])} />
+            <Button size="small" variant="secondary" isLoading={importing} onClick={() => fileRef.current?.click()}>
+              <ArrowDownTray /> Import CSV
+            </Button>
+            <Button size="small" variant="secondary" onClick={exportCsv} disabled={!rows.length}>
+              Export CSV
+            </Button>
+          </div>
         }
       />
       <ErrorNote message={error} />

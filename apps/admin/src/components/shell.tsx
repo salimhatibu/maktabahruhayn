@@ -69,11 +69,9 @@ function initials(email: string) {
 function Brand() {
   return (
     <Link href="/" className="mr-brand" aria-label="Maktabah Ruhayn dashboard">
-      <span className="mr-brand-mark" aria-hidden="true">
-        m<span>.</span>
-      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo.png" alt="Maktabah Ruhayn" className="mr-brand-logo" width={120} height={36} />
       <span className="mr-brand-text">
-        <strong>Maktabah Ruhayn</strong>
         <small>Shop admin</small>
       </span>
     </Link>

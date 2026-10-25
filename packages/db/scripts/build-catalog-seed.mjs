@@ -33,6 +33,9 @@ const CATEGORIES = [
   { handle: "islamic-education", name: "Islamic Education & Arabic" },
   { handle: "childrens-books", name: "Children's Books" },
   { handle: "gifts", name: "Gifts & Calendars" },
+  { handle: "general-islamic", name: "General Islamic" },
+  { handle: "arabic-learning", name: "Arabic Learning" },
+  { handle: "marriage-family", name: "Marriage & Family" },
 ]
 
 /** Short, readable code used as the system SKU, stable for a given seed. */

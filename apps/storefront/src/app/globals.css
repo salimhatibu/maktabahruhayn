@@ -755,6 +755,13 @@ input[type="radio"] {
   display: inline-block;
 }
 
+.logo-img {
+  display: block;
+  width: auto;
+  height: clamp(36px, 5vw, 48px);
+  object-fit: contain;
+}
+
 .logo-invert,
 .logo-invert .wordmark {
   color: #f6efe3;

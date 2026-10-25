@@ -68,17 +68,33 @@ function splitCsvLine(line: string): string[] {
 function parseCsv(text: string): Record<string, string>[] {
   const clean = text.replace(/^﻿/, "")
   const lines = clean.split(/\r?\n/).filter((l) => l.trim())
-  if (lines.length < 2) return []
-  const headers = splitCsvLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z_]/g, ""))
-  return lines.slice(1).map((line) => {
-    const values = splitCsvLine(line)
-    const row: Record<string, string> = {}
-    headers.forEach((h, i) => {
-      // Exports guard formula-like values ("+254…") with an apostrophe; undo it.
-      row[h] = (values[i] || "").replace(/^'(?=[=+\-@\t\r])/, "")
+  if (!lines.length) return []
+
+  const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+  const firstCols = splitCsvLine(lines[0])
+  const firstVal = firstCols[0].toLowerCase().replace(/[^a-z_]/g, "")
+  const hasHeader = firstVal === "email" || firstVal === "name" || firstVal === "first_name"
+
+  if (hasHeader) {
+    if (lines.length < 2) return []
+    const headers = firstCols.map((h) => h.toLowerCase().replace(/[^a-z_]/g, ""))
+    return lines.slice(1).map((line) => {
+      const values = splitCsvLine(line)
+      const row: Record<string, string> = {}
+      headers.forEach((h, i) => {
+        row[h] = (values[i] || "").replace(/^'(?=[=+\-@\t\r])/, "")
+      })
+      return row
+    }).filter((r) => r.email)
+  }
+
+  return lines
+    .map((line) => {
+      const cols = splitCsvLine(line)
+      const email = cols.find((c) => emailRe.test(c.trim()))
+      return email ? { email: email.trim() } : null
     })
-    return row
-  })
+    .filter((r): r is Record<string, string> => r !== null)
 }
 
 type EditForm = {

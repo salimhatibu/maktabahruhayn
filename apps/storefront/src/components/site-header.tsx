@@ -136,9 +136,14 @@ export function SiteHeader({
   )
 }
 
-/** The store's name as a single wordmark. */
+/** The store's brand logo with a text fallback. */
 export function LogoText({ name }: { name: string }) {
-  return <span className="wordmark">{name}</span>
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo.png" alt={name} className="logo-img" width={160} height={48} />
+    </>
+  )
 }
 
 /** Thin promotional strip used on product, cart, and listing pages. */

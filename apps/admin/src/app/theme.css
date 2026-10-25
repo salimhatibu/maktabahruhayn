@@ -61,9 +61,10 @@ html:root.dark {
   --bg-subtle: var(--mr-surface-subtle);
   --bg-subtle-hover: var(--mr-surface-hover);
   --bg-subtle-pressed: var(--mr-border);
-  --bg-component: oklch(0.945 0.01 170);
-  --bg-component-hover: var(--mr-border);
-  --bg-component-pressed: var(--mr-border-strong);
+  --bg-component: oklch(0.997 0.003 165);
+  --bg-component-hover: oklch(0.965 0.01 170);
+  --bg-component-pressed: oklch(0.94 0.012 170);
+  --elevation-flyout: 0px 0px 0px 1px rgba(0, 0, 0, 0.1), 0px 4px 12px 0px rgba(0, 0, 0, 0.12), 0px 8px 24px 0px rgba(0, 0, 0, 0.1);
   --bg-field: var(--mr-surface);
   --bg-field-hover: var(--mr-surface-subtle);
   --bg-field-component: var(--mr-surface);
@@ -125,6 +126,11 @@ html:root.dark {
   --tag-green-bg: var(--mr-green-soft);
   --tag-green-text: oklch(0.4 0.09 168);
   --tag-green-border: oklch(0.86 0.05 168);
+}
+
+/* Radix portals (dropdowns, popovers, selects) must sit above sticky bars. */
+[data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
 }
 
 /* ---- Base: a larger, more readable scale ------------------------------- */
@@ -235,6 +241,13 @@ html [tabindex]:focus-visible {
 
 .mr-brand-mark span {
   color: oklch(0.82 0.1 165);
+}
+
+.mr-brand-logo {
+  width: auto;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .mr-brand-text {

@@ -18,10 +18,10 @@ export const SUBJECTS: Subject[] = [
   { handle: "seerah-history", name: "Seerah & History", blurb: "The Prophet's life, Companions and caliphs" },
   { handle: "islamic-living", name: "Islamic Living", blurb: "Du'a, dhikr and everyday guidance" },
   { handle: "islamic-education", name: "Islamic Education & Arabic", blurb: "Qaida and first steps in Arabic" },
-  { handle: "marriage-family", name: "Marriage & Family", blurb: "Marriage, the rights of spouses and raising children" },
-  { handle: "women", name: "Women", blurb: "Books for and by Muslim women" },
-  { handle: "arabic-books", name: "Arabic Books", blurb: "Texts in the original Arabic" },
   { handle: "childrens-books", name: "Children's Books", blurb: "Stories, prayer guides and board books" },
+  { handle: "general-islamic", name: "General Islamic", blurb: "General Islamic topics and guidance" },
+  { handle: "arabic-learning", name: "Arabic Learning", blurb: "Resources for learning the Arabic language" },
+  { handle: "marriage-family", name: "Marriage & Family", blurb: "Marriage, the rights of spouses and raising children" },
   { handle: "gifts", name: "Gifts & Calendars", blurb: "Calendars and gift sets" },
 ]
 
@@ -154,9 +154,5 @@ export const NAV: NavItem[] = [
       { heading: "Fiqh & Aqidah", href: "/books?category=fiqh-aqidah", links: [subjectLink("fiqh-aqidah", "All Fiqh & Aqidah")] },
     ],
   },
-  { label: "Seerah & History", href: "/books?category=seerah-history" },
-  { label: "Islamic Living", href: "/books?category=islamic-living" },
-  { label: "Children's Books", href: "/books?category=childrens-books" },
-  { label: "Gifts", href: "/books?category=gifts" },
   { label: "Sale", href: "/books?sale=1" },
 ]
