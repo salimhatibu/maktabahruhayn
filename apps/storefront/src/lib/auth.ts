@@ -138,7 +138,8 @@ export async function register(input: {
   metadata?: Record<string, unknown>
 }) {
   const metadata = input.metadata || {}
-  const created = await createCustomer(await db(), {
+  const database = await db()
+  const created = await createCustomer(database, {
     email: input.email,
     password: input.password,
     firstName: input.first_name,
@@ -150,7 +151,9 @@ export async function register(input: {
   if (!created.ok) {
     throw new AuthError("An account already exists for that email address.")
   }
-  return login(input.email, input.password)
+  await pruneSessions(database)
+  await setAuthToken(await createSession(database, created.customerId))
+  return created.customerId
 }
 
 export async function getCustomer(): Promise<Customer | null> {
