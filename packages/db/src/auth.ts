@@ -9,7 +9,7 @@ import { newId } from "./writes"
  * iteration count is stored with every hash, so it can be raised later
  * without invalidating existing passwords.
  */
-const PBKDF2_ITERATIONS = 210_000
+const PBKDF2_ITERATIONS = 100_000
 const SESSION_DAYS = 30
 
 export type CustomerRow = {
