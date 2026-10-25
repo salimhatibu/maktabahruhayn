@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         .bind(newId("nsub"), email, now)
     )
     const results = await d.batch(stmts)
-    imported += results.filter((r) => r.meta.changes > 0).length
+    imported += results.filter((r) => r.meta?.changes && r.meta.changes > 0).length
   }
 
   return NextResponse.json({ imported, skipped: unique.length - imported, total: unique.length })
