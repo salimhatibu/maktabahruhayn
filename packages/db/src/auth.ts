@@ -130,8 +130,22 @@ export async function createCustomer(
   }
 ): Promise<{ ok: true; customerId: string } | { ok: false; reason: "email_taken" }> {
   const email = input.email.trim().toLowerCase()
-  if (await findCustomerByEmail(db, email)) {
+  const existing = await findCustomerByEmail(db, email)
+  if (existing && existing.password_hash) {
     return { ok: false, reason: "email_taken" }
+  }
+  const hash = await hashPassword(input.password)
+  if (existing) {
+    await db
+      .prepare(
+        `UPDATE customer SET password_hash = ?1, first_name = COALESCE(?2, first_name),
+         last_name = COALESCE(?3, last_name), phone = COALESCE(?4, phone),
+         payment_pref = COALESCE(?5, payment_pref), mpesa_phone = COALESCE(?6, mpesa_phone)
+         WHERE id = ?7`
+      )
+      .bind(hash, input.firstName || null, input.lastName || null, input.phone || null, input.paymentPref || null, input.mpesaPhone || null, existing.id)
+      .run()
+    return { ok: true, customerId: existing.id }
   }
   const id = newId("cus")
   try {
@@ -143,7 +157,7 @@ export async function createCustomer(
       .bind(
         id,
         email,
-        await hashPassword(input.password),
+        hash,
         input.firstName || null,
         input.lastName || null,
         input.phone || null,
@@ -152,7 +166,6 @@ export async function createCustomer(
       )
       .run()
   } catch {
-    // Two sign-ups racing on the same address: the unique index decides.
     return { ok: false, reason: "email_taken" }
   }
   return { ok: true, customerId: id }
