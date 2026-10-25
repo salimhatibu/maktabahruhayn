@@ -55,7 +55,7 @@
 		// The shop's public origin, for "View store" and cover images. After
 		// the cutover: "https://maktabahruhayn.com".
 		"STOREFRONT_URL": "https://maktabahruhayn.com",
-		"R2_PUBLIC_URL": ""
+		"R2_PUBLIC_URL": "https://media.maktabahruhayn.com"
 	},
 	"observability": {
 		"enabled": true
