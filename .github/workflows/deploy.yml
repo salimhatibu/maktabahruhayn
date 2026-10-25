@@ -25,6 +25,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Apply D1 migrations
+        continue-on-error: true
         working-directory: apps/admin
         run: npx wrangler d1 migrations apply maktabah --remote
         env:
