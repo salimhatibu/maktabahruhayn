@@ -806,7 +806,7 @@ input[type="radio"] {
   border: 1.5px solid var(--line-strong);
   border-radius: 999px;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(31, 63, 55, 0.08), 0 0 0 1px rgba(31, 63, 55, 0.04);
+  box-shadow: 0 1px 4px rgba(31, 63, 55, 0.08);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
