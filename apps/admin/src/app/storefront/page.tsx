@@ -4,6 +4,7 @@ import { BuildingStorefront } from "@medusajs/icons"
 import { Button, Input, Select, Switch, Text, Textarea, toast } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 import { ImageManager } from "@/components/image-manager"
+import { ColorPicker } from "@/components/color-picker"
 import { ErrorNote, Field, PageHeader, Section } from "@/components/kit"
 import { ListEditor } from "@/components/list-editor"
 import { useSettings } from "@/lib/api"
@@ -15,7 +16,7 @@ type Slide = {
   text: string
   cta: string
   href: string
-  tone: "sky" | "sand" | "green"
+  tone: string
   coverTag: string
   images?: string[]
 }
@@ -116,7 +117,7 @@ const StorefrontPage = () => {
         <ListEditor<Slide>
           items={form.heroSlides}
           onChange={(heroSlides) => setForm({ ...form, heroSlides })}
-          create={() => ({ kicker: "", title: "", text: "", cta: "Shop Now", href: "/books", tone: "sky", coverTag: "bestseller", images: [] })}
+          create={() => ({ kicker: "", title: "", text: "", cta: "Shop Now", href: "/books", tone: "#f6ecee", coverTag: "bestseller", images: [] })}
           addLabel="Add slide"
           render={(s, update) => (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -127,16 +128,7 @@ const StorefrontPage = () => {
                 <Input value={s.title} onChange={(e) => update({ title: e.target.value })} />
               </Field>
               <Field label="Background">
-                <Select value={s.tone} onValueChange={(v) => update({ tone: v as Slide["tone"] })}>
-                  <Select.Trigger>
-                    <Select.Value />
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="sky">Blush rose</Select.Item>
-                    <Select.Item value="sand">Parchment</Select.Item>
-                    <Select.Item value="green">Sage</Select.Item>
-                  </Select.Content>
-                </Select>
+                <ColorPicker value={s.tone} onChange={(v) => update({ tone: v })} />
               </Field>
               <div className="md:col-span-3">
                 <Field label="Text">

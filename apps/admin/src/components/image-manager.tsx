@@ -98,18 +98,12 @@ export function ImageManager({
   // Paste an image anywhere on the page (outside text fields) to add it.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
-      if (isEditable(e.target)) {
-        return
-      }
-      const target = activeManager && mounted.has(activeManager) ? activeManager : mounted.size === 1 ? instance : null
-      if (target !== instance) {
-        return
-      }
       const files = Array.from(e.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"))
-      if (files.length) {
-        e.preventDefault()
-        void addFiles(files)
-      }
+      if (!files.length) return
+      const target = activeManager && mounted.has(activeManager) ? activeManager : mounted.size === 1 ? instance : null
+      if (target !== instance) return
+      e.preventDefault()
+      void addFiles(files)
     }
     document.addEventListener("paste", onPaste)
     return () => document.removeEventListener("paste", onPaste)

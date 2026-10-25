@@ -25,7 +25,7 @@ export type SiteConfig = {
       text: string
       cta: string
       href: string
-      tone: "sky" | "sand" | "green"
+      tone: string
       coverTag: string
       images?: string[]
     }[]

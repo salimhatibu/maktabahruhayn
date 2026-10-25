@@ -90,7 +90,10 @@ export default async function HomePage() {
     ? slides.map((s, i) => ({
         label: s.title,
         node: (
-          <div className={`hero-inner wrap tone-${s.tone}`}>
+          <div
+            className={`hero-inner wrap${s.tone.startsWith("#") ? " tone-custom" : ` tone-${s.tone}`}`}
+            style={s.tone.startsWith("#") ? { "--hero-bg": s.tone } as React.CSSProperties : undefined}
+          >
             <div className="hero-copy">
               {s.kicker ? <p className="hero-kicker">{s.kicker}</p> : null}
               {i === 0 ? <h1>{s.title}</h1> : <h2 className="hero-title">{s.title}</h2>}

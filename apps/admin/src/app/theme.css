@@ -136,6 +136,18 @@ html:root.dark {
   z-index: 50 !important;
 }
 
+/* Radix Dialog portals (Medusa Drawer / Modal) must sit above all app layers. */
+[role="dialog"][data-state] {
+  z-index: 70 !important;
+}
+[data-state][role="dialog"] ~ [data-state="open"] {
+  z-index: 70 !important;
+}
+/* The overlay sibling rendered by Radix before the dialog content. */
+.bg-ui-bg-overlay {
+  z-index: 69 !important;
+}
+
 /* ---- Base: a larger, more readable scale ------------------------------- */
 /* Medusa sizes everything in rem, so the root size scales the whole console. */
 html {
@@ -1408,4 +1420,66 @@ html [tabindex]:focus-visible {
   html *::after {
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---- Color picker ------------------------------------------------------- */
+.mr-color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mr-color-presets {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.mr-color-swatch {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.mr-color-swatch:hover {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(107, 142, 112, 0.2);
+}
+
+.mr-color-swatch.is-active {
+  border-color: var(--mr-accent);
+  box-shadow: 0 0 0 2px rgba(107, 142, 112, 0.3);
+}
+
+.mr-color-custom {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.mr-color-custom input[type="color"] {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mr-color-preview {
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--mr-radius-sm);
+  border: 1px solid var(--mr-border-strong);
+  flex-shrink: 0;
+}
+
+.mr-color-hex {
+  font-family: var(--mr-font-nums);
+  font-size: 0.8125rem;
+  color: var(--mr-muted);
 }

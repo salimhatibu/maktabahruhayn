@@ -35,7 +35,7 @@ export type HeroSlide = {
   text: string
   cta: string
   href: string
-  tone: "sky" | "sand" | "green"
+  tone: string
   /** Images shown on the slide (uploaded or picked from product images). */
   images: string[]
   /** Fallback when no images are set: covers of books with this tag. */

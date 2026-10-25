@@ -1376,6 +1376,10 @@ input[type="radio"] {
   background: linear-gradient(120deg, #e6ece6 0%, #f8f8f3 60%);
 }
 
+.hero-inner.tone-custom {
+  background: linear-gradient(120deg, var(--hero-bg) 0%, color-mix(in srgb, var(--hero-bg) 30%, #fbf7f2) 60%);
+}
+
 .hero-inner {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
