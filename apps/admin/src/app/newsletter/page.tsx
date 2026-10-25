@@ -1,7 +1,7 @@
 "use client"
 
-import { ArrowDownTray, Newspaper } from "@medusajs/icons"
-import { Button, StatusBadge, Table, Text, toast } from "@medusajs/ui"
+import { ArrowDownTray, Newspaper, Trash } from "@medusajs/icons"
+import { Button, Checkbox, StatusBadge, Table, Text, toast, usePrompt } from "@medusajs/ui"
 import { useRef, useMemo, useState } from "react"
 import { ErrorNote, PageHeader, Section } from "@/components/kit"
 import { api, dateTime, useApi } from "@/lib/api"
@@ -24,7 +24,10 @@ const NewsletterPage = () => {
   const { data, error, loading, reload } = useApi<{ subscribers: Subscriber[]; count: number }>("/api/newsletter?limit=500")
   const [q, setQ] = useState("")
   const [importing, setImporting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const prompt = usePrompt()
   const rows = useMemo(
     () =>
       (data?.subscribers || []).filter((s) =>
@@ -32,6 +35,44 @@ const NewsletterPage = () => {
       ),
     [data, q]
   )
+
+  const toggleAll = () => {
+    if (selected.size === rows.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(rows.map((s) => s.id)))
+    }
+  }
+
+  const toggle = (id: string) => {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelected(next)
+  }
+
+  const deleteSelected = async () => {
+    const ids = [...selected]
+    if (!ids.length) return
+    const ok = await prompt({
+      title: `Delete ${ids.length} subscriber${ids.length > 1 ? "s" : ""}?`,
+      description: "This permanently removes them from the newsletter list.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+    })
+    if (!ok) return
+    setDeleting(true)
+    try {
+      await api("/api/newsletter", { method: "DELETE", json: { ids } })
+      toast.success(`Deleted ${ids.length} subscriber${ids.length > 1 ? "s" : ""}`)
+      setSelected(new Set())
+      reload()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const importCsv = async (file: File) => {
     setImporting(true)
@@ -87,19 +128,29 @@ const NewsletterPage = () => {
         title="Subscribers"
         flush
         actions={
-          <input
-            type="search"
-            placeholder="Search name, email or phone"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="bg-ui-bg-field shadow-borders-base txt-compact-small placeholder:text-ui-fg-muted h-8 w-full rounded-md sm:w-64 px-2.5 outline-none"
-          />
+          <div className="flex items-center gap-2">
+            {selected.size > 0 ? (
+              <Button size="small" variant="secondary" isLoading={deleting} onClick={deleteSelected}>
+                <Trash /> Delete {selected.size}
+              </Button>
+            ) : null}
+            <input
+              type="search"
+              placeholder="Search name, email or phone"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="bg-ui-bg-field shadow-borders-base txt-compact-small placeholder:text-ui-fg-muted h-8 w-full rounded-md sm:w-64 px-2.5 outline-none"
+            />
+          </div>
         }
       >
         <div className="mr-scroll-x">
             <Table>
           <Table.Header>
             <Table.Row>
+              <Table.HeaderCell className="w-8">
+                <Checkbox checked={rows.length > 0 && selected.size === rows.length} onCheckedChange={toggleAll} />
+              </Table.HeaderCell>
               <Table.HeaderCell>Subscriber</Table.HeaderCell>
               <Table.HeaderCell>Phone</Table.HeaderCell>
               <Table.HeaderCell>Source</Table.HeaderCell>
@@ -110,6 +161,9 @@ const NewsletterPage = () => {
           <Table.Body>
             {rows.map((s) => (
               <Table.Row key={s.id}>
+                <Table.Cell>
+                  <Checkbox checked={selected.has(s.id)} onCheckedChange={() => toggle(s.id)} />
+                </Table.Cell>
                 <Table.Cell>
                   <Text size="small" weight="plus">
                     {s.name || "—"}

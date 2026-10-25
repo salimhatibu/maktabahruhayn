@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   const { results } = await (await db())
     .prepare(
-      `SELECT id, email, name, phone, country_code, source, created_at
+      `SELECT id, email, name, phone, country_code, source, status, created_at
          FROM newsletter_subscriber ORDER BY created_at DESC LIMIT ?1`
     )
     .bind(limit)
@@ -87,4 +87,18 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ imported, skipped: unique.length - imported, total: unique.length })
+}
+
+/** DELETE /api/newsletter — remove subscribers by ID. */
+export async function DELETE(request: NextRequest) {
+  const { ids } = (await request.json()) as { ids?: string[] }
+  if (!ids?.length) {
+    return NextResponse.json({ message: "No IDs provided." }, { status: 400 })
+  }
+  const d = await db()
+  const stmts = ids.map((id) =>
+    d.prepare("DELETE FROM newsletter_subscriber WHERE id = ?1").bind(id)
+  )
+  await d.batch(stmts)
+  return NextResponse.json({ deleted: ids.length })
 }

@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
   const subject = `Test email (${body.template || "generic"})`
   let status: "sent" | "failed" = "failed"
   let error: string | null = "No email provider is configured (set EMAIL_API_URL and EMAIL_API_KEY)."
+  let providerId: string | null = null
 
   if (endpoint && token) {
     try {
@@ -35,8 +36,14 @@ export async function POST(request: NextRequest) {
           text: "This is a test email from the Maktabah Ruhayn admin.",
         }),
       })
-      status = response.ok ? "sent" : "failed"
-      error = response.ok ? null : `Provider returned ${response.status}`
+      if (response.ok) {
+        status = "sent"
+        error = null
+        const result = (await response.json()) as { id?: string }
+        providerId = result.id || null
+      } else {
+        error = `Provider returned ${response.status}`
+      }
     } catch (sendError) {
       error = (sendError as Error).message
     }
@@ -44,10 +51,10 @@ export async function POST(request: NextRequest) {
 
   await (await db())
     .prepare(
-      `INSERT INTO email_log (id, template, recipient, subject, status, error)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
+      `INSERT INTO email_log (id, template, recipient, subject, status, error, provider_id)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
     )
-    .bind(newId("mail"), body.template || "test", to, subject, status, error)
+    .bind(newId("mail"), body.template || "test", to, subject, status, error, providerId)
     .run()
 
   return status === "sent"
