@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowDownTray, ArrowUpTray, PencilSquare, Trash, Users, XMark } from "@medusajs/icons"
+import { ArrowDownTray, ArrowUpTray, PencilSquare, Plus, Trash, Users, XMark } from "@medusajs/icons"
 import { Button, Checkbox, Container, Input, Label, Table, Text, toast } from "@medusajs/ui"
 import { Suspense, useEffect, useRef, useState } from "react"
 import { IconChip } from "@/components/kit"
@@ -203,6 +203,106 @@ function EditModal({
   )
 }
 
+function AddModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState<EditForm>({ email: "", first_name: "", last_name: "", phone: "" })
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    const email = form.email.trim()
+    if (!email) {
+      toast.error("Email is required")
+      return
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      toast.error("Enter a valid email address")
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await api<{ imported: number; skipped: number }>("/api/customers", {
+        method: "POST",
+        json: {
+          customers: [{
+            email,
+            first_name: form.first_name,
+            last_name: form.last_name,
+            phone: form.phone,
+          }],
+        },
+      })
+      if (res.skipped > 0) {
+        toast.error("A customer with this email already exists")
+      } else {
+        toast.success("Customer added")
+        onSaved()
+      }
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-ui-bg-base shadow-elevation-modal w-full max-w-md rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <Text size="large" weight="plus">Add Customer</Text>
+          <button onClick={onClose} className="text-ui-fg-subtle hover:text-ui-fg-base">
+            <XMark />
+          </button>
+        </div>
+        <div className="flex flex-col gap-4 px-6 py-5">
+          <div>
+            <Label size="xsmall" weight="plus">Email *</Label>
+            <Input
+              size="small"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="customer@example.com"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label size="xsmall" weight="plus">First Name</Label>
+              <Input
+                size="small"
+                value={form.first_name}
+                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label size="xsmall" weight="plus">Last Name</Label>
+              <Input
+                size="small"
+                value={form.last_name}
+                onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <Label size="xsmall" weight="plus">Phone</Label>
+            <Input
+              size="small"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="+254700000000"
+            />
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t px-6 py-4">
+          <Button size="small" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button size="small" onClick={handleSave} isLoading={saving}>Add Customer</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CustomersPage() {
   const [q, setQ] = useState("")
   const [debounced, setDebounced] = useState("")
@@ -210,6 +310,7 @@ function CustomersPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
   const [editing, setEditing] = useState<Customer | null>(null)
+  const [adding, setAdding] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -373,6 +474,10 @@ function CustomersPage() {
               <ArrowUpTray />
               Import CSV
             </Button>
+            <Button size="small" onClick={() => setAdding(true)}>
+              <Plus />
+              Add Customer
+            </Button>
             <input
               ref={fileRef}
               type="file"
@@ -471,6 +576,16 @@ function CustomersPage() {
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null)
+            reload()
+          }}
+        />
+      )}
+
+      {adding && (
+        <AddModal
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false)
             reload()
           }}
         />
