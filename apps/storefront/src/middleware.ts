@@ -90,6 +90,7 @@ export function middleware(request: NextRequest) {
   }
 
   for (const write of writes) {
+    // nosemgrep: cookies-default-koa — request-forwarding only; response cookie at line 108 sets sameSite:"lax"
     request.cookies.set(write.name, write.value)
   }
   const requestHeaders = new Headers(request.headers)

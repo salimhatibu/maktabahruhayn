@@ -165,6 +165,7 @@ export default async function BookPage({ params, searchParams }: Props) {
     <main>
       <script
         type="application/ld+json"
+        // nosemgrep: react-dangerouslysetinnerhtml — JSON-LD from our own bookJsonLd(), escaped by safeJson()
         dangerouslySetInnerHTML={{ __html: safeJson(bookJsonLd(book, url, absolute, summary)) }}
       />
       <RecordView
@@ -353,6 +354,7 @@ export default async function BookPage({ params, searchParams }: Props) {
               ) : null}
               {book.descriptionHtml ? (
                 <ReadMore>
+                  {/* nosemgrep: react-dangerouslysetinnerhtml — sanitized by sanitizeHtml() allowlist in rich-text.ts */}
                   <div className="rich-text" dangerouslySetInnerHTML={{ __html: book.descriptionHtml }} />
                 </ReadMore>
               ) : (
