@@ -30,11 +30,11 @@ const VARIABLES = "{{customer.first_name}} {{order.display_id}} {{order.items}} 
 type EmailRow = { id: string; to: string; template: string; subject: string | null; status: string; provider_id: string | null; created_at: string }
 
 const STATUS_COLOR: Record<string, "green" | "orange" | "red" | "blue" | "grey"> = {
-  sent: "orange",
+  sent: "blue",
   delivered: "green",
-  opened: "blue",
-  clicked: "blue",
-  bounced: "red",
+  opened: "green",
+  clicked: "green",
+  bounced: "orange",
   complained: "red",
   failed: "red",
 }
