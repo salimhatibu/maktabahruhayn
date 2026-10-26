@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from, to: [to], subject, text: body }),
+        body: JSON.stringify({ from, to: [to], subject, html: body }),
       })
       if (response.ok) {
         status = "sent"
