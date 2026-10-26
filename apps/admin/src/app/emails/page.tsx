@@ -1,9 +1,10 @@
 "use client"
 
 import { Envelope, Trash } from "@medusajs/icons"
-import { Button, Checkbox, Input, Select, StatusBadge, Switch, Table, Text, Textarea, toast, usePrompt } from "@medusajs/ui"
+import { Button, Checkbox, Input, Select, StatusBadge, Switch, Table, Text, toast } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 import { ErrorNote, Field, PageHeader, Section } from "@/components/kit"
+import { RichEditor } from "@/components/rich-editor"
 import { api, dateTime, useApi, useSettings } from "@/lib/api"
 
 type TemplateKey = "order_placed" | "order_shipped" | "order_delivered" | "customer_welcome" | "abandoned_cart" | "newsletter_welcome"
@@ -70,7 +71,6 @@ const EmailsPage = () => {
   const [bulkLimit, setBulkLimit] = useState(BATCH_SIZE)
   const [sending, setSending] = useState(false)
   const [sendProgress, setSendProgress] = useState<{ sent: number; failed: number; total: number } | null>(null)
-  const prompt = usePrompt()
   useEffect(() => setForm(settings.value), [settings.value])
 
   const toggleAllLogs = () => {
@@ -92,13 +92,7 @@ const EmailsPage = () => {
   const deleteLogs = async () => {
     const ids = [...logSelected]
     if (!ids.length) return
-    const ok = await prompt({
-      title: `Delete ${ids.length} log entr${ids.length > 1 ? "ies" : "y"}?`,
-      description: "This permanently removes the selected entries from the email log.",
-      confirmText: "Delete",
-      cancelText: "Cancel",
-    })
-    if (!ok) return
+    if (!window.confirm(`Delete ${ids.length} log entr${ids.length > 1 ? "ies" : "y"}? This cannot be undone.`)) return
     setDeleting(true)
     try {
       await api("/api/emails", { method: "DELETE", json: { ids } })
@@ -137,13 +131,7 @@ const EmailsPage = () => {
       return
     }
     const count = Math.min(bulkLimit, audienceCount)
-    const ok = await prompt({
-      title: `Send to ${count} recipient${count > 1 ? "s" : ""}?`,
-      description: `This will send "${bulkSubject}" to ${bulkAudience === "all" ? "all customers and subscribers" : "newsletter subscribers"}. This cannot be undone.`,
-      confirmText: `Send ${count} emails`,
-      cancelText: "Cancel",
-    })
-    if (!ok) return
+    if (!window.confirm(`Send "${bulkSubject}" to ${count} ${bulkAudience === "all" ? "customers and subscribers" : "newsletter subscribers"}? This cannot be undone.`)) return
     setSending(true)
     setSendProgress({ sent: 0, failed: 0, total: 0 })
     let offset = 0
@@ -268,8 +256,8 @@ const EmailsPage = () => {
             <Field label="Subject">
               <Input value={template.subject} onChange={(e) => setTemplate({ subject: e.target.value })} />
             </Field>
-            <Field label="Message" hint="Plain text; blank lines become paragraphs and links are clickable.">
-              <Textarea rows={12} value={template.body} onChange={(e) => setTemplate({ body: e.target.value })} />
+            <Field label="Message">
+              <RichEditor value={template.body} onChange={(html) => setTemplate({ body: html })} placeholder="Write your email template..." />
             </Field>
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Send a test to">
@@ -315,8 +303,8 @@ const EmailsPage = () => {
           <Field label="Subject">
             <Input value={bulkSubject} onChange={(e) => setBulkSubject(e.target.value)} placeholder="Your subject line" />
           </Field>
-          <Field label="Message" hint="Plain text. Links are clickable automatically.">
-            <Textarea rows={8} value={bulkBody} onChange={(e) => setBulkBody(e.target.value)} placeholder="Write your email here..." />
+          <Field label="Message">
+            <RichEditor value={bulkBody} onChange={setBulkBody} placeholder="Write your email here..." />
           </Field>
           <div className="flex items-center gap-3">
             <Button
@@ -345,7 +333,6 @@ const EmailsPage = () => {
           <Button size="small" variant="secondary" isLoading={syncing} onClick={syncStatus}>
             Sync status
           </Button>
-          <Button size="small" variant="transparent" onClick={log.reload}>Refresh</Button>
         </div>
       }>
         <div className="mr-scroll-x">

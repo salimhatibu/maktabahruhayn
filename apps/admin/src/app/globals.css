@@ -12,3 +12,81 @@ body {
 body {
   background: var(--mr-page-bg, oklch(0.967 0.008 170));
 }
+
+/* Rich text editor */
+.mr-rte {
+  border: 1px solid var(--border-base, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+.mr-rte-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-base, #e5e7eb);
+  background: #f9fafb;
+}
+.mr-rte-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: #374151;
+  white-space: nowrap;
+}
+.mr-rte-btn:hover {
+  background: #e5e7eb;
+}
+.mr-rte-btn.is-active {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+.mr-rte-select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.mr-rte-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: #d1d5db;
+}
+.mr-rte-body {
+  min-height: 260px;
+  max-height: 600px;
+  overflow-y: auto;
+  padding: 16px;
+  outline: none;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.mr-rte-body:empty::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+.mr-rte-body h2 { font-size: 1.4rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+.mr-rte-body h3 { font-size: 1.2rem; font-weight: 600; margin: 0.8rem 0 0.4rem; }
+.mr-rte-body h4 { font-size: 1.05rem; font-weight: 600; margin: 0.6rem 0 0.3rem; }
+.mr-rte-body p { margin: 0.5em 0; }
+.mr-rte-body ul, .mr-rte-body ol { padding-left: 1.5em; margin: 0.5em 0; }
+.mr-rte-body li { margin: 0.2em 0; }
+.mr-rte-body blockquote { border-left: 3px solid #d1d5db; margin: 0.5em 0; padding: 0.5em 1em; color: #6b7280; }
+.mr-rte-body a { color: #2563eb; text-decoration: underline; }
+.mr-rte-body img { max-width: 100%; height: auto; border-radius: 6px; margin: 0.5em 0; }
+.mr-rte-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 1em 0; }
