@@ -33,32 +33,27 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
-  height: 30px;
-  padding: 0 6px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
+  line-height: 1;
   cursor: pointer;
   color: #374151;
-  white-space: nowrap;
+}
+.mr-rte-btn sub {
+  font-size: 0.6em;
 }
 .mr-rte-btn:hover {
   background: #e5e7eb;
 }
 .mr-rte-btn.is-active {
-  background: #dbeafe;
-  border-color: #93c5fd;
-}
-.mr-rte-select {
-  height: 30px;
-  padding: 0 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
-  font-size: 0.82rem;
-  cursor: pointer;
+  background: #1f2937;
+  border-color: #1f2937;
+  color: #fff;
 }
 .mr-rte-sep {
   width: 1px;
@@ -75,11 +70,14 @@ body {
   font-size: 0.95rem;
   line-height: 1.7;
 }
-.mr-rte-body:empty::before {
+.mr-rte-body[data-empty]::before {
   content: attr(data-placeholder);
+  display: block;
   color: #9ca3af;
   pointer-events: none;
+  height: 0;
 }
+.mr-rte-body > :first-child { margin-top: 0; }
 .mr-rte-body h2 { font-size: 1.4rem; font-weight: 600; margin: 1rem 0 0.5rem; }
 .mr-rte-body h3 { font-size: 1.2rem; font-weight: 600; margin: 0.8rem 0 0.4rem; }
 .mr-rte-body h4 { font-size: 1.05rem; font-weight: 600; margin: 0.6rem 0 0.3rem; }
