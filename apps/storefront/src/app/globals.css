@@ -819,6 +819,9 @@ input[type="radio"] {
   border-radius: 999px 0 0 999px;
   background: transparent;
   box-shadow: none !important;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
   font-size: 0.95rem;
 }
 
