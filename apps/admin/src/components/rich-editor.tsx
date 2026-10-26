@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useRef, useState } from "react"
 
 const ICON = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const }
 
@@ -19,9 +19,129 @@ const Icons = {
   clear: <svg {...ICON}><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" /></svg>,
 }
 
+const MARKS = ["bold", "italic", "underline", "strikeThrough", "insertUnorderedList", "insertOrderedList", "justifyLeft", "justifyCenter", "justifyRight"]
+
 function exec(command: string, value?: string) {
   document.execCommand(command, false, value)
 }
+
+function selectedElement(): Element | null {
+  const sel = document.getSelection()
+  const node = sel?.anchorNode
+  if (!node) return null
+  return node.nodeType === 1 ? (node as Element) : node.parentElement
+}
+
+type Cmd = (command: string, value?: string) => void
+
+/**
+ * Lives apart from the editor body on purpose: it re-renders on every caret
+ * move, and a re-render that reached the contenteditable would drop the
+ * selection the writer just made.
+ */
+const Toolbar = memo(function Toolbar({
+  bodyRef,
+  run,
+  onPickImage,
+}: {
+  bodyRef: React.RefObject<HTMLDivElement | null>
+  run: Cmd
+  onPickImage: () => void
+}) {
+  const [active, setActive] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    const refresh = () => {
+      const el = bodyRef.current
+      const sel = document.getSelection()
+      if (!el || !sel?.anchorNode || !el.contains(sel.anchorNode)) return
+      const state: Record<string, boolean> = {}
+      for (const c of MARKS) {
+        try {
+          state[c] = document.queryCommandState(c)
+        } catch {
+          state[c] = false
+        }
+      }
+      const node = selectedElement()
+      state.h2 = Boolean(node?.closest("h2"))
+      state.h3 = Boolean(node?.closest("h3"))
+      state.blockquote = Boolean(node?.closest("blockquote"))
+      setActive((prev) => (MARKS.concat(["h2", "h3", "blockquote"]).every((k) => prev[k] === state[k]) ? prev : state))
+    }
+    document.addEventListener("selectionchange", refresh)
+    return () => document.removeEventListener("selectionchange", refresh)
+  }, [bodyRef])
+
+  const toggleBlock = useCallback((tag: string) => {
+    run("formatBlock", selectedElement()?.closest(tag) ? "<p>" : `<${tag}>`)
+  }, [run])
+
+  const addLink = useCallback(() => {
+    const current = selectedElement()?.closest("a")?.getAttribute("href") || ""
+    const url = window.prompt("Link URL (leave blank to remove):", current)
+    if (url === null) return
+    const trimmed = url.trim()
+    run(trimmed ? "createLink" : "unlink", trimmed || undefined)
+  }, [run])
+
+  const Btn = ({ k, title, on, children }: { k?: string; title: string; on?: () => void; children: React.ReactNode }) => (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      aria-pressed={k ? Boolean(active[k]) : undefined}
+      className={`mr-rte-btn${k && active[k] ? " is-active" : ""}`}
+      onMouseDown={(e) => {
+        // Keeps the caret where the writer left it; without this the button
+        // takes focus and the selection collapses.
+        e.preventDefault()
+        if (on) on()
+        else if (k) run(k)
+      }}
+    >
+      {children}
+    </button>
+  )
+
+  return (
+    <div className="mr-rte-toolbar" role="toolbar" aria-label="Formatting">
+      <Btn k="bold" title="Bold"><b>B</b></Btn>
+      <Btn k="italic" title="Italic"><i>I</i></Btn>
+      <Btn k="underline" title="Underline"><u>U</u></Btn>
+      <Btn k="strikeThrough" title="Strikethrough"><s>S</s></Btn>
+
+      <span className="mr-rte-sep" />
+
+      <Btn k="h2" title="Heading" on={() => toggleBlock("h2")}><b>H</b></Btn>
+      <Btn k="h3" title="Subheading" on={() => toggleBlock("h3")}><b>H<sub>2</sub></b></Btn>
+
+      <span className="mr-rte-sep" />
+
+      <Btn k="insertUnorderedList" title="Bulleted list">{Icons.ul}</Btn>
+      <Btn k="insertOrderedList" title="Numbered list">{Icons.ol}</Btn>
+      <Btn k="blockquote" title="Quote" on={() => toggleBlock("blockquote")}>{Icons.quote}</Btn>
+
+      <span className="mr-rte-sep" />
+
+      <Btn k="justifyLeft" title="Align left">{Icons.alignLeft}</Btn>
+      <Btn k="justifyCenter" title="Align centre">{Icons.alignCenter}</Btn>
+      <Btn k="justifyRight" title="Align right">{Icons.alignRight}</Btn>
+
+      <span className="mr-rte-sep" />
+
+      <Btn title="Insert link" on={addLink}>{Icons.link}</Btn>
+      <Btn title="Insert image" on={onPickImage}>{Icons.image}</Btn>
+      <Btn title="Divider" on={() => run("insertHorizontalRule")}>{Icons.hr}</Btn>
+
+      <span className="mr-rte-sep" />
+
+      <Btn title="Undo" on={() => run("undo")}>{Icons.undo}</Btn>
+      <Btn title="Redo" on={() => run("redo")}>{Icons.redo}</Btn>
+      <Btn title="Clear formatting" on={() => run("removeFormat")}>{Icons.clear}</Btn>
+    </div>
+  )
+})
 
 export function RichEditor({
   value,
@@ -35,77 +155,36 @@ export function RichEditor({
   const bodyRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const mounted = useRef(false)
-  const [active, setActive] = useState<Record<string, boolean>>({})
-  const [empty, setEmpty] = useState(true)
+  // Held in a ref so the callbacks below never change identity, which is what
+  // keeps this component from re-rendering the body on each keystroke.
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
 
-  // The editor is uncontrolled: React writes its HTML once, then the browser
-  // owns it. Re-rendering the body would collapse the caret on every keystroke.
   useEffect(() => {
-    if (mounted.current || !bodyRef.current) return
+    const el = bodyRef.current
+    if (mounted.current || !el) return
     mounted.current = true
-    bodyRef.current.innerHTML = value || ""
-    setEmpty(!bodyRef.current.textContent?.trim() && !bodyRef.current.querySelector("img, hr"))
+    el.innerHTML = value || ""
+    el.toggleAttribute("data-empty", !el.textContent?.trim() && !el.querySelector("img, hr"))
     try {
       exec("defaultParagraphSeparator", "p")
     } catch {
-      // Not supported everywhere; Enter still works.
+      // Unsupported in some engines; Enter still breaks the line.
     }
   }, [value])
-
-  const refreshActive = useCallback(() => {
-    const el = bodyRef.current
-    if (!el) return
-    const sel = document.getSelection()
-    if (!sel?.anchorNode || !el.contains(sel.anchorNode)) return
-    const state: Record<string, boolean> = {}
-    for (const c of ["bold", "italic", "underline", "strikeThrough", "insertUnorderedList", "insertOrderedList", "justifyLeft", "justifyCenter", "justifyRight"]) {
-      try {
-        state[c] = document.queryCommandState(c)
-      } catch {
-        state[c] = false
-      }
-    }
-    const node = sel.anchorNode.nodeType === 1 ? (sel.anchorNode as Element) : sel.anchorNode.parentElement
-    state.h2 = Boolean(node?.closest("h2"))
-    state.h3 = Boolean(node?.closest("h3"))
-    state.blockquote = Boolean(node?.closest("blockquote"))
-    setActive(state)
-  }, [])
-
-  useEffect(() => {
-    document.addEventListener("selectionchange", refreshActive)
-    return () => document.removeEventListener("selectionchange", refreshActive)
-  }, [refreshActive])
 
   const emit = useCallback(() => {
     const el = bodyRef.current
     if (!el) return
-    setEmpty(!el.textContent?.trim() && !el.querySelector("img, hr"))
-    onChange(el.innerHTML)
-  }, [onChange])
+    el.toggleAttribute("data-empty", !el.textContent?.trim() && !el.querySelector("img, hr"))
+    onChangeRef.current(el.innerHTML)
+  }, [])
 
-  const run = useCallback((command: string, val?: string) => {
+  const run = useCallback<Cmd>((command, val) => {
     bodyRef.current?.focus()
     exec(command, val)
     emit()
-    refreshActive()
-  }, [emit, refreshActive])
-
-  const toggleBlock = useCallback((tag: string) => {
-    const sel = document.getSelection()
-    const node = sel?.anchorNode?.nodeType === 1 ? (sel.anchorNode as Element) : sel?.anchorNode?.parentElement
-    const inside = node?.closest(tag)
-    run("formatBlock", inside ? "<p>" : `<${tag}>`)
-  }, [run])
-
-  const addLink = useCallback(() => {
-    const sel = document.getSelection()
-    const node = sel?.anchorNode?.nodeType === 1 ? (sel.anchorNode as Element) : sel?.anchorNode?.parentElement
-    const current = node?.closest("a")?.getAttribute("href") || ""
-    const url = window.prompt("Link URL (leave blank to remove):", current)
-    if (url === null) return
-    run(url.trim() ? "createLink" : "unlink", url.trim() || undefined)
-  }, [run])
+  }, [emit])
 
   const insertFile = useCallback((file: File) => {
     const reader = new FileReader()
@@ -116,6 +195,8 @@ export function RichEditor({
     }
     reader.readAsDataURL(file)
   }, [emit])
+
+  const onPickImage = useCallback(() => fileRef.current?.click(), [])
 
   const onPaste = useCallback((e: React.ClipboardEvent) => {
     for (const item of Array.from(e.clipboardData.items)) {
@@ -138,61 +219,9 @@ export function RichEditor({
     }
   }, [insertFile])
 
-  // mousedown is prevented so the caret stays where the writer put it.
-  const Btn = ({ cmd, title, on, children }: { cmd?: string; title: string; on?: () => void; children: React.ReactNode }) => (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      aria-pressed={cmd ? Boolean(active[cmd]) : undefined}
-      className={`mr-rte-btn${cmd && active[cmd] ? " is-active" : ""}`}
-      onMouseDown={(e) => {
-        e.preventDefault()
-        if (on) on()
-        else if (cmd) run(cmd)
-      }}
-    >
-      {children}
-    </button>
-  )
-
   return (
     <div className="mr-rte">
-      <div className="mr-rte-toolbar" role="toolbar" aria-label="Formatting">
-        <Btn cmd="bold" title="Bold"><b>B</b></Btn>
-        <Btn cmd="italic" title="Italic"><i>I</i></Btn>
-        <Btn cmd="underline" title="Underline"><u>U</u></Btn>
-        <Btn cmd="strikeThrough" title="Strikethrough"><s>S</s></Btn>
-
-        <span className="mr-rte-sep" />
-
-        <Btn cmd="h2" title="Heading" on={() => toggleBlock("h2")}><b>H</b></Btn>
-        <Btn cmd="h3" title="Subheading" on={() => toggleBlock("h3")}><b>H<sub>2</sub></b></Btn>
-
-        <span className="mr-rte-sep" />
-
-        <Btn cmd="insertUnorderedList" title="Bulleted list">{Icons.ul}</Btn>
-        <Btn cmd="insertOrderedList" title="Numbered list">{Icons.ol}</Btn>
-        <Btn cmd="blockquote" title="Quote" on={() => toggleBlock("blockquote")}>{Icons.quote}</Btn>
-
-        <span className="mr-rte-sep" />
-
-        <Btn cmd="justifyLeft" title="Align left">{Icons.alignLeft}</Btn>
-        <Btn cmd="justifyCenter" title="Align centre">{Icons.alignCenter}</Btn>
-        <Btn cmd="justifyRight" title="Align right">{Icons.alignRight}</Btn>
-
-        <span className="mr-rte-sep" />
-
-        <Btn title="Insert link" on={addLink}>{Icons.link}</Btn>
-        <Btn title="Insert image" on={() => fileRef.current?.click()}>{Icons.image}</Btn>
-        <Btn title="Divider" on={() => run("insertHorizontalRule")}>{Icons.hr}</Btn>
-
-        <span className="mr-rte-sep" />
-
-        <Btn title="Undo" on={() => run("undo")}>{Icons.undo}</Btn>
-        <Btn title="Redo" on={() => run("redo")}>{Icons.redo}</Btn>
-        <Btn title="Clear formatting" on={() => run("removeFormat")}>{Icons.clear}</Btn>
-      </div>
+      <Toolbar bodyRef={bodyRef} run={run} onPickImage={onPickImage} />
 
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => {
         const file = e.target.files?.[0]
@@ -208,13 +237,10 @@ export function RichEditor({
         aria-multiline="true"
         aria-label={placeholder}
         data-placeholder={placeholder}
-        data-empty={empty ? "true" : undefined}
         onInput={emit}
         onBlur={emit}
         onPaste={onPaste}
         onDrop={onDrop}
-        onKeyUp={refreshActive}
-        onMouseUp={refreshActive}
         suppressContentEditableWarning
       />
     </div>
