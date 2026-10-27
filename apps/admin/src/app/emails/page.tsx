@@ -68,7 +68,7 @@ const EmailsPage = () => {
   const [bulkSubject, setBulkSubject] = useState("")
   const [bulkBody, setBulkBody] = useState("")
   const [bulkAudience, setBulkAudience] = useState<Audience>("subscribers")
-  const [bulkLimit, setBulkLimit] = useState(BATCH_SIZE)
+  const [bulkRange, setBulkRange] = useState("0:50")
   const [sending, setSending] = useState(false)
   const [sendProgress, setSendProgress] = useState<{ sent: number; failed: number; total: number } | null>(null)
   useEffect(() => setForm(settings.value), [settings.value])
@@ -125,22 +125,46 @@ const EmailsPage = () => {
 
   const audienceCount = bulkAudience === "all" ? (recipients.data?.all ?? 0) : (recipients.data?.subscribers ?? 0)
 
+  // "start:count" — count may be "all", meaning everyone from start onwards.
+  const [rangeStart, rangeRaw] = bulkRange.split(":")
+  const bulkStart = Number(rangeStart)
+  const bulkCount = Math.max(
+    0,
+    Math.min(rangeRaw === "all" ? audienceCount : Number(rangeRaw), audienceCount - bulkStart)
+  )
+
+  const RANGES = [
+    { v: "0:50", label: "First 50" },
+    { v: "0:100", label: "First 100" },
+    { v: "100:100", label: "Next 100 (101–200)" },
+    { v: "200:100", label: "Next 100 (201–300)" },
+    { v: "0:150", label: "First 150" },
+    { v: "0:200", label: "First 200" },
+    { v: "0:all", label: `All (${audienceCount})` },
+  ].filter((r) => Number(r.v.split(":")[0]) < audienceCount || r.v === "0:50")
+
   const sendBulk = async () => {
     if (!bulkSubject.trim() || !bulkBody.trim()) {
       toast.error("Subject and message are required")
       return
     }
-    const count = Math.min(bulkLimit, audienceCount)
-    if (!window.confirm(`Send "${bulkSubject}" to ${count} ${bulkAudience === "all" ? "customers and subscribers" : "newsletter subscribers"}? This cannot be undone.`)) return
+    if (!bulkCount) {
+      toast.error("That range is past the end of your audience")
+      return
+    }
+    const last = bulkStart + bulkCount
+    const who = bulkAudience === "all" ? "customers and subscribers" : "newsletter subscribers"
+    const range = bulkStart ? ` (${bulkStart + 1}–${last})` : ""
+    if (!window.confirm(`Send "${bulkSubject}" to ${bulkCount} ${who}${range}? This cannot be undone.`)) return
     setSending(true)
     setSendProgress({ sent: 0, failed: 0, total: 0 })
-    let offset = 0
+    let offset = bulkStart
     let totalSent = 0
     let totalFailed = 0
 
-    while (offset < bulkLimit) {
+    while (offset < last) {
       try {
-        const batchSize = Math.min(BATCH_SIZE, bulkLimit - offset)
+        const batchSize = Math.min(BATCH_SIZE, last - offset)
         const res = await api<{ sent: number; failed: number; total: number; done: boolean }>("/api/emails/bulk", {
           method: "POST",
           json: {
@@ -256,7 +280,7 @@ const EmailsPage = () => {
             <Field label="Subject">
               <Input value={template.subject} onChange={(e) => setTemplate({ subject: e.target.value })} />
             </Field>
-            <Field label="Message">
+            <Field label="Message" plain>
               <RichEditor value={template.body} onChange={(html) => setTemplate({ body: html })} placeholder="Write your email template..." />
             </Field>
             <div className="flex flex-wrap items-end gap-3">
@@ -286,16 +310,16 @@ const EmailsPage = () => {
               </Select>
             </Field>
             <Field label="How many to send">
-              <Select value={String(bulkLimit)} onValueChange={(v) => setBulkLimit(v === "all" ? audienceCount : Number(v))}>
+              <Select value={bulkRange} onValueChange={setBulkRange}>
                 <Select.Trigger>
                   <Select.Value />
                 </Select.Trigger>
                 <Select.Content>
-                  <Select.Item value="50">First 50</Select.Item>
-                  <Select.Item value="100">First 100</Select.Item>
-                  <Select.Item value="150">First 150</Select.Item>
-                  <Select.Item value="200">First 200</Select.Item>
-                  <Select.Item value="all">All ({audienceCount})</Select.Item>
+                  {RANGES.map((r) => (
+                    <Select.Item key={r.v} value={r.v}>
+                      {r.label}
+                    </Select.Item>
+                  ))}
                 </Select.Content>
               </Select>
             </Field>
@@ -303,20 +327,21 @@ const EmailsPage = () => {
           <Field label="Subject">
             <Input value={bulkSubject} onChange={(e) => setBulkSubject(e.target.value)} placeholder="Your subject line" />
           </Field>
-          <Field label="Message">
+          <Field label="Message" plain>
             <RichEditor value={bulkBody} onChange={setBulkBody} placeholder="Write your email here..." />
           </Field>
           <div className="flex items-center gap-3">
             <Button
               isLoading={sending}
-              disabled={!bulkSubject.trim() || !bulkBody.trim() || !audienceCount}
+              disabled={!bulkSubject.trim() || !bulkBody.trim() || !bulkCount}
               onClick={sendBulk}
             >
-              Send {Math.min(bulkLimit, audienceCount)} email{Math.min(bulkLimit, audienceCount) !== 1 ? "s" : ""}
+              Send {bulkCount} email{bulkCount !== 1 ? "s" : ""}
+              {bulkStart ? ` (${bulkStart + 1}–${bulkStart + bulkCount})` : ""}
             </Button>
             {sendProgress ? (
               <Text size="small" className="text-ui-fg-subtle">
-                {sendProgress.sent} sent{sendProgress.failed > 0 ? `, ${sendProgress.failed} failed` : ""} of {Math.min(bulkLimit, audienceCount)}
+                {sendProgress.sent} sent{sendProgress.failed > 0 ? `, ${sendProgress.failed} failed` : ""} of {bulkCount}
               </Text>
             ) : null}
           </div>

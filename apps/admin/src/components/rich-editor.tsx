@@ -35,6 +35,48 @@ function selectedElement(): Element | null {
 type Cmd = (command: string, value?: string) => void
 
 /**
+ * Module scope matters: declared inside its parent, every parent render would
+ * make this a fresh component type, so React would unmount and rebuild all
+ * eighteen buttons. selectionchange fires on each click, so that teardown ran
+ * mid-click and the browser dropped the caret.
+ */
+function Btn({
+  k,
+  title,
+  on,
+  run,
+  active,
+  children,
+}: {
+  k?: string
+  title: string
+  on?: () => void
+  run: Cmd
+  active: Record<string, boolean>
+  children: React.ReactNode
+}) {
+  const isOn = Boolean(k && active[k])
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      aria-pressed={k ? isOn : undefined}
+      className={`mr-rte-btn${isOn ? " is-active" : ""}`}
+      // Holds the caret where the writer left it; without this the button
+      // takes focus and the selection collapses.
+      onMouseDown={(e) => {
+        e.preventDefault()
+        if (on) on()
+        else if (k) run(k)
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+/**
  * Lives apart from the editor body on purpose: it re-renders on every caret
  * move, and a re-render that reached the contenteditable would drop the
  * selection the writer just made.
@@ -85,60 +127,49 @@ const Toolbar = memo(function Toolbar({
     run(trimmed ? "createLink" : "unlink", trimmed || undefined)
   }, [run])
 
-  const Btn = ({ k, title, on, children }: { k?: string; title: string; on?: () => void; children: React.ReactNode }) => (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      aria-pressed={k ? Boolean(active[k]) : undefined}
-      className={`mr-rte-btn${k && active[k] ? " is-active" : ""}`}
-      onMouseDown={(e) => {
-        // Keeps the caret where the writer left it; without this the button
-        // takes focus and the selection collapses.
-        e.preventDefault()
-        if (on) on()
-        else if (k) run(k)
-      }}
-    >
-      {children}
-    </button>
-  )
+  const shared = { run, active }
 
   return (
-    <div className="mr-rte-toolbar" role="toolbar" aria-label="Formatting">
-      <Btn k="bold" title="Bold"><b>B</b></Btn>
-      <Btn k="italic" title="Italic"><i>I</i></Btn>
-      <Btn k="underline" title="Underline"><u>U</u></Btn>
-      <Btn k="strikeThrough" title="Strikethrough"><s>S</s></Btn>
+    <div
+      className="mr-rte-toolbar"
+      role="toolbar"
+      aria-label="Formatting"
+      // Clicks on the gaps and separators must not pull focus either.
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <Btn {...shared} k="bold" title="Bold"><b>B</b></Btn>
+      <Btn {...shared} k="italic" title="Italic"><i>I</i></Btn>
+      <Btn {...shared} k="underline" title="Underline"><u>U</u></Btn>
+      <Btn {...shared} k="strikeThrough" title="Strikethrough"><s>S</s></Btn>
 
       <span className="mr-rte-sep" />
 
-      <Btn k="h2" title="Heading" on={() => toggleBlock("h2")}><b>H</b></Btn>
-      <Btn k="h3" title="Subheading" on={() => toggleBlock("h3")}><b>H<sub>2</sub></b></Btn>
+      <Btn {...shared} k="h2" title="Heading" on={() => toggleBlock("h2")}><b>H</b></Btn>
+      <Btn {...shared} k="h3" title="Subheading" on={() => toggleBlock("h3")}><b>H<sub>2</sub></b></Btn>
 
       <span className="mr-rte-sep" />
 
-      <Btn k="insertUnorderedList" title="Bulleted list">{Icons.ul}</Btn>
-      <Btn k="insertOrderedList" title="Numbered list">{Icons.ol}</Btn>
-      <Btn k="blockquote" title="Quote" on={() => toggleBlock("blockquote")}>{Icons.quote}</Btn>
+      <Btn {...shared} k="insertUnorderedList" title="Bulleted list">{Icons.ul}</Btn>
+      <Btn {...shared} k="insertOrderedList" title="Numbered list">{Icons.ol}</Btn>
+      <Btn {...shared} k="blockquote" title="Quote" on={() => toggleBlock("blockquote")}>{Icons.quote}</Btn>
 
       <span className="mr-rte-sep" />
 
-      <Btn k="justifyLeft" title="Align left">{Icons.alignLeft}</Btn>
-      <Btn k="justifyCenter" title="Align centre">{Icons.alignCenter}</Btn>
-      <Btn k="justifyRight" title="Align right">{Icons.alignRight}</Btn>
+      <Btn {...shared} k="justifyLeft" title="Align left">{Icons.alignLeft}</Btn>
+      <Btn {...shared} k="justifyCenter" title="Align centre">{Icons.alignCenter}</Btn>
+      <Btn {...shared} k="justifyRight" title="Align right">{Icons.alignRight}</Btn>
 
       <span className="mr-rte-sep" />
 
-      <Btn title="Insert link" on={addLink}>{Icons.link}</Btn>
-      <Btn title="Insert image" on={onPickImage}>{Icons.image}</Btn>
-      <Btn title="Divider" on={() => run("insertHorizontalRule")}>{Icons.hr}</Btn>
+      <Btn {...shared} title="Insert link" on={addLink}>{Icons.link}</Btn>
+      <Btn {...shared} title="Insert image" on={onPickImage}>{Icons.image}</Btn>
+      <Btn {...shared} title="Divider" on={() => run("insertHorizontalRule")}>{Icons.hr}</Btn>
 
       <span className="mr-rte-sep" />
 
-      <Btn title="Undo" on={() => run("undo")}>{Icons.undo}</Btn>
-      <Btn title="Redo" on={() => run("redo")}>{Icons.redo}</Btn>
-      <Btn title="Clear formatting" on={() => run("removeFormat")}>{Icons.clear}</Btn>
+      <Btn {...shared} title="Undo" on={() => run("undo")}>{Icons.undo}</Btn>
+      <Btn {...shared} title="Redo" on={() => run("redo")}>{Icons.redo}</Btn>
+      <Btn {...shared} title="Clear formatting" on={() => run("removeFormat")}>{Icons.clear}</Btn>
     </div>
   )
 })

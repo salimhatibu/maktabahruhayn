@@ -107,9 +107,26 @@ export function ErrorNote({ message }: { message: string | null }) {
   ) : null
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+/**
+ * `plain` swaps the <label> for a <div>. A label hands any click inside it to
+ * its first labelable descendant, so wrapping a composite control - anything
+ * containing a button, such as the rich text editor - steals the caret the
+ * moment the writer clicks. Such controls label themselves via aria-label.
+ */
+export function Field({
+  label,
+  hint,
+  plain,
+  children,
+}: {
+  label: string
+  hint?: string
+  plain?: boolean
+  children: ReactNode
+}) {
+  const Tag = plain ? "div" : "label"
   return (
-    <label className="flex flex-col gap-1.5">
+    <Tag className="flex flex-col gap-1.5">
       <Text size="small" weight="plus">
         {label}
       </Text>
@@ -119,7 +136,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
           {hint}
         </Text>
       ) : null}
-    </label>
+    </Tag>
   )
 }
 
