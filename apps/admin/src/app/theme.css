@@ -136,8 +136,13 @@ html:root.dark {
   z-index: 50 !important;
 }
 
-/* Radix Dialog portals (Medusa Drawer / Modal) must sit above all app layers. */
-[role="dialog"][data-state] {
+/* Radix Dialog portals (Medusa Drawer / Modal) must sit above all app layers.
+   AlertDialog - what Medusa's Prompt and usePrompt build on - carries
+   role="alertdialog", so it needs naming too: without it the overlay below
+   lifts to 69 while the prompt stays at auto, and the confirm buttons end up
+   buried with the page already frozen by the overlay's pointer-events. */
+[role="dialog"][data-state],
+[role="alertdialog"] {
   z-index: 70 !important;
 }
 [data-state][role="dialog"] ~ [data-state="open"] {
