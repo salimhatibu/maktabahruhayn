@@ -24,13 +24,20 @@ const TAGS = [
 
 export async function GET() {
   const database = await db()
-  const [locations, categories, products, settings] = await database.batch<Record<string, string | null>>([
+  const [locations, categories, products, settings, authors] = await database.batch<Record<string, string | null>>([
     database.prepare(`SELECT id, name FROM stock_location ORDER BY name`),
     database.prepare(`SELECT id, handle, name, parent_id FROM category WHERE is_active = 1 ORDER BY rank, name`),
     database.prepare(
       `SELECT id, title, thumbnail FROM product WHERE deleted_at IS NULL ORDER BY product_number DESC LIMIT 500`
     ),
     database.prepare(`SELECT value FROM store_setting WHERE key = 'catalog'`),
+    // Authors already in use, so the picker is useful before anyone curates a list.
+    database.prepare(
+      `SELECT DISTINCT b.author FROM book b
+         JOIN product p ON p.id = b.product_id
+        WHERE b.author IS NOT NULL AND TRIM(b.author) <> '' AND p.deleted_at IS NULL
+        ORDER BY b.author`
+    ),
   ])
 
   let saved: unknown = null
@@ -45,6 +52,7 @@ export async function GET() {
     categories: categories.results,
     products: products.results,
     catalog: withDefaults("catalog", saved) ?? DEFAULT_SETTINGS.catalog,
+    book_authors: authors.results.map((r) => String(r.author)).filter(Boolean),
     tags: TAGS,
     shipping_sizes: SHIPPING_SIZES,
     storefront_url: (process.env.STOREFRONT_URL || "").replace(/\/+$/, ""),

@@ -53,6 +53,7 @@ type Meta = {
   categories: Category[]
   products: { id: string; title: string; thumbnail: string | null }[]
   catalog: CatalogSettings
+  book_authors: string[]
   tags: { value: string; label: string }[]
   shipping_sizes: ShippingSizeOption[]
   storefront_url: string
@@ -155,13 +156,21 @@ type Form = {
   book: Record<string, string>
 }
 
-type FieldDef = { key: string; label: string; placeholder?: string; type?: "number" | "url"; wide?: boolean }
+type FieldDef = {
+  key: string
+  label: string
+  placeholder?: string
+  type?: "number" | "url"
+  wide?: boolean
+  /** Rendered as a picker over a saved list rather than a plain text box. */
+  pick?: boolean
+}
 
 const BOOK_GROUPS: { title: string; fields: FieldDef[] }[] = [
   {
     title: "Authorship",
     fields: [
-      { key: "author", label: "Author", placeholder: "e.g. Imam an-Nawawi" },
+      { key: "author", label: "Author", placeholder: "e.g. Imam an-Nawawi", pick: true },
       { key: "translator", label: "Translator" },
       { key: "commentator_tahqeeq", label: "Commentary / tahqeeq" },
       { key: "title_arabic", label: "Original title", placeholder: "Title in Arabic, if any" },
@@ -832,6 +841,9 @@ const ProductEditorPage = () => {
 
   const m = meta.data
   const multi = form.variants.length > 1
+  // The curated list first, then everyone already in the catalogue, so the
+  // picker is useful on day one without anyone retyping existing authors.
+  const authorOptions = [...new Set([...(m.catalog.authors || []), ...(m.book_authors || [])].map((a) => a.trim()).filter(Boolean))]
   const storefrontPath = product?.handle && product.status === "published" ? `/books/${product.handle}` : null
   const statusBadge = isNew ? null : product?.status === "published" ? (
     <Badge size="2xsmall" color="green">
@@ -992,18 +1004,31 @@ const ProductEditorPage = () => {
                       htmlFor={`book-${f.key}`}
                       error={errors[`book.${f.key}`]}
                       className={f.wide ? "sm:col-span-2" : undefined}
+                      action={f.pick ? <LinkButton onClick={() => setManage("authors")}>Saved authors</LinkButton> : undefined}
                     >
-                      <Input
-                        id={`book-${f.key}`}
-                        size="small"
-                        type={f.type === "url" ? "url" : "text"}
-                        inputMode={f.type === "number" ? "numeric" : undefined}
-                        placeholder={f.placeholder}
-                        dir={f.key === "title_arabic" ? "auto" : undefined}
-                        aria-invalid={Boolean(errors[`book.${f.key}`]) || undefined}
-                        value={form.book[f.key] || ""}
-                        onChange={(e) => set("book", { ...form.book, [f.key]: f.type === "number" ? digits(e.target.value) : e.target.value })}
-                      />
+                      {f.pick ? (
+                        <SavedSelect
+                          id={`book-${f.key}`}
+                          value={form.book[f.key] || ""}
+                          presets={authorOptions}
+                          invalid={Boolean(errors[`book.${f.key}`])}
+                          placeholder="Choose an author"
+                          customPlaceholder={f.placeholder}
+                          onChange={(next) => set("book", { ...form.book, [f.key]: next })}
+                        />
+                      ) : (
+                        <Input
+                          id={`book-${f.key}`}
+                          size="small"
+                          type={f.type === "url" ? "url" : "text"}
+                          inputMode={f.type === "number" ? "numeric" : undefined}
+                          placeholder={f.placeholder}
+                          dir={f.key === "title_arabic" ? "auto" : undefined}
+                          aria-invalid={Boolean(errors[`book.${f.key}`]) || undefined}
+                          value={form.book[f.key] || ""}
+                          onChange={(e) => set("book", { ...form.book, [f.key]: f.type === "number" ? digits(e.target.value) : e.target.value })}
+                        />
+                      )}
                     </Labeled>
                   ))}
                   {group.title === "Publication" ? (
@@ -1137,6 +1162,85 @@ const ProductEditorPage = () => {
 
 type SetFn = <K extends keyof Form>(key: K, value: Form[K]) => void
 
+const CUSTOM_VALUE = "__custom__"
+
+/**
+ * Picks a value from a saved list - formats, authors - without giving up
+ * free text. A book may already carry a value that is not on the list: typed
+ * before the list existed, or since removed from it. That value is kept at
+ * the head of the options, because a plain Select would show it blank and
+ * quietly rewrite it on save. "Custom…" drops to a text box for anything the
+ * list does not cover.
+ */
+function SavedSelect({
+  id,
+  value,
+  presets,
+  invalid,
+  ariaLabel,
+  placeholder,
+  customPlaceholder,
+  onChange,
+}: {
+  id?: string
+  value: string
+  presets: string[]
+  invalid?: boolean
+  ariaLabel?: string
+  placeholder?: string
+  customPlaceholder?: string
+  onChange: (value: string) => void
+}) {
+  const options = useMemo(() => {
+    const known = new Set(presets.map((p) => p.trim().toLowerCase()))
+    const current = value.trim()
+    return current && !known.has(current.toLowerCase()) ? [current, ...presets] : presets
+  }, [presets, value])
+  const [typing, setTyping] = useState(false)
+
+  if (typing) {
+    return (
+      <div className="flex items-center gap-2">
+        <Input
+          id={id}
+          size="small"
+          autoFocus
+          aria-label={ariaLabel}
+          aria-invalid={invalid || undefined}
+          value={value}
+          placeholder={customPlaceholder}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <LinkButton onClick={() => setTyping(false)}>Choose</LinkButton>
+      </div>
+    )
+  }
+
+  return (
+    <Select
+      value={value || undefined}
+      onValueChange={(next) => {
+        // The typed value starts from whatever was selected, so switching to
+        // Custom never throws the current format away.
+        if (next === CUSTOM_VALUE) setTyping(true)
+        else onChange(next)
+      }}
+    >
+      <Select.Trigger id={id} aria-label={ariaLabel} aria-invalid={invalid || undefined}>
+        <Select.Value placeholder={placeholder || "Choose"} />
+      </Select.Trigger>
+      <Select.Content>
+        {options.map((p) => (
+          <Select.Item key={p} value={p}>
+            {p}
+          </Select.Item>
+        ))}
+        <Select.Item value={CUSTOM_VALUE}>Custom…</Select.Item>
+      </Select.Content>
+    </Select>
+  )
+}
+
 function PriceSummary({ v }: { v: VariantForm }) {
   const selling = Number(v.selling_price) || 0
   const original = Number(v.original_price) || 0
@@ -1184,7 +1288,6 @@ function PricingCard({
 }) {
   const multi = form.variants.length > 1
   const [open, setOpen] = useState<string | null>(null)
-  const listId = "mr-option-presets"
 
   const add = () => {
     const used = new Set(form.variants.map((v) => v.option_value.trim().toLowerCase()))
@@ -1195,13 +1298,6 @@ function PricingCard({
   }
   const remove = (key: string) => setForm((f) => (f && f.variants.length > 1 ? { ...f, variants: f.variants.filter((v) => v.key !== key) } : f))
 
-  const presetList = (
-    <datalist id={listId}>
-      {presets.map((p) => (
-        <option key={p} value={p} />
-      ))}
-    </datalist>
-  )
 
   if (!multi) {
     const v = form.variants[0]
@@ -1217,7 +1313,6 @@ function PricingCard({
           </Button>
         }
       >
-        {presetList}
         <div className="grid gap-4 sm:grid-cols-3">
           <Labeled label="Price" htmlFor="price" error={err("selling_price")}>
             <MoneyInput id="price" value={v.selling_price} invalid={Boolean(err("selling_price"))} onChange={(x) => setVariant(v.key, { selling_price: x })} />
@@ -1237,13 +1332,14 @@ function PricingCard({
           hint="Shown on the book page, e.g. Hardcover. Add a format to sell more than one."
           action={<LinkButton onClick={onManagePresets}>Saved formats</LinkButton>}
         >
-          <Input
+          <SavedSelect
             id="format"
-            size="small"
-            list={listId}
-            aria-invalid={Boolean(err("option_value")) || undefined}
+            placeholder="Choose a format"
+            customPlaceholder="e.g. Hardcover"
             value={v.option_value}
-            onChange={(e) => setVariant(v.key, { option_value: e.target.value })}
+            presets={presets}
+            invalid={Boolean(err("option_value"))}
+            onChange={(next) => setVariant(v.key, { option_value: next })}
           />
         </Labeled>
       </Card>
@@ -1262,7 +1358,6 @@ function PricingCard({
       }
       bodyClassName="px-0"
     >
-      {presetList}
       <div className="grid gap-3 px-6 sm:grid-cols-[1fr_1fr_auto]">
         <Labeled label="Option name" htmlFor="option_title" hint="What customers choose, e.g. Format or Edition.">
           <Input id="option_title" size="small" value={form.option_title} onChange={(e) => set("option_title", e.target.value)} />
@@ -1303,14 +1398,14 @@ function PricingCard({
                 <Fragment key={v.key}>
                   <tr className="border-ui-border-base border-t align-top">
                     <td className="py-2.5 pl-6 pr-2">
-                      <Input
-                        size="small"
-                        list={listId}
-                        aria-label="Format name"
-                        aria-invalid={Boolean(err("option_value")) || undefined}
+                      <SavedSelect
+                        ariaLabel="Format name"
+                        placeholder="Choose a format"
+                        customPlaceholder="e.g. Hardcover"
                         value={v.option_value}
-                        placeholder="e.g. Hardcover"
-                        onChange={(e) => setVariant(v.key, { option_value: e.target.value })}
+                        presets={presets}
+                        invalid={Boolean(err("option_value"))}
+                        onChange={(next) => setVariant(v.key, { option_value: next })}
                       />
                       {err("option_value") ? (
                         <Text size="xsmall" className="text-ui-fg-error mt-1">

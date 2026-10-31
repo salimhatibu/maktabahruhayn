@@ -91,6 +91,8 @@ export type DescriptionTemplate = { name: string; html: string }
 export type CatalogSettings = {
   units: string[]
   optionPresets: string[]
+  /** Starts empty: the editor also offers every author already in the catalogue. */
+  authors: string[]
   descriptionTemplates: DescriptionTemplate[]
 }
 
@@ -117,6 +119,7 @@ export const DEFAULT_SETTINGS: SettingsMap = {
   catalog: {
     units: ["item", "set", "pack", "volume", "piece"],
     optionPresets: ["Paperback", "Hardcover", "Box Set", "Pocket Size", "Large Print", "Arabic", "English", "Bilingual"],
+    authors: [],
     descriptionTemplates: [
       {
         name: "Book overview",

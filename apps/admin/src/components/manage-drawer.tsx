@@ -7,10 +7,11 @@ import { useEffect, useState } from "react"
 export type CatalogSettings = {
   units: string[]
   optionPresets: string[]
+  authors: string[]
   descriptionTemplates: { name: string; html: string }[]
 }
 
-export type ManageKind = "units" | "optionPresets" | "descriptionTemplates"
+export type ManageKind = "units" | "optionPresets" | "authors" | "descriptionTemplates"
 
 const COPY: Record<ManageKind, { title: string; description: string; placeholder: string }> = {
   units: {
@@ -22,6 +23,12 @@ const COPY: Record<ManageKind, { title: string; description: string; placeholder
     title: "Saved values",
     description: "Variant values you use often. They appear as suggestions when you add a variant.",
     placeholder: "e.g. Hardcover",
+  },
+  authors: {
+    title: "Authors",
+    description:
+      "Authors you want offered when editing a book. Every author already used in the catalogue is offered too, so add one here only to have it available before any book uses it.",
+    placeholder: "e.g. Imam an-Nawawi",
   },
   descriptionTemplates: {
     title: "Description templates",
