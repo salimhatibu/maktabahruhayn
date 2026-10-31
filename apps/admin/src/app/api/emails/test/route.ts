@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { newId } from "@maktabah/db"
+import { htmlToText, renderEmailHtml } from "@maktabah/shared"
 import { db } from "@/lib/db"
 
 /**
@@ -34,7 +35,18 @@ export async function POST(request: NextRequest) {
           from,
           to: [to],
           subject,
-          ...(htmlBody ? { html: htmlBody } : { text: "This is a test email from the Maktabah Ruhayn admin." }),
+          ...(htmlBody
+            ? {
+                html: renderEmailHtml({
+                  bodyHtml: htmlBody,
+                  storeName: process.env.STORE_NAME || "Maktabah Ruhayn",
+                  storeUrl: (process.env.STOREFRONT_URL || "").replace(/\/+$/, ""),
+                  address: "Nairobi • Kenya",
+                  preheader: "Test send from the shop admin.",
+                }),
+                text: htmlToText(htmlBody),
+              }
+            : { text: "This is a test email from the Maktabah Ruhayn admin." }),
         }),
       })
       if (response.ok) {

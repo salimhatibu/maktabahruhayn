@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { newId } from "@maktabah/db"
+import { htmlToText, renderEmailHtml } from "@maktabah/shared"
 import { db } from "@/lib/db"
 
 /**
@@ -37,6 +38,8 @@ export async function POST(request: NextRequest) {
 
   const d = await db()
   let emails: string[] = []
+  // subscriber id per address, so the footer can carry a working unsubscribe link
+  const subscriberIds = new Map<string, string>()
   const limit = Math.min(Math.max(Number(payload.limit) || 50, 1), 200)
   const offset = Math.max(Number(payload.offset) || 0, 0)
 
@@ -44,22 +47,24 @@ export async function POST(request: NextRequest) {
     emails = payload.recipients
   } else if (payload.recipients === "subscribers") {
     const { results } = await d
-      .prepare("SELECT email FROM newsletter_subscriber WHERE status = 'subscribed' ORDER BY created_at ASC LIMIT ?1 OFFSET ?2")
+      .prepare("SELECT id, email FROM newsletter_subscriber WHERE status = 'subscribed' ORDER BY created_at ASC LIMIT ?1 OFFSET ?2")
       .bind(limit, offset)
-      .all<{ email: string }>()
+      .all<{ id: string; email: string }>()
     emails = results.map((r) => r.email)
+    for (const r of results) subscriberIds.set(r.email.toLowerCase(), r.id)
   } else {
     const { results } = await d
       .prepare(
-        `SELECT DISTINCT email FROM (
-           SELECT email FROM customer
-           UNION
-           SELECT email FROM newsletter_subscriber WHERE status = 'subscribed'
-         ) ORDER BY email ASC LIMIT ?1 OFFSET ?2`
+        `SELECT email, MAX(sub_id) AS sub_id FROM (
+           SELECT email, NULL AS sub_id FROM customer
+           UNION ALL
+           SELECT email, id AS sub_id FROM newsletter_subscriber WHERE status = 'subscribed'
+         ) GROUP BY email COLLATE NOCASE ORDER BY email ASC LIMIT ?1 OFFSET ?2`
       )
       .bind(limit, offset)
-      .all<{ email: string }>()
+      .all<{ email: string; sub_id: string | null }>()
     emails = results.map((r) => r.email)
+    for (const r of results) if (r.sub_id) subscriberIds.set(r.email.toLowerCase(), r.sub_id)
   }
 
   if (!emails.length) {
@@ -70,16 +75,29 @@ export async function POST(request: NextRequest) {
   let failed = 0
   const logStmts: ReturnType<typeof d.prepare>[] = []
 
+  const storeUrl = (process.env.STOREFRONT_URL || "").replace(/\/+$/, "")
+  const storeName = process.env.STORE_NAME || "Maktabah Ruhayn"
+
   for (const to of emails) {
     let status: "sent" | "failed" = "failed"
     let error: string | null = null
     let providerId: string | null = null
 
+    const subId = subscriberIds.get(to.toLowerCase())
+    const html = renderEmailHtml({
+      bodyHtml: body,
+      storeName,
+      storeUrl,
+      address: "Nairobi • Kenya",
+      // Customers who never subscribed have nothing to unsubscribe from.
+      unsubscribeUrl: subId && storeUrl ? `${storeUrl}/unsubscribe?id=${encodeURIComponent(subId)}` : undefined,
+    })
+
     try {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from, to: [to], subject, html: body }),
+        body: JSON.stringify({ from, to: [to], subject, html, text: htmlToText(body) }),
       })
       if (response.ok) {
         status = "sent"

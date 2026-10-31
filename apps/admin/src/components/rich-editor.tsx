@@ -217,15 +217,30 @@ export function RichEditor({
     emit()
   }, [emit])
 
-  const insertFile = useCallback((file: File) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      bodyRef.current?.focus()
-      exec("insertImage", String(reader.result))
-      emit()
-    }
-    reader.readAsDataURL(file)
-  }, [emit])
+  /**
+   * Images go to R2 and the editor holds the URL. A base64 data URI would
+   * survive here but not in an inbox: Gmail and Outlook strip them, so the
+   * picture would simply be missing from the email that was sent.
+   */
+  const insertFile = useCallback(
+    async (file: File) => {
+      const form = new FormData()
+      form.append("files", file)
+      try {
+        const res = await fetch("/api/uploads", { method: "POST", body: form })
+        const data = (await res.json()) as { files?: { url: string }[]; message?: string }
+        if (!res.ok || !data.files?.[0]?.url) {
+          throw new Error(data.message || "The image could not be uploaded.")
+        }
+        bodyRef.current?.focus()
+        exec("insertImage", data.files[0].url)
+        emit()
+      } catch (e) {
+        window.alert((e as Error).message)
+      }
+    },
+    [emit]
+  )
 
   const onPickImage = useCallback(() => fileRef.current?.click(), [])
 
