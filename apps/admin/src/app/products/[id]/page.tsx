@@ -815,6 +815,16 @@ const ProductEditorPage = () => {
     meta.setData((m) => (m ? { ...m, catalog: next } : m))
   }
 
+  /** Appends one value to a saved list, for the optional "save to the list" action. */
+  const addToCatalogList = async (key: "optionPresets" | "authors", value: string) => {
+    const current = meta.data?.catalog
+    if (!current) return
+    const list = current[key] || []
+    if (list.some((v) => v.trim().toLowerCase() === value.toLowerCase())) return
+    await saveCatalogSettings({ ...current, [key]: [...list, value] })
+    toast.success(`Added “${value}” to the saved list`)
+  }
+
   const error = meta.error || loaded.error
   if (error) {
     return (
@@ -985,6 +995,7 @@ const ProductEditorPage = () => {
             errors={errors}
             locations={m.locations}
             presets={m.catalog.optionPresets}
+            onSavePreset={(v) => addToCatalogList("optionPresets", v)}
             onManagePresets={() => setManage("optionPresets")}
           />
 
@@ -1014,6 +1025,7 @@ const ProductEditorPage = () => {
                           invalid={Boolean(errors[`book.${f.key}`])}
                           placeholder="Choose an author"
                           customPlaceholder={f.placeholder}
+                          onSaveToList={(v) => addToCatalogList("authors", v)}
                           onChange={(next) => set("book", { ...form.book, [f.key]: next })}
                         />
                       ) : (
@@ -1181,6 +1193,7 @@ function SavedSelect({
   placeholder,
   customPlaceholder,
   onChange,
+  onSaveToList,
 }: {
   id?: string
   value: string
@@ -1190,6 +1203,8 @@ function SavedSelect({
   placeholder?: string
   customPlaceholder?: string
   onChange: (value: string) => void
+  /** Given, a value typed by hand can be added to the saved list. Never forced. */
+  onSaveToList?: (value: string) => Promise<unknown>
 }) {
   const options = useMemo(() => {
     const known = new Set(presets.map((p) => p.trim().toLowerCase()))
@@ -1197,21 +1212,46 @@ function SavedSelect({
     return current && !known.has(current.toLowerCase()) ? [current, ...presets] : presets
   }, [presets, value])
   const [typing, setTyping] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const trimmed = value.trim()
+  const onList = presets.some((p) => p.trim().toLowerCase() === trimmed.toLowerCase())
 
   if (typing) {
     return (
-      <div className="flex items-center gap-2">
-        <Input
-          id={id}
-          size="small"
-          autoFocus
-          aria-label={ariaLabel}
-          aria-invalid={invalid || undefined}
-          value={value}
-          placeholder={customPlaceholder}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <LinkButton onClick={() => setTyping(false)}>Choose</LinkButton>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <Input
+            id={id}
+            size="small"
+            autoFocus
+            aria-label={ariaLabel}
+            aria-invalid={invalid || undefined}
+            value={value}
+            placeholder={customPlaceholder}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <LinkButton onClick={() => setTyping(false)}>Choose</LinkButton>
+        </div>
+        {onSaveToList && trimmed && !onList ? (
+          <Button
+            size="small"
+            variant="transparent"
+            isLoading={saving}
+            className="self-start"
+            onClick={async () => {
+              setSaving(true)
+              try {
+                await onSaveToList(trimmed)
+                setTyping(false)
+              } finally {
+                setSaving(false)
+              }
+            }}
+          >
+            <Plus /> Save “{trimmed}” to the list
+          </Button>
+        ) : null}
       </div>
     )
   }
@@ -1275,6 +1315,7 @@ function PricingCard({
   errors,
   locations,
   presets,
+  onSavePreset,
   onManagePresets,
 }: {
   form: Form
@@ -1284,6 +1325,7 @@ function PricingCard({
   errors: Record<string, string>
   locations: Location[]
   presets: string[]
+  onSavePreset: (value: string) => Promise<unknown>
   onManagePresets: () => void
 }) {
   const multi = form.variants.length > 1
@@ -1336,6 +1378,7 @@ function PricingCard({
             id="format"
             placeholder="Choose a format"
             customPlaceholder="e.g. Hardcover"
+            onSaveToList={onSavePreset}
             value={v.option_value}
             presets={presets}
             invalid={Boolean(err("option_value"))}
@@ -1402,6 +1445,7 @@ function PricingCard({
                         ariaLabel="Format name"
                         placeholder="Choose a format"
                         customPlaceholder="e.g. Hardcover"
+                        onSaveToList={onSavePreset}
                         value={v.option_value}
                         presets={presets}
                         invalid={Boolean(err("option_value"))}
