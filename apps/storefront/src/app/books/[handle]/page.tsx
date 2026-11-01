@@ -117,6 +117,11 @@ export default async function BookPage({ params, searchParams }: Props) {
 
   const [region, locale] = await Promise.all([currentRegion(), currentLocale()])
   const selected = book.formats.find((f) => f.variantId === format) || book.formats[0]
+  // The chosen format's own picture leads, with the book's own behind it, so
+  // picking Hardcover does not leave the paperback's cover on screen.
+  const galleryImages = selected?.image
+    ? [selected.image, ...book.images.filter((src) => src !== selected.image)]
+    : book.images
   const price = selected?.price
 
   const [threshold, related, byAuthor, reviews, customer] = await Promise.all([
@@ -175,7 +180,7 @@ export default async function BookPage({ params, searchParams }: Props) {
 
       <article className="pdp wrap">
         <div className="pdp-media">
-          <Gallery book={book} images={book.images} />
+          <Gallery book={book} images={galleryImages} />
           <WishlistButton
             className="pdp-wish"
             entry={{ handle: book.handle, title: book.title, author: book.author, arabicTitle: book.arabicTitle, cover: book.cover }}

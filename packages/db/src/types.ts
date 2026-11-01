@@ -60,6 +60,8 @@ export type BookDetail = BookSummary & {
     id: string
     title: string
     optionValue: string
+    /** This format's own picture, or null to fall back to the book's images. */
+    image: string | null
     sku: string
     priceMinor: number
     compareAtMinor: number | null

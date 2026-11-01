@@ -29,7 +29,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     database.prepare(`SELECT value FROM product_tag WHERE product_id = ?1`).bind(id),
     database
       .prepare(
-        `SELECT v.id, v.option_value, v.system_sku, v.custom_sku, v.low_stock_threshold, v.cost_minor,
+        `SELECT v.id, v.option_value, v.system_sku, v.custom_sku, v.low_stock_threshold, v.cost_minor, v.image,
                 v.length_cm, v.width_cm, v.height_cm, v.weight_g, v.manage_inventory, v.allow_backorder,
                 (SELECT amount_minor FROM variant_price WHERE variant_id = v.id AND kind = 'base' AND currency_code = 'kes') AS base_kes,
                 (SELECT amount_minor FROM variant_price WHERE variant_id = v.id AND kind = 'sale' AND currency_code = 'kes') AS sale_kes,

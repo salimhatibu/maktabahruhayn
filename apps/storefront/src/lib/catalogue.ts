@@ -109,6 +109,7 @@ function detailToView(book: BookDetail): BookView {
   const formats: BookFormat[] = book.variants.map((variant) => ({
     variantId: variant.id,
     label: variant.optionValue || variant.title,
+    image: variant.image ?? null,
     price: money(variant.priceMinor, variant.compareAtMinor, book.currency, variant.saleEndsAt),
     availability: availability(variant.stock, {
       manageInventory: variant.manageInventory,

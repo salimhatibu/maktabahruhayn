@@ -68,6 +68,7 @@ type LoadedVariant = {
   original_price: number | null
   cost: number | null
   low_stock_threshold: number | null
+  image: string | null
   stock: { location_id: string; quantity: number }[]
 }
 
@@ -117,7 +118,70 @@ type VariantForm = {
   original_price: string
   cost: string
   low_stock_threshold: string
+  image: string
   stock: Record<string, string>
+}
+
+/**
+ * One picture for one format. Kept separate from the product gallery: this is
+ * the cover a shopper should see once they pick Hardcover, not another image
+ * of the book in general.
+ */
+function FormatImage({ value, onChange, label }: { value: string; onChange: (url: string) => void; label: string }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+
+  const upload = async (file: File) => {
+    const body = new FormData()
+    body.append("files", file)
+    setBusy(true)
+    try {
+      const res = await fetch("/api/uploads", { method: "POST", body })
+      const data = (await res.json()) as { files?: { url: string }[]; message?: string }
+      if (!res.ok || !data.files?.[0]?.url) throw new Error(data.message || "The image could not be uploaded.")
+      onChange(data.files[0].url)
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {value ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={mediaSrc(value)}
+          alt={`${label} cover`}
+          className="border-ui-border-base h-16 w-12 rounded border object-cover"
+        />
+      ) : (
+        <div className="border-ui-border-base text-ui-fg-muted flex h-16 w-12 items-center justify-center rounded border border-dashed text-[10px]">
+          None
+        </div>
+      )}
+      <div className="flex flex-col gap-1">
+        <Button size="small" variant="secondary" isLoading={busy} onClick={() => fileRef.current?.click()}>
+          {value ? "Replace" : "Add image"}
+        </Button>
+        {value ? (
+          <LinkButton onClick={() => onChange("")}>Remove</LinkButton>
+        ) : null}
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) void upload(file)
+          e.target.value = ""
+        }}
+      />
+    </div>
+  )
 }
 
 const DUPLICATE_KEY = "maktabah-admin-duplicate"
@@ -227,6 +291,7 @@ function emptyVariant(locations: Location[], option_value = ""): VariantForm {
     original_price: "",
     cost: "",
     low_stock_threshold: "",
+    image: "",
     stock: Object.fromEntries(locations.map((l) => [l.id, "0"])),
   }
 }
@@ -302,6 +367,7 @@ function toForm(p: LoadedProduct, meta: Meta): Form {
       original_price: str(v.original_price),
       cost: str(v.cost),
       low_stock_threshold: str(v.low_stock_threshold),
+      image: v.image || "",
       stock: Object.fromEntries(meta.locations.map((l) => [l.id, str(v.stock.find((s) => s.location_id === l.id)?.quantity ?? 0)])),
     })),
     status: p.status === "published" ? "published" : "draft",
@@ -378,6 +444,7 @@ function toPayload(f: Form, locations: Location[]) {
       original_price: num(v.original_price),
       cost: num(v.cost),
       low_stock_threshold: num(v.low_stock_threshold),
+      image: v.image.trim() || null,
       stock: locations.map((l) => ({ location_id: l.id, quantity: Math.max(0, Math.floor(Number(v.stock[l.id]) || 0)) })),
     })),
     status: f.status,
@@ -1385,6 +1452,13 @@ function PricingCard({
             onChange={(next) => setVariant(v.key, { option_value: next })}
           />
         </Labeled>
+        <Labeled label="Format image" optional hint="Shown first on the book page when this format is chosen.">
+          <FormatImage
+            value={v.image}
+            label={v.option_value || "This format"}
+            onChange={(url) => setVariant(v.key, { image: url })}
+          />
+        </Labeled>
       </Card>
     )
   }
@@ -1514,6 +1588,15 @@ function PricingCard({
                             />
                           </Labeled>
                           <SkuField v={v} setVariant={setVariant} className="sm:col-span-2" />
+                          <div className="sm:col-span-2">
+                            <Labeled label="Format image" optional hint="Shown first when this format is chosen.">
+                              <FormatImage
+                                value={v.image}
+                                label={v.option_value || "This format"}
+                                onChange={(url) => setVariant(v.key, { image: url })}
+                              />
+                            </Labeled>
+                          </div>
                           {err("original_price") ? (
                             <Text size="xsmall" className="text-ui-fg-error sm:col-span-2 lg:col-span-4">
                               Was price: {err("original_price")}

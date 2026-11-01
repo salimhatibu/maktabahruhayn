@@ -14,6 +14,7 @@ import { isHtml, sanitizeHtml } from "@maktabah/shared"
 export type VariantInput = {
   id?: string
   option_value: string
+  image?: string | null
   custom_sku?: string | null
   selling_price: number
   original_price?: number | null
@@ -247,14 +248,15 @@ export async function saveCatalogProduct(db: D1, input: CatalogProductInput): Pr
         .prepare(
           `INSERT INTO variant (id, product_id, title, option_value, system_sku, custom_sku,
               manage_inventory, allow_backorder, low_stock_threshold, cost_minor,
-              length_cm, width_cm, height_cm, weight_g, rank)
-           VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+              length_cm, width_cm, height_cm, weight_g, rank, image)
+           VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
            ON CONFLICT (id) DO UPDATE SET
              title = excluded.title, option_value = excluded.option_value, custom_sku = excluded.custom_sku,
              manage_inventory = excluded.manage_inventory, allow_backorder = excluded.allow_backorder,
              low_stock_threshold = excluded.low_stock_threshold, cost_minor = excluded.cost_minor,
              length_cm = excluded.length_cm, width_cm = excluded.width_cm,
-             height_cm = excluded.height_cm, weight_g = excluded.weight_g, rank = excluded.rank`
+             height_cm = excluded.height_cm, weight_g = excluded.weight_g, rank = excluded.rank,
+             image = excluded.image`
         )
         .bind(
           variantId,
@@ -270,7 +272,8 @@ export async function saveCatalogProduct(db: D1, input: CatalogProductInput): Pr
           dimensions?.width ?? null,
           dimensions?.height ?? null,
           dimensions?.weight ?? null,
-          index
+          index,
+          variant.image?.trim() || null
         ),
       // The editor sets KES, so a KES shopper is charged exactly the figure
       // that was typed. The storefront converts outwards from the base row

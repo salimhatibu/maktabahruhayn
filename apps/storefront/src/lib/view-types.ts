@@ -33,6 +33,8 @@ export type Availability =
 export type BookFormat = {
   variantId: string
   label: string
+  /** This format's own picture, if it has one. */
+  image: string | null
   price: Money | null
   availability: Availability
   dimensions: { width: number; length: number; height: number; weight: number } | null

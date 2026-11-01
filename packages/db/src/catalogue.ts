@@ -270,7 +270,7 @@ export async function getBook(db: D1, handle: string, currency = BASE_CURRENCY):
     db
       .prepare(
         `SELECT v.id, v.title, v.option_value, v.system_sku, v.custom_sku, v.allow_backorder,
-                v.manage_inventory, v.low_stock_threshold,
+                v.manage_inventory, v.low_stock_threshold, v.image,
                 v.length_cm, v.width_cm, v.height_cm, v.weight_g,
                 (SELECT amount_minor FROM variant_price WHERE variant_id = v.id AND kind = 'base' AND currency_code = ?2) AS price_cur,
                 (SELECT amount_minor FROM variant_price WHERE variant_id = v.id AND kind = 'base' AND currency_code = ?3) AS price_base,
@@ -285,6 +285,7 @@ export async function getBook(db: D1, handle: string, currency = BASE_CURRENCY):
         PricedRow & {
           system_sku: string
           custom_sku: string | null
+          image: string | null
           length_cm: number | null
           width_cm: number | null
           height_cm: number | null
@@ -300,6 +301,7 @@ export async function getBook(db: D1, handle: string, currency = BASE_CURRENCY):
     id: v.id,
     title: v.title,
     optionValue: v.option_value,
+    image: v.image ?? null,
     sku: v.custom_sku || v.system_sku,
     stock: Number(v.stock || 0),
     manageInventory: v.manage_inventory === 1,
