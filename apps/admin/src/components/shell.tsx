@@ -34,6 +34,7 @@ const NAV = [
   ] },
   { group: "Catalogue", items: [
     { href: "/products", label: "Products", icon: Tag },
+    { href: "/categories", label: "Categories", icon: SquaresPlus },
     { href: "/reviews", label: "Reviews", icon: Star },
     { href: "/stock-alerts", label: "Stock Alerts", icon: BellAlert },
   ] },

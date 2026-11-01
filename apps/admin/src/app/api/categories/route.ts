@@ -2,6 +2,21 @@ import { NextResponse, type NextRequest } from "next/server"
 import { newId } from "@maktabah/db"
 import { db } from "@/lib/db"
 
+/** GET /api/categories — every category with how many books sit in it. */
+export async function GET() {
+  const { results } = await (await db())
+    .prepare(
+      `SELECT c.id, c.handle, c.name, c.parent_id, c.rank, c.is_active,
+              (SELECT COUNT(*) FROM product_category pc
+                 JOIN product p ON p.id = pc.product_id AND p.deleted_at IS NULL
+                WHERE pc.category_id = c.id) AS books
+         FROM category c ORDER BY c.rank, c.name`
+    )
+    .all<Record<string, string | number | null>>()
+
+  return NextResponse.json({ categories: results })
+}
+
 /** POST /api/categories { name, parent_id } — the editor's quick-add. */
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as { name?: string; parent_id?: string | null }
