@@ -113,6 +113,22 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
     if (body.parent_id === id) {
       return NextResponse.json({ message: "A category cannot sit inside itself." }, { status: 400 })
     }
+    // Walking up from the proposed parent must never arrive back here, or the
+    // two would point at each other and disappear from every tree that renders.
+    let walk: string | null = body.parent_id || null
+    for (let hops = 0; walk && hops < 50; hops++) {
+      if (walk === id) {
+        return NextResponse.json(
+          { message: "That would put the category inside one of its own children." },
+          { status: 400 }
+        )
+      }
+      const row: { parent_id: string | null } | null = await d
+        .prepare(`SELECT parent_id FROM category WHERE id = ?1`)
+        .bind(walk)
+        .first<{ parent_id: string | null }>()
+      walk = row?.parent_id ?? null
+    }
     put("parent_id", body.parent_id || null)
   }
   put("is_active", body.is_active === undefined ? undefined : body.is_active ? 1 : 0)

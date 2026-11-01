@@ -1,8 +1,8 @@
 "use client"
 
-import { Plus, SquaresPlus, Trash } from "@medusajs/icons"
-import { Button, Input, StatusBadge, Switch, Table, Text, toast } from "@medusajs/ui"
-import { useState } from "react"
+import { ArrowDownMini, ArrowUpMini, Plus, SquaresPlus, Trash } from "@medusajs/icons"
+import { Button, Input, Select, StatusBadge, Switch, Table, Text, toast } from "@medusajs/ui"
+import { useMemo, useState } from "react"
 import { ErrorNote, PageHeader, Section } from "@/components/kit"
 import { api, useApi } from "@/lib/api"
 
@@ -23,7 +23,73 @@ const CategoriesPage = () => {
   const [edits, setEdits] = useState<Record<string, { name: string; handle: string }>>({})
   const [busy, setBusy] = useState<string | null>(null)
 
-  const rows = list.data?.categories || []
+  const rows = useMemo(() => list.data?.categories || [], [list.data])
+
+  /** Parents in rank order, each followed by its own children. */
+  const tree = useMemo(() => {
+    const byParent = new Map<string | null, Category[]>()
+    for (const c of rows) {
+      const key = c.parent_id && rows.some((r) => r.id === c.parent_id) ? c.parent_id : null
+      const list = byParent.get(key) || []
+      list.push(c)
+      byParent.set(key, list)
+    }
+    for (const list of byParent.values()) list.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+    const out: { cat: Category; depth: number; siblings: Category[] }[] = []
+    const walk = (parent: string | null, depth: number) => {
+      const siblings = byParent.get(parent) || []
+      for (const cat of siblings) {
+        out.push({ cat, depth, siblings })
+        if (depth < 2) walk(cat.id, depth + 1)
+      }
+    }
+    walk(null, 0)
+    return out
+  }, [rows])
+
+  /** Descendants may not become a category's own parent. */
+  const descendantsOf = (id: string) => {
+    const out = new Set<string>()
+    const walk = (parent: string) => {
+      for (const c of rows) {
+        if (c.parent_id === parent && !out.has(c.id)) {
+          out.add(c.id)
+          walk(c.id)
+        }
+      }
+    }
+    walk(id)
+    return out
+  }
+
+  const move = async (cat: Category, siblings: Category[], delta: number) => {
+    const order = siblings.map((s) => s.id)
+    const at = order.indexOf(cat.id)
+    const to = at + delta
+    if (at < 0 || to < 0 || to >= order.length) return
+    order.splice(to, 0, ...order.splice(at, 1))
+    setBusy(cat.id)
+    try {
+      await api("/api/categories/order", { method: "POST", json: { ids: order } })
+      list.reload()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const reparent = async (cat: Category, parentId: string | null) => {
+    setBusy(cat.id)
+    try {
+      await api(`/api/categories/${cat.id}`, { method: "PUT", json: { parent_id: parentId } })
+      list.reload()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
   const valueOf = (c: Category) => edits[c.id] || { name: c.name, handle: c.handle }
   const dirty = (c: Category) => {
     const v = valueOf(c)
@@ -127,14 +193,16 @@ const CategoriesPage = () => {
 
       <Section
         title="All categories"
-        description="Renaming is safe. Changing the web address also repoints any menu link that used the old one."
+        description="Renaming is safe. Changing the web address also repoints any menu link that used the old one. Arrows reorder a category among its own siblings."
         flush
       >
         <div className="mr-scroll-x">
           <Table>
             <Table.Header>
               <Table.Row>
+                <Table.HeaderCell className="w-16">Order</Table.HeaderCell>
                 <Table.HeaderCell>Name</Table.HeaderCell>
+                <Table.HeaderCell>Sits under</Table.HeaderCell>
                 <Table.HeaderCell>Web address</Table.HeaderCell>
                 <Table.HeaderCell className="text-right">Books</Table.HeaderCell>
                 <Table.HeaderCell>Shown</Table.HeaderCell>
@@ -142,12 +210,60 @@ const CategoriesPage = () => {
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {rows.map((c) => {
+              {tree.map(({ cat: c, depth, siblings }) => {
                 const v = valueOf(c)
+                const at = siblings.findIndex((s) => s.id === c.id)
+                const blocked = descendantsOf(c.id)
                 return (
                   <Table.Row key={c.id}>
                     <Table.Cell>
-                      <Input size="small" value={v.name} onChange={(e) => edit(c.id, { name: e.target.value })} />
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          className="text-ui-fg-subtle hover:text-ui-fg-base disabled:opacity-30 rounded p-0.5"
+                          aria-label={`Move ${c.name} up`}
+                          disabled={at <= 0 || busy === c.id}
+                          onClick={() => move(c, siblings, -1)}
+                        >
+                          <ArrowUpMini />
+                        </button>
+                        <button
+                          type="button"
+                          className="text-ui-fg-subtle hover:text-ui-fg-base disabled:opacity-30 rounded p-0.5"
+                          aria-label={`Move ${c.name} down`}
+                          disabled={at < 0 || at >= siblings.length - 1 || busy === c.id}
+                          onClick={() => move(c, siblings, 1)}
+                        >
+                          <ArrowDownMini />
+                        </button>
+                      </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <div style={{ paddingLeft: depth * 20 }} className="flex items-center gap-1.5">
+                        {depth ? <span className="text-ui-fg-muted select-none">└</span> : null}
+                        <Input size="small" value={v.name} onChange={(e) => edit(c.id, { name: e.target.value })} />
+                      </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Select
+                        size="small"
+                        value={c.parent_id || "__none__"}
+                        onValueChange={(next) => reparent(c, next === "__none__" ? null : next)}
+                      >
+                        <Select.Trigger aria-label={`Parent of ${c.name}`}>
+                          <Select.Value />
+                        </Select.Trigger>
+                        <Select.Content>
+                          <Select.Item value="__none__">Top level</Select.Item>
+                          {rows
+                            .filter((o) => o.id !== c.id && !blocked.has(o.id))
+                            .map((o) => (
+                              <Select.Item key={o.id} value={o.id}>
+                                {o.name}
+                              </Select.Item>
+                            ))}
+                        </Select.Content>
+                      </Select>
                     </Table.Cell>
                     <Table.Cell>
                       <Input
@@ -198,6 +314,8 @@ const CategoriesPage = () => {
                   <Table.Cell>
                     <Text className="text-ui-fg-subtle py-8">No categories yet.</Text>
                   </Table.Cell>
+                  <Table.Cell />
+                  <Table.Cell />
                   <Table.Cell />
                   <Table.Cell />
                   <Table.Cell />
