@@ -67,7 +67,7 @@ export function LiveIsland() {
   const label = shown === 1 ? "You are browsing" : `${shown} people browsing`
 
   return (
-    <div className="live-island-strip" aria-hidden={!ready}>
+    <div className="live-island-rail" aria-hidden={!ready}>
       <div
         className={`live-island${ready ? " is-ready" : ""}${pulsing ? " is-pulsing" : ""}`}
         role="status"

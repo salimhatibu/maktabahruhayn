@@ -5188,68 +5188,61 @@ input[type="radio"] {
 
 /* ---- Live visitor island --------------------------------------------- */
 /*
- * The strip reserves the island's height at the top of the page instead of
- * letting the pill float, so it cannot cover the header, the promo bar or
- * anything else at any width. The sticky header is offset by the same amount
- * below, and the strip itself ignores the pointer so only the pill is a target.
+ * Floats at the foot of the window rather than reserving a strip. The two
+ * corners down here are already spoken for - the WhatsApp button on the left,
+ * back-to-top on the right - so the rail is padded wide enough that the
+ * centred pill never reaches either, and it sits below both in the stack so a
+ * button a visitor actually needs always wins.
  */
 :root {
   --island-h: 2rem;
-  --island-gap: 0.3rem;
 }
 
-.live-island-strip {
+.live-island-rail {
   position: fixed;
-  top: 0;
   left: 0;
   right: 0;
-  z-index: 60;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  height: calc(var(--island-h) + var(--island-gap) + env(safe-area-inset-top, 0px));
-  padding-top: calc(var(--island-gap) + env(safe-area-inset-top, 0px));
+  /* Keeps clear of the corner buttons, which are ~50-54px plus their inset. */
+  padding: 0 5rem;
   pointer-events: none;
-}
-
-body {
-  padding-top: calc(var(--island-h) + var(--island-gap) + env(safe-area-inset-top, 0px));
-}
-
-.site-header {
-  top: calc(var(--island-h) + var(--island-gap) + env(safe-area-inset-top, 0px));
 }
 
 .live-island {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  max-width: 100%;
   height: var(--island-h);
-  max-width: calc(100vw - 1.5rem);
-  padding: 0 0.75rem;
+  padding: 0 0.8rem;
   border-radius: 999px;
-  background: #0d0d0f;
+  background: rgba(13, 13, 15, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: #f7f4ef;
   font-size: 0.72rem;
   font-weight: 500;
   letter-spacing: 0.02em;
   line-height: 1;
   white-space: nowrap;
+  overflow: hidden;
   pointer-events: auto;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.26);
-  /* Closed until the first heartbeat answers, so no empty pill flashes up. */
-  transform: scale(0.6);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  /* Closed until the first heartbeat answers, so no empty pill flashes up.
+     It rises as it opens, since it is arriving from the bottom edge. */
+  transform: translateY(0.75rem) scale(0.8);
   opacity: 0;
-  /* The overshoot is what makes it read as the iPhone island rather than a
-     plain fade: it springs past its size, then settles. */
+  /* The overshoot is what reads as the island rather than a plain fade. */
   transition:
     transform 0.52s cubic-bezier(0.18, 0.89, 0.32, 1.28),
-    opacity 0.28s ease,
-    width 0.52s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    opacity 0.3s ease;
 }
 
 .live-island.is-ready {
-  transform: scale(1);
+  transform: translateY(0) scale(1);
   opacity: 1;
 }
 
@@ -5259,18 +5252,18 @@ body {
 }
 
 @keyframes island-swell {
-  0% { transform: scale(1); }
-  28% { transform: scale(1.14); }
-  62% { transform: scale(0.98); }
-  100% { transform: scale(1); }
+  0% { transform: translateY(0) scale(1); }
+  28% { transform: translateY(0) scale(1.14); }
+  62% { transform: translateY(0) scale(0.98); }
+  100% { transform: translateY(0) scale(1); }
 }
 
 .live-island-dot {
+  flex: none;
   width: 0.42rem;
   height: 0.42rem;
   border-radius: 50%;
   background: #4ade80;
-  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
   animation: island-breathe 2.4s ease-in-out infinite;
 }
 
@@ -5285,13 +5278,15 @@ body {
 }
 
 .live-island-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
   opacity: 0.75;
 }
 
-/* Narrow phones keep the number and drop to the shorter wording. */
 @media (max-width: 26rem) {
   :root { --island-h: 1.85rem; }
-  .live-island { font-size: 0.67rem; padding: 0 0.6rem; }
+  .live-island-rail { padding: 0 4.25rem; }
+  .live-island { font-size: 0.67rem; padding: 0 0.65rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

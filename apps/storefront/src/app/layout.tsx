@@ -66,7 +66,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           freeShippingThreshold={threshold}
           currency={region.currency}
         >
-          <LiveIsland />
           {site.content.announcement ? <div className="announcement">{site.content.announcement}</div> : null}
           <SiteHeader
             region={region}
@@ -79,6 +78,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <div id="main">{children}</div>
           <SiteFooter site={site} country={region.country} locale={locale} />
           <BackToTop />
+          <LiveIsland />
           {whatsapp ? (
             <a className="whatsapp-fab" href={whatsapp} target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp">
               <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="currentColor">
