@@ -5185,3 +5185,122 @@ input[type="radio"] {
 [dir="rtl"] .detail-row dd {
   text-align: left;
 }
+
+/* ---- Live visitor island --------------------------------------------- */
+/*
+ * The strip reserves the island's height at the top of the page instead of
+ * letting the pill float, so it cannot cover the header, the promo bar or
+ * anything else at any width. The sticky header is offset by the same amount
+ * below, and the strip itself ignores the pointer so only the pill is a target.
+ */
+:root {
+  --island-h: 2rem;
+  --island-gap: 0.3rem;
+}
+
+.live-island-strip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  height: calc(var(--island-h) + var(--island-gap) + env(safe-area-inset-top, 0px));
+  padding-top: calc(var(--island-gap) + env(safe-area-inset-top, 0px));
+  pointer-events: none;
+}
+
+body {
+  padding-top: calc(var(--island-h) + var(--island-gap) + env(safe-area-inset-top, 0px));
+}
+
+.site-header {
+  top: calc(var(--island-h) + var(--island-gap) + env(safe-area-inset-top, 0px));
+}
+
+.live-island {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: var(--island-h);
+  max-width: calc(100vw - 1.5rem);
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  background: #0d0d0f;
+  color: #f7f4ef;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: auto;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.26);
+  /* Closed until the first heartbeat answers, so no empty pill flashes up. */
+  transform: scale(0.6);
+  opacity: 0;
+  /* The overshoot is what makes it read as the iPhone island rather than a
+     plain fade: it springs past its size, then settles. */
+  transition:
+    transform 0.52s cubic-bezier(0.18, 0.89, 0.32, 1.28),
+    opacity 0.28s ease,
+    width 0.52s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.live-island.is-ready {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* A changed figure swells the pill briefly, the island's "live activity" beat. */
+.live-island.is-pulsing {
+  animation: island-swell 0.9s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes island-swell {
+  0% { transform: scale(1); }
+  28% { transform: scale(1.14); }
+  62% { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+
+.live-island-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+  animation: island-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes island-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
+  50% { box-shadow: 0 0 0 0.28rem rgba(74, 222, 128, 0); }
+}
+
+.live-island-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.live-island-text {
+  opacity: 0.75;
+}
+
+/* Narrow phones keep the number and drop to the shorter wording. */
+@media (max-width: 26rem) {
+  :root { --island-h: 1.85rem; }
+  .live-island { font-size: 0.67rem; padding: 0 0.6rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-island,
+  .live-island.is-pulsing,
+  .live-island-dot {
+    transition: opacity 0.2s ease;
+    animation: none;
+    transform: none;
+  }
+  .live-island:not(.is-ready) { opacity: 0; }
+}

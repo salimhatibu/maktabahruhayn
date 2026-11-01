@@ -4,6 +4,7 @@ import { BackToTop } from "@/components/back-to-top"
 import { CartProvider } from "@/components/cart-context"
 import { NewsletterPopup } from "@/components/newsletter"
 import { SiteFooter } from "@/components/site-footer"
+import { LiveIsland } from "@/components/live-island"
 import { SiteHeader } from "@/components/site-header"
 import { StaleActionGuard } from "@/components/stale-action-guard"
 import { getCustomer } from "@/lib/auth"
@@ -65,6 +66,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           freeShippingThreshold={threshold}
           currency={region.currency}
         >
+          <LiveIsland />
           {site.content.announcement ? <div className="announcement">{site.content.announcement}</div> : null}
           <SiteHeader
             region={region}
