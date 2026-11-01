@@ -2781,16 +2781,30 @@ input[type="radio"] {
 
 .notify-me-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
+/*
+ * The button is uppercase and letter-spaced, so it claims about 190px before
+ * it will shrink. Against a flex-basis of 0 that left the field a sliver on a
+ * phone. The basis below is the narrowest an email field stays usable at: when
+ * the pair no longer fits, the field takes a line of its own and the button
+ * follows, instead of both being crushed onto one.
+ */
+/*
+ * No font-size here on purpose: the base input rule sets 1rem at a
+ * specificity of (0,3,1), which a plain .notify-me-row input cannot reach.
+ * 1rem is what this field wants anyway - below 16px iOS Safari zooms the
+ * page on focus - so it is left to win.
+ */
 .notify-me-row input {
-  flex: 1;
+  flex: 1 1 14rem;
   min-width: 0;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 0.375rem;
-  font-size: 0.88rem;
+}
+
+.notify-me-row .btn {
+  flex: 1 1 auto;
 }
 
 .notify-me-done {
