@@ -3,6 +3,7 @@ import { convert, getFxRates, toMajor } from "@maktabah/db"
 import { db } from "@/lib/db"
 import { deleteUnusedMedia } from "@/lib/media"
 import { saveCatalogProduct, type CatalogProductInput } from "@/lib/catalog-save"
+import { notifyRestocked } from "@/lib/notify-restock"
 
 /** GET /api/catalog/:id — everything the editor shows for one product. */
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -145,8 +146,17 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const { id } = await context.params
   const body = (await request.json()) as CatalogProductInput
   try {
-    const productId = await saveCatalogProduct(await db(), { ...body, id })
-    return NextResponse.json({ id: productId })
+    const database = await db()
+    const productId = await saveCatalogProduct(database, { ...body, id })
+
+    // Stock set here counts as a restock too, so waiting customers hear about it.
+    const { results } = await database
+      .prepare(`SELECT id FROM variant WHERE product_id = ?1`)
+      .bind(productId)
+      .all<{ id: string }>()
+    const notified = await notifyRestocked(database, results.map((v) => v.id))
+
+    return NextResponse.json({ id: productId, notified })
   } catch (error) {
     return NextResponse.json({ message: (error as Error).message }, { status: 400 })
   }

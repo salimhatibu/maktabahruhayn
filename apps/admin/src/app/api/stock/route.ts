@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { toMajor } from "@maktabah/db"
 import { db } from "@/lib/db"
+import { notifyRestocked } from "@/lib/notify-restock"
 
 /**
  * GET /api/stock?q=&max=   the Stock view's inline list
@@ -87,7 +88,8 @@ export async function POST(request: NextRequest) {
   }
   const quantity = Math.max(0, Math.round(body.stocked_quantity))
 
-  await (await db())
+  const d = await db()
+  await d
     .prepare(
       `INSERT INTO inventory_level (variant_id, location_id, stocked_quantity)
        VALUES (?1, ?2, ?3)
@@ -98,5 +100,8 @@ export async function POST(request: NextRequest) {
     .bind(body.variant_id, body.location_id, quantity)
     .run()
 
-  return NextResponse.json({ variant_id: body.variant_id, stocked_quantity: quantity })
+  // Anyone waiting on this edition hears about it as soon as it is back.
+  const notified = quantity > 0 ? await notifyRestocked(d, [body.variant_id]) : 0
+
+  return NextResponse.json({ variant_id: body.variant_id, stocked_quantity: quantity, notified })
 }

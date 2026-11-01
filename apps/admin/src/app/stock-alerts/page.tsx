@@ -28,7 +28,8 @@ function StockAlertsPage() {
         <div>
           <h1 className="txt-large-plus">Stock Alerts</h1>
           <Text size="small" className="text-ui-fg-subtle mt-0.5">
-            Customers waiting for out-of-stock items to come back.
+            Customers waiting for out-of-stock items. They are emailed automatically the moment you
+            put stock back, and the alert closes itself.
           </Text>
         </div>
       </div>
