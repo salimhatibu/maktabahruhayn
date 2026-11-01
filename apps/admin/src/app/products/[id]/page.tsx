@@ -127,7 +127,17 @@ type VariantForm = {
  * the cover a shopper should see once they pick Hardcover, not another image
  * of the book in general.
  */
-function FormatImage({ value, onChange, label }: { value: string; onChange: (url: string) => void; label: string }) {
+function FormatImage({
+  value,
+  onChange,
+  label,
+  compact,
+}: {
+  value: string
+  onChange: (url: string) => void
+  label: string
+  compact?: boolean
+}) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
 
@@ -145,6 +155,50 @@ function FormatImage({ value, onChange, label }: { value: string; onChange: (url
     } finally {
       setBusy(false)
     }
+  }
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          title={value ? `Replace the ${label} image` : `Add an image for ${label}`}
+          aria-label={value ? `Replace the ${label} image` : `Add an image for ${label}`}
+          className="border-ui-border-base hover:border-ui-border-interactive h-10 w-8 shrink-0 overflow-hidden rounded border disabled:opacity-50"
+          disabled={busy}
+          onClick={() => fileRef.current?.click()}
+        >
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={mediaSrc(value)} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-ui-fg-muted text-base leading-none">+</span>
+          )}
+        </button>
+        {value ? (
+          <button
+            type="button"
+            className="text-ui-fg-muted hover:text-ui-fg-base text-xs"
+            title={`Remove the ${label} image`}
+            aria-label={`Remove the ${label} image`}
+            onClick={() => onChange("")}
+          >
+            ×
+          </button>
+        ) : null}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) void upload(file)
+            e.target.value = ""
+          }}
+        />
+      </div>
+    )
   }
 
   return (
@@ -1500,6 +1554,7 @@ function PricingCard({
           <thead>
             <tr className="txt-compact-xsmall-plus text-ui-fg-subtle bg-ui-bg-subtle text-left">
               <th className="px-6 py-2 font-medium">Format</th>
+              <th className="px-2 py-2 font-medium">Image</th>
               <th className="px-2 py-2 font-medium">Price</th>
               <th className="px-2 py-2 font-medium">Was price</th>
               <th className="px-2 py-2 text-right font-medium">{form.track_inventory ? "Stock" : ""}</th>
@@ -1530,6 +1585,14 @@ function PricingCard({
                           {err("option_value")}
                         </Text>
                       ) : null}
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <FormatImage
+                        compact
+                        value={v.image}
+                        label={v.option_value || "this format"}
+                        onChange={(url) => setVariant(v.key, { image: url })}
+                      />
                     </td>
                     <td className="px-2 py-2.5">
                       <MoneyInput compact value={v.selling_price} invalid={Boolean(err("selling_price"))} onChange={(x) => setVariant(v.key, { selling_price: x })} />
@@ -1588,15 +1651,7 @@ function PricingCard({
                             />
                           </Labeled>
                           <SkuField v={v} setVariant={setVariant} className="sm:col-span-2" />
-                          <div className="sm:col-span-2">
-                            <Labeled label="Format image" optional hint="Shown first when this format is chosen.">
-                              <FormatImage
-                                value={v.image}
-                                label={v.option_value || "This format"}
-                                onChange={(url) => setVariant(v.key, { image: url })}
-                              />
-                            </Labeled>
-                          </div>
+
                           {err("original_price") ? (
                             <Text size="xsmall" className="text-ui-fg-error sm:col-span-2 lg:col-span-4">
                               Was price: {err("original_price")}
