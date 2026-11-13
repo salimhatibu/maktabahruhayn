@@ -1,27 +1,52 @@
-"use client"
+"use client";
 
-import { Trash } from "@medusajs/icons"
-import { Button, Drawer, IconButton, Input, Text, Textarea, toast } from "@medusajs/ui"
-import { useEffect, useState } from "react"
+import { Trash } from "@medusajs/icons";
+import {
+  Button,
+  Drawer,
+  IconButton,
+  Input,
+  Text,
+  Textarea,
+  toast,
+} from "@medusajs/ui";
+import { useEffect, useState } from "react";
 
 export type CatalogSettings = {
-  units: string[]
-  optionPresets: string[]
-  authors: string[]
-  descriptionTemplates: { name: string; html: string }[]
-}
+  units: string[];
+  optionPresets: string[];
+  authors: string[];
+  translators: string[];
+  commentaries: string[];
+  publishers: string[];
+  languages: string[];
+  descriptionTemplates: { name: string; html: string }[];
+};
 
-export type ManageKind = "units" | "optionPresets" | "authors" | "descriptionTemplates"
+export type ManageKind =
+  | "units"
+  | "optionPresets"
+  | "authors"
+  | "translators"
+  | "commentaries"
+  | "publishers"
+  | "languages"
+  | "descriptionTemplates";
 
-const COPY: Record<ManageKind, { title: string; description: string; placeholder: string }> = {
+const COPY: Record<
+  ManageKind,
+  { title: string; description: string; placeholder: string }
+> = {
   units: {
     title: "Units",
-    description: "How a single product is counted on invoices and the product page, e.g. item, set, volume.",
+    description:
+      "How a single product is counted on invoices and the product page, e.g. item, set, volume.",
     placeholder: "e.g. set",
   },
   optionPresets: {
     title: "Saved values",
-    description: "Variant values you use often. They appear as suggestions when you add a variant.",
+    description:
+      "Variant values you use often. They appear as suggestions when you add a variant.",
     placeholder: "e.g. Hardcover",
   },
   authors: {
@@ -30,12 +55,37 @@ const COPY: Record<ManageKind, { title: string; description: string; placeholder
       "Authors you want offered when editing a book. Every author already used in the catalogue is offered too, so add one here only to have it available before any book uses it.",
     placeholder: "e.g. Imam an-Nawawi",
   },
+  translators: {
+    title: "Translators",
+    description:
+      "Translators you want offered when editing a book. Every translator already used in the catalogue is offered too.",
+    placeholder: "e.g. Abdassamad Clarke",
+  },
+  commentaries: {
+    title: "Commentary / tahqeeq",
+    description:
+      "Commentators and editors you want offered when editing a book. Every value already used in the catalogue is offered too.",
+    placeholder: "e.g. Shaykh Shu'ayb al-Arna'ut",
+  },
+  publishers: {
+    title: "Publishers",
+    description:
+      "Publishers you want offered when editing a book. Every publisher already used in the catalogue is offered too.",
+    placeholder: "e.g. Darussalam",
+  },
+  languages: {
+    title: "Languages",
+    description:
+      "Languages you want offered when editing a book. Every language already used in the catalogue is offered too.",
+    placeholder: "e.g. English, Arabic, Bilingual",
+  },
   descriptionTemplates: {
     title: "Description templates",
-    description: "Reusable starting points for product descriptions. HTML is allowed.",
+    description:
+      "Reusable starting points for product descriptions. HTML is allowed.",
     placeholder: "Template name",
   },
-}
+};
 
 export function ManageDrawer({
   kind,
@@ -43,58 +93,64 @@ export function ManageDrawer({
   onClose,
   onSave,
 }: {
-  kind: ManageKind | null
-  settings: CatalogSettings | null
-  onClose: () => void
-  onSave: (next: CatalogSettings) => Promise<unknown>
+  kind: ManageKind | null;
+  settings: CatalogSettings | null;
+  onClose: () => void;
+  onSave: (next: CatalogSettings) => Promise<unknown>;
 }) {
-  const [items, setItems] = useState<string[]>([])
-  const [templates, setTemplates] = useState<{ name: string; html: string }[]>([])
-  const [draft, setDraft] = useState("")
-  const [saving, setSaving] = useState(false)
+  const [items, setItems] = useState<string[]>([]);
+  const [templates, setTemplates] = useState<{ name: string; html: string }[]>(
+    [],
+  );
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (kind && settings) {
-      setItems(kind === "descriptionTemplates" ? [] : [...settings[kind]])
-      setTemplates(settings.descriptionTemplates.map((t) => ({ ...t })))
-      setDraft("")
+      setItems(kind === "descriptionTemplates" ? [] : [...settings[kind]]);
+      setTemplates(settings.descriptionTemplates.map((t) => ({ ...t })));
+      setDraft("");
     }
-  }, [kind, settings])
+  }, [kind, settings]);
 
   if (!kind || !settings) {
-    return null
+    return null;
   }
-  const copy = COPY[kind]
-  const isTemplates = kind === "descriptionTemplates"
+  const copy = COPY[kind];
+  const isTemplates = kind === "descriptionTemplates";
 
   const add = () => {
-    const value = draft.trim()
+    const value = draft.trim();
     if (!value) {
-      return
+      return;
     }
     if (isTemplates) {
-      setTemplates((t) => [...t, { name: value, html: "<p></p>" }])
+      setTemplates((t) => [...t, { name: value, html: "<p></p>" }]);
     } else if (!items.some((i) => i.toLowerCase() === value.toLowerCase())) {
-      setItems((i) => [...i, value])
+      setItems((i) => [...i, value]);
     }
-    setDraft("")
-  }
+    setDraft("");
+  };
 
   const save = async () => {
-    setSaving(true)
+    setSaving(true);
     try {
       const cleaned = isTemplates
-        ? { descriptionTemplates: templates.filter((t) => t.name.trim()).map((t) => ({ name: t.name.trim(), html: t.html })) }
-        : { [kind]: items.map((i) => i.trim()).filter(Boolean) }
-      await onSave({ ...settings, ...cleaned })
-      toast.success(`${copy.title} saved`)
-      onClose()
+        ? {
+            descriptionTemplates: templates
+              .filter((t) => t.name.trim())
+              .map((t) => ({ name: t.name.trim(), html: t.html })),
+          }
+        : { [kind]: items.map((i) => i.trim()).filter(Boolean) };
+      await onSave({ ...settings, ...cleaned });
+      toast.success(`${copy.title} saved`);
+      onClose();
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.error((e as Error).message);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <Drawer open onOpenChange={(open) => (open ? null : onClose())}>
@@ -107,12 +163,22 @@ export function ManageDrawer({
           <form
             className="flex gap-2"
             onSubmit={(e) => {
-              e.preventDefault()
-              add()
+              e.preventDefault();
+              add();
             }}
           >
-            <Input size="small" placeholder={copy.placeholder} value={draft} onChange={(e) => setDraft(e.target.value)} />
-            <Button size="small" variant="secondary" type="submit" disabled={!draft.trim()}>
+            <Input
+              size="small"
+              placeholder={copy.placeholder}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <Button
+              size="small"
+              variant="secondary"
+              type="submit"
+              disabled={!draft.trim()}
+            >
               Add
             </Button>
           </form>
@@ -120,18 +186,29 @@ export function ManageDrawer({
           {isTemplates ? (
             <div className="flex flex-col gap-4">
               {templates.map((t, i) => (
-                <div key={i} className="border-ui-border-base flex flex-col gap-2 rounded-lg border p-3">
+                <div
+                  key={i}
+                  className="border-ui-border-base flex flex-col gap-2 rounded-lg border p-3"
+                >
                   <div className="flex items-center gap-2">
                     <Input
                       size="small"
                       value={t.name}
-                      onChange={(e) => setTemplates((all) => all.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                      onChange={(e) =>
+                        setTemplates((all) =>
+                          all.map((x, j) =>
+                            j === i ? { ...x, name: e.target.value } : x,
+                          ),
+                        )
+                      }
                     />
                     <IconButton
                       size="small"
                       variant="transparent"
                       aria-label={`Delete ${t.name}`}
-                      onClick={() => setTemplates((all) => all.filter((_, j) => j !== i))}
+                      onClick={() =>
+                        setTemplates((all) => all.filter((_, j) => j !== i))
+                      }
                     >
                       <Trash />
                     </IconButton>
@@ -140,11 +217,21 @@ export function ManageDrawer({
                     rows={5}
                     className="font-mono text-xs"
                     value={t.html}
-                    onChange={(e) => setTemplates((all) => all.map((x, j) => (j === i ? { ...x, html: e.target.value } : x)))}
+                    onChange={(e) =>
+                      setTemplates((all) =>
+                        all.map((x, j) =>
+                          j === i ? { ...x, html: e.target.value } : x,
+                        ),
+                      )
+                    }
                   />
                 </div>
               ))}
-              {!templates.length ? <Text size="small" className="text-ui-fg-subtle">No templates yet.</Text> : null}
+              {!templates.length ? (
+                <Text size="small" className="text-ui-fg-subtle">
+                  No templates yet.
+                </Text>
+              ) : null}
             </div>
           ) : (
             <ul className="divide-ui-border-base border-ui-border-base divide-y rounded-lg border">
@@ -154,13 +241,19 @@ export function ManageDrawer({
                     size="small"
                     className="border-0 shadow-none"
                     value={item}
-                    onChange={(e) => setItems((all) => all.map((x, j) => (j === i ? e.target.value : x)))}
+                    onChange={(e) =>
+                      setItems((all) =>
+                        all.map((x, j) => (j === i ? e.target.value : x)),
+                      )
+                    }
                   />
                   <IconButton
                     size="small"
                     variant="transparent"
                     aria-label={`Delete ${item}`}
-                    onClick={() => setItems((all) => all.filter((_, j) => j !== i))}
+                    onClick={() =>
+                      setItems((all) => all.filter((_, j) => j !== i))
+                    }
                   >
                     <Trash />
                   </IconButton>
@@ -168,7 +261,9 @@ export function ManageDrawer({
               ))}
               {!items.length ? (
                 <li className="px-3 py-3">
-                  <Text size="small" className="text-ui-fg-subtle">Nothing here yet.</Text>
+                  <Text size="small" className="text-ui-fg-subtle">
+                    Nothing here yet.
+                  </Text>
                 </li>
               ) : null}
             </ul>
@@ -184,5 +279,5 @@ export function ManageDrawer({
         </Drawer.Footer>
       </Drawer.Content>
     </Drawer>
-  )
+  );
 }

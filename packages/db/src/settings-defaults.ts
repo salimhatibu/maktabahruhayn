@@ -7,119 +7,153 @@
  */
 
 export type BusinessSettings = {
-  name: string
-  tagline: string
-  email: string
-  phone: string
-  whatsapp: string
-  address: string
-  instagram: string
-  facebook: string
-  x: string
-}
+  name: string;
+  tagline: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  address: string;
+  instagram: string;
+  facebook: string;
+  x: string;
+};
 
 export type ThemeSettings = {
-  brand: string
-  brandDark: string
-  accent: string
-  rose: string
-  promoBar: string
-  footer: string
-}
+  brand: string;
+  brandDark: string;
+  accent: string;
+  rose: string;
+  promoBar: string;
+  footer: string;
+};
 
-export type PromoMessage = { text: string; href: string }
+export type PromoMessage = { text: string; href: string };
 
 export type HeroSlide = {
-  kicker: string
-  title: string
-  text: string
-  cta: string
-  href: string
-  tone: string
+  kicker: string;
+  title: string;
+  text: string;
+  cta: string;
+  href: string;
+  tone: string;
   /** Images shown on the slide (uploaded or picked from product images). */
-  images: string[]
+  images: string[];
   /** Fallback when no images are set: covers of books with this tag. */
-  coverTag: string
-}
+  coverTag: string;
+};
 
 export type HomeSection = {
-  title: string
-  source: "tag" | "category" | "sale"
-  value: string
-  enabled: boolean
-}
+  title: string;
+  source: "tag" | "category" | "sale";
+  value: string;
+  enabled: boolean;
+};
 
 export type ContentSettings = {
-  promoMessages: PromoMessage[]
-  heroSlides: HeroSlide[]
-  homeSections: HomeSection[]
-  popularSearches: string[]
-  announcement: string
-}
+  promoMessages: PromoMessage[];
+  heroSlides: HeroSlide[];
+  homeSections: HomeSection[];
+  popularSearches: string[];
+  announcement: string;
+};
 
-export type NavLink = { label: string; href: string }
-export type NavColumn = { heading: string; href?: string; links: NavLink[] }
-export type NavItem = { label: string; href: string; columns?: NavColumn[] }
-export type NavigationSettings = { items: NavItem[]; footerLinks: NavLink[] }
+export type NavLink = { label: string; href: string };
+export type NavColumn = { heading: string; href?: string; links: NavLink[] };
+export type NavItem = { label: string; href: string; columns?: NavColumn[] };
+export type NavigationSettings = { items: NavItem[]; footerLinks: NavLink[] };
 
 export type ShippingSettings = {
-  freeThresholdUsd: number
-  freeThresholdKes: number
-  fallbackUsd: number
-  fallbackKes: number
-}
+  freeThresholdUsd: number;
+  freeThresholdKes: number;
+  fallbackUsd: number;
+  fallbackKes: number;
+};
 
-export type EmailTemplate = { subject: string; body: string; enabled: boolean }
+export type EmailTemplate = { subject: string; body: string; enabled: boolean };
 
 export type EmailSettings = {
-  fromName: string
-  replyTo: string
+  fromName: string;
+  replyTo: string;
   templates: Record<
-    "order_placed" | "order_shipped" | "order_delivered" | "customer_welcome" | "abandoned_cart" | "newsletter_welcome",
+    | "order_placed"
+    | "order_shipped"
+    | "order_delivered"
+    | "customer_welcome"
+    | "abandoned_cart"
+    | "newsletter_welcome",
     EmailTemplate
-  >
-  abandonedCartAfterHours: number
-  abandonedCartAuto: boolean
-}
+  >;
+  abandonedCartAfterHours: number;
+  abandonedCartAuto: boolean;
+};
 
-export type ReportingSettings = { currency: string }
+export type ReportingSettings = { currency: string };
 
-export type AffiliateSettings = { defaultCommissionPercent: number; cookieDays: number }
+export type AffiliateSettings = {
+  defaultCommissionPercent: number;
+  cookieDays: number;
+};
 
-export type DescriptionTemplate = { name: string; html: string }
+export type DescriptionTemplate = { name: string; html: string };
 
 export type CatalogSettings = {
-  units: string[]
-  optionPresets: string[]
+  units: string[];
+  optionPresets: string[];
   /** Starts empty: the editor also offers every author already in the catalogue. */
-  authors: string[]
-  descriptionTemplates: DescriptionTemplate[]
-}
+  authors: string[];
+  translators: string[];
+  commentaries: string[];
+  publishers: string[];
+  languages: string[];
+  descriptionTemplates: DescriptionTemplate[];
+};
 
 export type SettingsMap = {
-  catalog: CatalogSettings
-  business: BusinessSettings
-  theme: ThemeSettings
-  content: ContentSettings
-  navigation: NavigationSettings
-  shipping: ShippingSettings
-  email: EmailSettings
-  reporting: ReportingSettings
-  affiliate: AffiliateSettings
-}
+  catalog: CatalogSettings;
+  business: BusinessSettings;
+  theme: ThemeSettings;
+  content: ContentSettings;
+  navigation: NavigationSettings;
+  shipping: ShippingSettings;
+  email: EmailSettings;
+  reporting: ReportingSettings;
+  affiliate: AffiliateSettings;
+};
 
-export type SettingsKey = keyof SettingsMap
+export type SettingsKey = keyof SettingsMap;
 
 /** Sections exposed to the storefront (never email or affiliate internals). */
-export const PUBLIC_SETTINGS: SettingsKey[] = ["business", "theme", "content", "navigation", "shipping"]
+export const PUBLIC_SETTINGS: SettingsKey[] = [
+  "business",
+  "theme",
+  "content",
+  "navigation",
+  "shipping",
+];
 
-const sub = (handle: string, label: string): NavLink => ({ label, href: `/books?category=${handle}` })
+const sub = (handle: string, label: string): NavLink => ({
+  label,
+  href: `/books?category=${handle}`,
+});
 
 export const DEFAULT_SETTINGS: SettingsMap = {
   catalog: {
     units: ["item", "set", "pack", "volume", "piece"],
-    optionPresets: ["Paperback", "Hardcover", "Box Set", "Pocket Size", "Large Print", "Arabic", "English", "Bilingual"],
+    optionPresets: [
+      "Paperback",
+      "Hardcover",
+      "Box Set",
+      "Pocket Size",
+      "Large Print",
+      "Arabic",
+      "English",
+      "Bilingual",
+    ],
     authors: [],
+    translators: [],
+    commentaries: [],
+    publishers: [],
+    languages: [],
     descriptionTemplates: [
       {
         name: "Book overview",
@@ -133,7 +167,8 @@ export const DEFAULT_SETTINGS: SettingsMap = {
   },
   business: {
     name: "Maktabah Ruhayn",
-    tagline: "Classical Islamic books, multi-volume collections, and verified editions, shipped from Nairobi.",
+    tagline:
+      "Classical Islamic books, multi-volume collections, and verified editions, shipped from Nairobi.",
     email: "",
     phone: "",
     whatsapp: "",
@@ -155,7 +190,10 @@ export const DEFAULT_SETTINGS: SettingsMap = {
     announcement: "",
     promoMessages: [
       { text: "Sale Items: Selected Titles Reduced", href: "/books?sale=1" },
-      { text: "Pre-Order the 2027 Islamic Calendar", href: "/books?tag=coming-soon" },
+      {
+        text: "Pre-Order the 2027 Islamic Calendar",
+        href: "/books?tag=coming-soon",
+      },
     ],
     heroSlides: [
       {
@@ -200,13 +238,38 @@ export const DEFAULT_SETTINGS: SettingsMap = {
       },
     ],
     homeSections: [
-      { title: "Our Latest Products", source: "tag", value: "new-release", enabled: true },
-      { title: "Bestsellers", source: "tag", value: "bestseller", enabled: true },
-      { title: "Marriage & Family", source: "category", value: "marriage-family", enabled: true },
-      { title: "Our Booksellers Recommend", source: "tag", value: "staff-pick", enabled: true },
+      {
+        title: "Our Latest Products",
+        source: "tag",
+        value: "new-release",
+        enabled: true,
+      },
+      {
+        title: "Bestsellers",
+        source: "tag",
+        value: "bestseller",
+        enabled: true,
+      },
+      {
+        title: "Marriage & Family",
+        source: "category",
+        value: "marriage-family",
+        enabled: true,
+      },
+      {
+        title: "Our Booksellers Recommend",
+        source: "tag",
+        value: "staff-pick",
+        enabled: true,
+      },
       { title: "Sale Items", source: "sale", value: "", enabled: true },
       { title: "For Women", source: "category", value: "women", enabled: true },
-      { title: "Pre-Order", source: "tag", value: "coming-soon", enabled: true },
+      {
+        title: "Pre-Order",
+        source: "tag",
+        value: "coming-soon",
+        enabled: true,
+      },
     ],
     popularSearches: [
       "Fortress of the Muslim",
@@ -230,8 +293,14 @@ export const DEFAULT_SETTINGS: SettingsMap = {
             href: "/books?tag=bestseller",
             links: [
               { label: "All Bestsellers", href: "/books?tag=bestseller" },
-              { label: "Qur'an & Mushaf", href: "/books?tag=bestseller&category=quran-mushaf" },
-              { label: "Hadith", href: "/books?tag=bestseller&category=hadith" },
+              {
+                label: "Qur'an & Mushaf",
+                href: "/books?tag=bestseller&category=quran-mushaf",
+              },
+              {
+                label: "Hadith",
+                href: "/books?tag=bestseller&category=hadith",
+              },
             ],
           },
           {
@@ -272,7 +341,10 @@ export const DEFAULT_SETTINGS: SettingsMap = {
             links: [
               { label: "Hardcover", href: "/search?binding_type=hardcover" },
               { label: "Softcover", href: "/search?binding_type=softcover" },
-              { label: "Multi-volume Sets", href: "/search?binding_type=multi_volume_box_set" },
+              {
+                label: "Multi-volume Sets",
+                href: "/search?binding_type=multi_volume_box_set",
+              },
             ],
           },
         ],
@@ -339,13 +411,16 @@ export const DEFAULT_SETTINGS: SettingsMap = {
   },
   reporting: { currency: "kes" },
   affiliate: { defaultCommissionPercent: 10, cookieDays: 30 },
-}
+};
 
 /** Shallow-merges saved values over defaults so new fields get defaults. */
-export function withDefaults<K extends SettingsKey>(key: K, saved: unknown): SettingsMap[K] {
-  const base = DEFAULT_SETTINGS[key]
+export function withDefaults<K extends SettingsKey>(
+  key: K,
+  saved: unknown,
+): SettingsMap[K] {
+  const base = DEFAULT_SETTINGS[key];
   if (!saved || typeof saved !== "object") {
-    return base
+    return base;
   }
-  return { ...base, ...(saved as object) } as SettingsMap[K]
+  return { ...base, ...(saved as object) } as SettingsMap[K];
 }

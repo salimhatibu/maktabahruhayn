@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
-import { DEFAULT_SETTINGS, withDefaults } from "@maktabah/db"
-import { db } from "@/lib/db"
+import { NextResponse } from "next/server";
+import { DEFAULT_SETTINGS, withDefaults } from "@maktabah/db";
+import { db } from "@/lib/db";
 
 /**
  * GET /api/catalog/meta — everything the product editor needs besides the
@@ -8,27 +8,74 @@ import { db } from "@/lib/db"
  * the catalogue settings, the merchandising tags and the parcel presets.
  */
 const SHIPPING_SIZES = [
-  { value: "small", label: "Small package (most books)", length: 21, width: 15, height: 3, weight: 450 },
-  { value: "medium", label: "Medium package (large book or 2-3 books)", length: 25, width: 18, height: 6, weight: 1100 },
-  { value: "large", label: "Large package (box set)", length: 32, width: 24, height: 12, weight: 3000 },
-  { value: "xlarge", label: "Extra large (big multi-volume set)", length: 40, width: 30, height: 20, weight: 7000 },
-  { value: "custom", label: "Custom size", length: 0, width: 0, height: 0, weight: 0 },
-]
+  {
+    value: "small",
+    label: "Small package (most books)",
+    length: 21,
+    width: 15,
+    height: 3,
+    weight: 450,
+  },
+  {
+    value: "medium",
+    label: "Medium package (large book or 2-3 books)",
+    length: 25,
+    width: 18,
+    height: 6,
+    weight: 1100,
+  },
+  {
+    value: "large",
+    label: "Large package (box set)",
+    length: 32,
+    width: 24,
+    height: 12,
+    weight: 3000,
+  },
+  {
+    value: "xlarge",
+    label: "Extra large (big multi-volume set)",
+    length: 40,
+    width: 30,
+    height: 20,
+    weight: 7000,
+  },
+  {
+    value: "custom",
+    label: "Custom size",
+    length: 0,
+    width: 0,
+    height: 0,
+    weight: 0,
+  },
+];
 
 const TAGS = [
   { value: "bestseller", label: "Bestseller" },
   { value: "new-release", label: "New arrival" },
   { value: "coming-soon", label: "Pre-order" },
   { value: "staff-pick", label: "Booksellers' pick" },
-]
+];
 
 export async function GET() {
-  const database = await db()
-  const [locations, categories, products, settings, authors] = await database.batch<Record<string, string | null>>([
+  const database = await db();
+  const [
+    locations,
+    categories,
+    products,
+    settings,
+    authors,
+    translators,
+    commentaries,
+    publishers,
+    languages,
+  ] = await database.batch<Record<string, string | null>>([
     database.prepare(`SELECT id, name FROM stock_location ORDER BY name`),
-    database.prepare(`SELECT id, handle, name, parent_id FROM category WHERE is_active = 1 ORDER BY rank, name`),
     database.prepare(
-      `SELECT id, title, thumbnail FROM product WHERE deleted_at IS NULL ORDER BY product_number DESC LIMIT 500`
+      `SELECT id, handle, name, parent_id FROM category WHERE is_active = 1 ORDER BY rank, name`,
+    ),
+    database.prepare(
+      `SELECT id, title, thumbnail FROM product WHERE deleted_at IS NULL ORDER BY product_number DESC LIMIT 500`,
     ),
     database.prepare(`SELECT value FROM store_setting WHERE key = 'catalog'`),
     // Authors already in use, so the picker is useful before anyone curates a list.
@@ -36,15 +83,41 @@ export async function GET() {
       `SELECT DISTINCT b.author FROM book b
          JOIN product p ON p.id = b.product_id
         WHERE b.author IS NOT NULL AND TRIM(b.author) <> '' AND p.deleted_at IS NULL
-        ORDER BY b.author`
+        ORDER BY b.author`,
     ),
-  ])
+    database.prepare(
+      `SELECT DISTINCT b.translator FROM book b
+         JOIN product p ON p.id = b.product_id
+        WHERE b.translator IS NOT NULL AND TRIM(b.translator) <> '' AND p.deleted_at IS NULL
+        ORDER BY b.translator`,
+    ),
+    database.prepare(
+      `SELECT DISTINCT b.commentator_tahqeeq FROM book b
+         JOIN product p ON p.id = b.product_id
+        WHERE b.commentator_tahqeeq IS NOT NULL AND TRIM(b.commentator_tahqeeq) <> '' AND p.deleted_at IS NULL
+        ORDER BY b.commentator_tahqeeq`,
+    ),
+    database.prepare(
+      `SELECT DISTINCT b.publisher FROM book b
+         JOIN product p ON p.id = b.product_id
+        WHERE b.publisher IS NOT NULL AND TRIM(b.publisher) <> '' AND p.deleted_at IS NULL
+        ORDER BY b.publisher`,
+    ),
+    database.prepare(
+      `SELECT DISTINCT b.language FROM book b
+         JOIN product p ON p.id = b.product_id
+        WHERE b.language IS NOT NULL AND TRIM(b.language) <> '' AND p.deleted_at IS NULL
+        ORDER BY b.language`,
+    ),
+  ]);
 
-  let saved: unknown = null
+  let saved: unknown = null;
   try {
-    saved = settings.results[0]?.value ? JSON.parse(String(settings.results[0].value)) : null
+    saved = settings.results[0]?.value
+      ? JSON.parse(String(settings.results[0].value))
+      : null;
   } catch {
-    saved = null
+    saved = null;
   }
 
   return NextResponse.json({
@@ -53,8 +126,20 @@ export async function GET() {
     products: products.results,
     catalog: withDefaults("catalog", saved) ?? DEFAULT_SETTINGS.catalog,
     book_authors: authors.results.map((r) => String(r.author)).filter(Boolean),
+    book_translators: translators.results
+      .map((r) => String(r.translator))
+      .filter(Boolean),
+    book_commentaries: commentaries.results
+      .map((r) => String(r.commentator_tahqeeq))
+      .filter(Boolean),
+    book_publishers: publishers.results
+      .map((r) => String(r.publisher))
+      .filter(Boolean),
+    book_languages: languages.results
+      .map((r) => String(r.language))
+      .filter(Boolean),
     tags: TAGS,
     shipping_sizes: SHIPPING_SIZES,
     storefront_url: (process.env.STOREFRONT_URL || "").replace(/\/+$/, ""),
-  })
+  });
 }
