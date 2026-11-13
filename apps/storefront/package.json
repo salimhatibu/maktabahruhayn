@@ -17,11 +17,11 @@
   "dependencies": {
     "@maktabah/db": "workspace:^",
     "@maktabah/shared": "workspace:^",
-    "@opennextjs/cloudflare": "1.20.6",
+    "@opennextjs/cloudflare": "1.20.17",
     "@stripe/react-stripe-js": "6.12.0",
     "@stripe/stripe-js": "9.17.0",
     "libphonenumber-js": "1.13.14",
-    "next": "15.5.28",
+    "next": "15.5.29",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -32,9 +32,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.5.28",
+    "eslint-config-next": "15.5.29",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "wrangler": "4.141.0"
+    "wrangler": "4.161.0"
   }
 }
