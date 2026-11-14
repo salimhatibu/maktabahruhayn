@@ -391,27 +391,40 @@ export async function repriceCart(db: D1, cartId: string, currency: string): Pro
 /** Shipping options a cart's destination can use, priced in its currency. */
 export async function listShippingOptions(
   db: D1,
-  input: { countryCode: string | null; currency: string; subtotalMinor: number }
+  input: { countryCode: string | null; currency: string; subtotalMinor: number; countyCode?: string | null }
 ): Promise<{ id: string; name: string; provider: string; amountMinor: number; free: boolean }[]> {
   const { results } = await db
     .prepare(`SELECT * FROM shipping_option WHERE is_active = 1 ORDER BY rank, name`)
     .all<Record<string, any>>()
   const country = (input.countryCode || "").toLowerCase()
+  const county = (input.countyCode || "").toLowerCase()
   const rates = await getFxRates(db)
 
   return results
     .filter((option) => {
       const countries = JSON.parse(option.countries || "[]") as string[]
-      return !countries.length || countries.includes(country)
+      if (countries.length && !countries.includes(country)) {
+        return false
+      }
+      if (option.county_prices_json && option.county_prices_json !== "{}") {
+        const countyPrices = JSON.parse(option.county_prices_json) as Record<string, number>
+        return country === "ke" && Object.prototype.hasOwnProperty.call(countyPrices, county)
+      }
+      return true
     })
     .map((option) => {
-      const base = Number(option.amount_minor || 0)
+      const countyPrices =
+        option.county_prices_json && option.county_prices_json !== "{}"
+          ? (JSON.parse(option.county_prices_json) as Record<string, number>)
+          : null
+      const base = countyPrices ? Number(countyPrices[county]) : Number(option.amount_minor || 0)
+      const currency = countyPrices ? "kes" : option.currency_code || BASE_CURRENCY
       const amount =
-        (option.currency_code || BASE_CURRENCY) === input.currency
+        currency === input.currency
           ? base
           : convert(base, input.currency, rates)
       const threshold = option.free_above_minor
-        ? (option.currency_code || BASE_CURRENCY) === input.currency
+        ? currency === input.currency
           ? Number(option.free_above_minor)
           : convert(Number(option.free_above_minor), input.currency, rates)
         : null

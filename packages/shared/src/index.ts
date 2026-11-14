@@ -8,4 +8,5 @@ export type {
 
 export * from "./email-template"
 export * from "./html"
+export * from "./kenya-locations"
 export * from "./regions"

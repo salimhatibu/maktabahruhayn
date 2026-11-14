@@ -117,6 +117,33 @@ await test("a published, priced edition goes in the cart at its price", async ()
   assert.ok(cart.lines[0].unitPriceMinor > 0)
   assert.equal(cart.lines[0].quantity, 2)
 })
+await test("Kenya EXPRESS rates use the selected county and are not offered without one", async () => {
+  const row = await one(`SELECT county_prices_json FROM shipping_option WHERE id = 'express-kenya'`)
+  const countyPrices = JSON.parse(row.county_prices_json)
+  assert.equal(Object.keys(countyPrices).length, 47)
+  const getExpressRate = async (countyCode) =>
+    (await lib.listShippingOptions(db, { countryCode: "ke", currency: "kes", subtotalMinor: 0, countyCode })).find(
+      (option) => option.id === "express-kenya"
+    )
+  for (const [county, expectedMinor] of [
+    ["nairobi", 50000],
+    ["kiambu", 50000],
+    ["mombasa", 65000],
+    ["marsabit", 65000],
+    ["isiolo", 65000],
+    ["kilifi", 65000],
+    ["nakuru", 75000],
+  ]) {
+    assert.equal((await getExpressRate(county))?.amountMinor, expectedMinor, county)
+  }
+  assert.equal(await getExpressRate(null), undefined)
+  assert.equal(
+    (await lib.listShippingOptions(db, { countryCode: "us", currency: "usd", subtotalMinor: 0, countyCode: "nairobi" })).some(
+      (option) => option.id === "express-kenya"
+    ),
+    false
+  )
+})
 await test("a draft product cannot be added", async () => {
   await db.prepare(`UPDATE product SET status = 'draft' WHERE id = ?1`).bind(B.product_id).run()
   const id = await lib.createCart(db, { currency: "usd" })

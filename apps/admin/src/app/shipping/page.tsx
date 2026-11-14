@@ -5,9 +5,31 @@ import { Button, Input, StatusBadge, Table, Text, toast } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ErrorNote, Field, PageHeader, Section } from "@/components/kit"
-import { dateTime, useApi, useSettings } from "@/lib/api"
+import { api, dateTime, money, useApi, useSettings } from "@/lib/api"
+import { KENYA_COUNTIES, PRICED_CURRENCIES } from "@maktabah/shared"
 
 type ShippingSettings = { freeThresholdUsd: number; freeThresholdKes: number; fallbackUsd: number; fallbackKes: number }
+type ShippingMethod = {
+  id: string
+  name: string
+  price_type: string
+  provider_id: string
+  amount: number | null
+  currency_code: string | null
+  countries: string[]
+  county_prices: Record<string, number> | null
+  is_active: boolean
+  service_zone?: { name: string }
+}
+type ShippingMethodDraft = {
+  id?: string
+  name: string
+  amount: number
+  currency: string
+  countries: string
+  county_prices: Record<string, number> | null
+  is_active: boolean
+}
 
 type Fulfillment = {
   id: string
@@ -19,14 +41,14 @@ type Fulfillment = {
   metadata: Record<string, unknown> | null
   labels: { tracking_number: string; tracking_url: string; label_url: string }[]
   order: { id: string; display_id: number; email: string } | null
-  delivery_address: { country_code: string; city: string } | null
+  delivery_address: { country_code: string; city: string; province?: string } | null
 }
 
 type Overview = {
   shippo_configured: boolean
   webhook_configured: boolean
   fulfillments: Fulfillment[]
-  options: { id: string; name: string; price_type: string; provider_id: string; service_zone?: { name: string } }[]
+  options: ShippingMethod[]
   zones: { id: string; name: string; countries: string[] }[]
 }
 
@@ -38,10 +60,52 @@ function status(f: Fulfillment) {
 }
 
 const ShippingPage = () => {
-  const { data, error } = useApi<Overview>("/api/shipping")
+  const { data, error, reload } = useApi<Overview>("/api/shipping")
   const settings = useSettings<ShippingSettings>("shipping")
   const [form, setForm] = useState<ShippingSettings | null>(null)
+  const [methodForm, setMethodForm] = useState<ShippingMethodDraft | null>(null)
+  const [savingMethod, setSavingMethod] = useState(false)
   useEffect(() => setForm(settings.value), [settings.value])
+
+  const addMethod = () =>
+    setMethodForm({ name: "", amount: 750, currency: "kes", countries: "ke", county_prices: null, is_active: true })
+
+  const editMethod = (option: ShippingMethod) => {
+    if (option.provider_id !== "manual") return
+    setMethodForm({
+      id: option.id,
+      name: option.name,
+      amount: option.amount ?? 0,
+      currency: option.currency_code || "usd",
+      countries: option.countries.join(", "),
+      county_prices: option.county_prices ? { ...option.county_prices } : null,
+      is_active: option.is_active,
+    })
+  }
+
+  const saveMethod = async () => {
+    if (!methodForm) return
+    setSavingMethod(true)
+    try {
+      await api("/api/shipping/options", {
+        method: "POST",
+        json: {
+          ...methodForm,
+          countries: methodForm.countries
+            .split(",")
+            .map((country) => country.trim().toLowerCase())
+            .filter(Boolean),
+        },
+      })
+      await reload()
+      setMethodForm(null)
+      toast.success("Shipping method saved")
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setSavingMethod(false)
+    }
+  }
 
   const save = async () => {
     if (!form) return
@@ -64,10 +128,14 @@ const ShippingPage = () => {
       <ErrorNote message={error || settings.error} />
 
       <Section
-        title="Delivery options"
+        title="Delivery methods"
+        description="Add and edit the rates customers can choose at checkout. Live Shippo rates are managed by the carrier."
         flush
         actions={
           <div className="flex flex-wrap gap-4">
+            <Button size="small" onClick={addMethod}>
+              Add delivery method
+            </Button>
             <StatusBadge color={data?.shippo_configured ? "green" : "orange"}>
               Shippo {data?.shippo_configured ? "connected" : "using fallback rates"}
             </StatusBadge>
@@ -81,17 +149,37 @@ const ShippingPage = () => {
             <Table>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell>Option</Table.HeaderCell>
-              <Table.HeaderCell>Pricing</Table.HeaderCell>
+              <Table.HeaderCell>Method</Table.HeaderCell>
+              <Table.HeaderCell>Price</Table.HeaderCell>
               <Table.HeaderCell>Zone</Table.HeaderCell>
+              <Table.HeaderCell>Status</Table.HeaderCell>
+              <Table.HeaderCell />
             </Table.Row>
           </Table.Header>
           <Table.Body>
             {(data?.options || []).map((o) => (
               <Table.Row key={o.id}>
                 <Table.Cell>{o.name}</Table.Cell>
-                <Table.Cell>{o.price_type === "calculated" ? "Live (Shippo)" : "Flat rate"}</Table.Cell>
-                <Table.Cell>{o.service_zone?.name}</Table.Cell>
+                <Table.Cell>
+                  {o.price_type === "calculated"
+                    ? "Live (Shippo)"
+                    : o.county_prices
+                      ? "County rates (KES)"
+                      : o.amount === null
+                        ? "—"
+                        : `${money(o.amount, o.currency_code || "usd")} flat`}
+                </Table.Cell>
+                <Table.Cell>{o.county_prices ? "Kenya" : o.service_zone?.name}</Table.Cell>
+                <Table.Cell>
+                  <StatusBadge color={o.is_active ? "green" : "grey"}>{o.is_active ? "Active" : "Inactive"}</StatusBadge>
+                </Table.Cell>
+                <Table.Cell>
+                  {o.provider_id === "manual" ? (
+                    <Button size="small" variant="secondary" onClick={() => editMethod(o)}>
+                      Edit
+                    </Button>
+                  ) : null}
+                </Table.Cell>
               </Table.Row>
             ))}
           </Table.Body>
@@ -101,6 +189,92 @@ const ShippingPage = () => {
           Ships to {data?.zones.reduce((n, z) => n + z.countries.length, 0) ?? 0} countries. Where no option above
           covers a destination, checkout offers standard delivery at the fallback rates below.
         </Text>
+        {methodForm ? (
+          <div className="border-t border-ui-border-base p-6">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <Text weight="plus">{methodForm.id ? "Edit delivery method" : "Add delivery method"}</Text>
+              <Button size="small" variant="secondary" onClick={() => setMethodForm(null)}>
+                Cancel
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Field label="Method name">
+                <Input value={methodForm.name} maxLength={100} onChange={(e) => setMethodForm({ ...methodForm, name: e.target.value })} />
+              </Field>
+              <Field label="Flat price" hint="Major currency units; KES prices must be whole shillings.">
+                <Input type="number" min={0} step={methodForm.currency === "kes" ? 1 : 0.01} value={methodForm.amount} onChange={(e) => setMethodForm({ ...methodForm, amount: Number(e.target.value) })} />
+              </Field>
+              <Field label="Currency">
+                <select
+                  value={methodForm.currency}
+                  onChange={(e) => setMethodForm({ ...methodForm, currency: e.target.value })}
+                >
+                  {PRICED_CURRENCIES.map((currency) => (
+                    <option key={currency} value={currency}>
+                      {currency.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Destination countries" hint="Comma-separated ISO country codes; leave blank for worldwide.">
+                <Input value={methodForm.countries} onChange={(e) => setMethodForm({ ...methodForm, countries: e.target.value })} />
+              </Field>
+              <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={methodForm.is_active}
+                  onChange={(e) => setMethodForm({ ...methodForm, is_active: e.target.checked })}
+                />
+                Available at checkout
+              </label>
+              <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(methodForm.county_prices)}
+                  onChange={(e) =>
+                    setMethodForm({
+                      ...methodForm,
+                      currency: e.target.checked ? "kes" : methodForm.currency,
+                      countries: e.target.checked ? "ke" : methodForm.countries,
+                      county_prices: e.target.checked
+                        ? Object.fromEntries(KENYA_COUNTIES.map((county) => [county.code, methodForm.county_prices?.[county.code] ?? methodForm.amount]))
+                        : null,
+                    })
+                  }
+                />
+                Set a different KES price per county
+              </label>
+            </div>
+            {methodForm.county_prices ? (
+              <div className="mt-5 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                {KENYA_COUNTIES.map((county) => (
+                  <Field key={county.code} label={county.name}>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={methodForm.county_prices?.[county.code] ?? ""}
+                      onChange={(e) =>
+                        setMethodForm({
+                          ...methodForm,
+                          county_prices: {
+                            ...(methodForm.county_prices || {}),
+                            [county.code]: Number(e.target.value),
+                          },
+                        })
+                      }
+                    />
+                  </Field>
+                ))}
+              </div>
+            ) : null}
+            <div className="mt-5 flex justify-end">
+              <Button isLoading={savingMethod} onClick={saveMethod}>
+                Save method
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </Section>
 
       <Section title="Free shipping & fallback rates" description="Free standard (postal) shipping above these order values. Other currencies use the USD threshold converted at today's rate.">
@@ -155,7 +329,9 @@ const ShippingPage = () => {
                   <Table.Cell>{f.order ? <Link href={`/orders/${f.order.id}`}>#{f.order.display_id}</Link> : "—"}</Table.Cell>
                   <Table.Cell>{dateTime(f.created_at)}</Table.Cell>
                   <Table.Cell>
-                    {f.delivery_address?.city} {f.delivery_address?.country_code?.toUpperCase()}
+                    {f.delivery_address?.city}
+                    {f.delivery_address?.province ? `, ${f.delivery_address.province}` : ""}{" "}
+                    {f.delivery_address?.country_code?.toUpperCase()}
                   </Table.Cell>
                   <Table.Cell>{(f.data?.carrier as string) || "—"}</Table.Cell>
                   <Table.Cell>
