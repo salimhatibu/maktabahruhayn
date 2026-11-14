@@ -1,7 +1,30 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { KENYA_COUNTIES, PRICED_CURRENCIES } from "@maktabah/shared"
-import { newId, toMinor } from "@maktabah/db"
+import { deleteShippingOption, newId, toMinor } from "@maktabah/db"
 import { db } from "@/lib/db"
+
+export async function DELETE(request: NextRequest) {
+  const id = request.nextUrl.searchParams.get("id")?.trim()
+  if (!id || id.length > 100) {
+    return NextResponse.json({ message: "Invalid shipping method ID." }, { status: 400 })
+  }
+
+  const result = await deleteShippingOption(await db(), id)
+  if (result === "not_found") {
+    return NextResponse.json({ message: "Shipping method not found." }, { status: 404 })
+  }
+  if (result === "system_managed") {
+    return NextResponse.json({ message: "System-managed shipping methods cannot be deleted." }, { status: 409 })
+  }
+  if (result === "in_use") {
+    return NextResponse.json(
+      { message: "This method is selected in an unfinished cart. It cannot be deleted yet." },
+      { status: 409 }
+    )
+  }
+
+  return NextResponse.json({ id })
+}
 
 export async function POST(request: NextRequest) {
   let body: Record<string, unknown>
