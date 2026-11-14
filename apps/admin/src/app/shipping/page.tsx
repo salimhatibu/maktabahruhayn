@@ -65,6 +65,7 @@ const ShippingPage = () => {
   const [form, setForm] = useState<ShippingSettings | null>(null)
   const [methodForm, setMethodForm] = useState<ShippingMethodDraft | null>(null)
   const [savingMethod, setSavingMethod] = useState(false)
+  const [deletingMethodId, setDeletingMethodId] = useState<string | null>(null)
   useEffect(() => setForm(settings.value), [settings.value])
 
   const addMethod = () =>
@@ -104,6 +105,20 @@ const ShippingPage = () => {
       toast.error((e as Error).message)
     } finally {
       setSavingMethod(false)
+    }
+  }
+
+  const deleteMethod = async (option: ShippingMethod) => {
+    if (!window.confirm(`Delete "${option.name}"? Existing orders will keep their delivery details.`)) return
+    setDeletingMethodId(option.id)
+    try {
+      await api(`/api/shipping/options?id=${encodeURIComponent(option.id)}`, { method: "DELETE" })
+      await reload()
+      toast.success("Shipping method deleted")
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setDeletingMethodId(null)
     }
   }
 
@@ -175,9 +190,21 @@ const ShippingPage = () => {
                 </Table.Cell>
                 <Table.Cell>
                   {o.provider_id === "manual" ? (
-                    <Button size="small" variant="secondary" onClick={() => editMethod(o)}>
-                      Edit
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="small" variant="secondary" onClick={() => editMethod(o)}>
+                        Edit
+                      </Button>
+                      {o.id.startsWith("ship_") ? (
+                        <Button
+                          size="small"
+                          variant="danger"
+                          isLoading={deletingMethodId === o.id}
+                          onClick={() => deleteMethod(o)}
+                        >
+                          Delete
+                        </Button>
+                      ) : null}
+                    </div>
                   ) : null}
                 </Table.Cell>
               </Table.Row>
