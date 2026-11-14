@@ -144,6 +144,45 @@ await test("Kenya EXPRESS rates use the selected county and are not offered with
     false
   )
 })
+await test("manual shipping methods can be added and edited", async () => {
+  const countyPrices = JSON.stringify({ nairobi: 50000 })
+  await db
+    .prepare(
+      `INSERT INTO shipping_option (
+         id, name, provider, countries, amount_minor, currency_code, rank, is_active, county_prices_json
+       )
+       VALUES (?1, ?2, 'manual', ?3, ?4, ?5, 1, ?6, ?7)`
+    )
+    .bind("shipping-save-regression", "LOCAL", JSON.stringify(["ke"]), 0, "kes", 1, countyPrices)
+    .run()
+  await db
+    .prepare(
+      `UPDATE shipping_option
+          SET name = ?2, countries = ?3, amount_minor = ?4, currency_code = ?5,
+              county_prices_json = ?6, is_active = ?7
+        WHERE id = ?1`
+    )
+    .bind(
+      "shipping-save-regression",
+      "LOCAL EXPRESS",
+      JSON.stringify(["ke", "ug"]),
+      75000,
+      "kes",
+      JSON.stringify({ nairobi: 60000 }),
+      0
+    )
+    .run()
+  const saved = await one(
+    `SELECT name, countries, amount_minor, currency_code, county_prices_json, is_active
+       FROM shipping_option WHERE id = 'shipping-save-regression'`
+  )
+  assert.equal(saved.name, "LOCAL EXPRESS")
+  assert.deepEqual(JSON.parse(saved.countries), ["ke", "ug"])
+  assert.equal(saved.amount_minor, 75000)
+  assert.equal(saved.currency_code, "kes")
+  assert.deepEqual(JSON.parse(saved.county_prices_json), { nairobi: 60000 })
+  assert.equal(saved.is_active, 0)
+})
 await test("a draft product cannot be added", async () => {
   await db.prepare(`UPDATE product SET status = 'draft' WHERE id = ?1`).bind(B.product_id).run()
   const id = await lib.createCart(db, { currency: "usd" })
