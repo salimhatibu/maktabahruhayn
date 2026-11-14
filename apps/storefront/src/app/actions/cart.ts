@@ -28,6 +28,7 @@ import { currentRegion } from "@/lib/region-context"
 import { CartError, clampQuantity } from "@maktabah/db"
 import { resolveRegion } from "@maktabah/shared"
 import { manualRegion } from "@/lib/region"
+import { findKenyaCounty, findKenyaSubCounty } from "@maktabah/shared"
 
 const EMAIL = /^[^@\s<>"]{1,64}@[^@\s<>"]{1,190}\.[^@\s<>".]{2,}$/
 
@@ -168,7 +169,7 @@ export async function saveAddressAction(_prev: FormState, formData: FormData): P
   const LIMITS: Record<string, number> = { email: 254, first_name: 80, last_name: 80, city: 100, province: 100, postal_code: 20, phone: 32, country_code: 2 }
   const field = (name: string) => String(formData.get(name) || "").trim().slice(0, LIMITS[name] ?? 200)
   const phone = field("phone")
-  const address = {
+  const enteredAddress = {
     email: field("email"),
     first_name: field("first_name"),
     last_name: field("last_name"),
@@ -180,11 +181,22 @@ export async function saveAddressAction(_prev: FormState, formData: FormData): P
     country_code: field("country_code").toLowerCase(),
     phone,
   }
+  const kenyaCounty = enteredAddress.country_code === "ke" ? findKenyaCounty(enteredAddress.province) : null
+  const kenyaSubCounty =
+    enteredAddress.country_code === "ke" ? findKenyaSubCounty(kenyaCounty, enteredAddress.city) : null
+  const address = {
+    ...enteredAddress,
+    province: kenyaCounty?.code || enteredAddress.province,
+    city: kenyaSubCounty || enteredAddress.city,
+  }
 
   const required = ["email", "first_name", "last_name", "address_1", "city", "country_code", "phone"] as const
   const missing = required.filter((key) => !address[key]).map((key) => key.replace("_1", "").replace(/_/g, " ").replace("country code", "country"))
   if (missing.length) {
     return { error: `Please fill in: ${missing.join(", ")}.` }
+  }
+  if (address.country_code === "ke" && (!kenyaCounty || !kenyaSubCounty)) {
+    return { error: "Choose a valid Kenyan county and sub-county." }
   }
   if (!EMAIL.test(address.email)) {
     return { error: "Enter a valid email address." }
@@ -210,7 +222,7 @@ export async function saveAddressAction(_prev: FormState, formData: FormData): P
       street1: address.address_1,
       street2: address.address_2 || undefined,
       city: address.city,
-      state: address.province || undefined,
+      state: kenyaCounty?.name || address.province || undefined,
       zip: address.postal_code || undefined,
       country: address.country_code.toUpperCase(),
       phone: address.phone,

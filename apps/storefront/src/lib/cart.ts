@@ -26,7 +26,7 @@ import {
   type D1,
   type FinalizeResult,
 } from "@maktabah/db"
-import { resolveRegion } from "@maktabah/shared"
+import { findKenyaCounty, resolveRegion } from "@maktabah/shared"
 import { getAuthToken } from "./auth"
 import { AFFILIATE_COOKIE, CART_COOKIE, LAST_ORDER_COOKIE, mediaUrl, stripePublishableKey } from "./config"
 import { db } from "./db"
@@ -399,6 +399,7 @@ export async function listShippingOptions(id: string): Promise<ShippingOption[]>
     countryCode: row.countryCode,
     currency: row.currency,
     subtotalMinor: row.totals.itemSubtotalMinor,
+    countyCode: (row.shippingAddress as Record<string, string> | null)?.province,
   })
 
   const flat: ShippingOption[] = options
@@ -429,7 +430,10 @@ export async function listShippingOptions(id: string): Promise<ShippingOption[]>
       street1: address.address_1,
       street2: address.address_2 || undefined,
       city: address.city || "",
-      state: address.province || undefined,
+      state:
+        address.country_code?.toLowerCase() === "ke"
+          ? findKenyaCounty(address.province)?.name || undefined
+          : address.province || undefined,
       zip: address.postal_code || undefined,
       country: (address.country_code || "").toUpperCase(),
       phone: address.phone || undefined,

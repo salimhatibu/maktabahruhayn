@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { findKenyaCounty, findKenyaSubCounty, KENYA_COUNTIES } from "@maktabah/shared"
 import { PhoneInput } from "./phone-input"
 
 export type AddressValue = {
@@ -30,8 +31,8 @@ export const EMPTY_ADDRESS: AddressValue = {
 }
 
 /**
- * Name, street, city, region, postcode, country and phone. Field names are
- * prefixed (e.g. "ship_city") so several sets can share one form.
+ * Name, street, sub-county/city, county/region, postcode, country and phone.
+ * Field names are prefixed (e.g. "ship_city") so several sets can share one form.
  */
 export function AddressFields({
   value,
@@ -52,6 +53,9 @@ export function AddressFields({
   currentCurrency?: string
 }) {
   const [country, setCountry] = useState(value.country_code)
+  const [countyCode, setCountyCode] = useState(findKenyaCounty(value.province)?.code || "")
+  const county = KENYA_COUNTIES.find((item) => item.code === countyCode) || null
+  const [subCounty, setSubCounty] = useState(findKenyaSubCounty(county, value.city) || "")
   const chosen = countries.find((c) => c.code === country)
   const n = (field: string) => `${prefix}${field}`
 
@@ -95,21 +99,66 @@ export function AddressFields({
         ) : null}
       </label>
       <label className="span-2">
-        Street address
+        {country === "ke" ? "Exact address (house/building and street)" : "Street address"}
         <input name={n("address_1")} autoComplete="address-line1" required={required} defaultValue={value.address_1} placeholder="House number and street" />
       </label>
       <label className="span-2">
-        Apartment, building, estate <span className="optional">(optional)</span>
+        {country === "ke" ? "Estate, landmark, apartment" : "Apartment, building, estate"} <span className="optional">(optional)</span>
         <input name={n("address_2")} autoComplete="address-line2" defaultValue={value.address_2} />
       </label>
-      <label>
-        Town / City
-        <input name={n("city")} autoComplete="address-level2" required={required} defaultValue={value.city} />
-      </label>
-      <label>
-        {country === "us" ? "State" : country === "gb" ? "County" : "County / Region"} <span className="optional">(optional)</span>
-        <input name={n("province")} autoComplete="address-level1" defaultValue={value.province} />
-      </label>
+      {country === "ke" ? (
+        <>
+          <label>
+            County
+            <select
+              name={n("province")}
+              autoComplete="address-level1"
+              required={required}
+              value={countyCode}
+              onChange={(event) => {
+                setCountyCode(event.target.value)
+                setSubCounty("")
+              }}
+            >
+              <option value="">Choose a county</option>
+              {KENYA_COUNTIES.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Sub-county / Constituency
+            <select
+              name={n("city")}
+              autoComplete="address-level2"
+              required={required}
+              value={subCounty}
+              disabled={!county}
+              onChange={(event) => setSubCounty(event.target.value)}
+            >
+              <option value="">Choose a sub-county</option>
+              {county?.subCounties.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      ) : (
+        <>
+          <label>
+            Town / City
+            <input name={n("city")} autoComplete="address-level2" required={required} defaultValue={value.city} />
+          </label>
+          <label>
+            {country === "us" ? "State" : country === "gb" ? "County" : "County / Region"} <span className="optional">(optional)</span>
+            <input name={n("province")} autoComplete="address-level1" defaultValue={value.province} />
+          </label>
+        </>
+      )}
       <label>
         {country === "us" ? "ZIP code" : "Postcode"} <span className="optional">(optional)</span>
         <input name={n("postal_code")} autoComplete="postal-code" defaultValue={value.postal_code} />
