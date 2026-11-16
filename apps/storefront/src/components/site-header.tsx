@@ -147,7 +147,7 @@ export function LogoText({ name }: { name: string }) {
 /** Thin promotional strip used on product, cart, and listing pages. */
 export function PromoStrip() {
   return (
-    <Link href="/search?binding_type=multi_volume_box_set" className="promo-strip">
+    <Link href="/search?q=volume" className="promo-strip">
       <span className="promo-strip-kicker">The Maktabah Ruhayn</span>
       <span className="promo-strip-title">Classical Collections</span>
       <span className="promo-strip-sub">Multi-volume sets for your home library</span>

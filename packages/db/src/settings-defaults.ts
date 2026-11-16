@@ -336,17 +336,6 @@ export const DEFAULT_SETTINGS: SettingsMap = {
               sub("gifts", "Gifts & Calendars"),
             ],
           },
-          {
-            heading: "Format",
-            links: [
-              { label: "Hardcover", href: "/search?binding_type=hardcover" },
-              { label: "Softcover", href: "/search?binding_type=softcover" },
-              {
-                label: "Multi-volume Sets",
-                href: "/search?binding_type=multi_volume_box_set",
-              },
-            ],
-          },
         ],
       },
       { label: "Qur'an & Tafsir", href: "/books?category=quran-mushaf" },

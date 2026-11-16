@@ -67,6 +67,13 @@ const test = async (name, fn) => {
 }
 const one = (sql, ...args) => db.prepare(sql).bind(...args).first()
 
+await test("binding metadata is removed from the schema and navigation", async () => {
+  const columns = await db.prepare(`PRAGMA table_info(book)`).all()
+  assert.equal(columns.results.some((column) => column.name === "binding_type"), false)
+  const navigation = await one(`SELECT value FROM store_setting WHERE key = 'navigation'`)
+  assert.ok(!navigation.value.includes("binding_type"))
+})
+
 // Two in-stock, priced, published books to shop with.
 const { results: books } = await db
   .prepare(

@@ -72,7 +72,6 @@ function toMeta(book: BookDetail["book"]): BookMetadata {
     translator: book.translator,
     commentator_tahqeeq: book.commentatorTahqeeq,
     publisher: book.publisher,
-    binding_type: book.bindingType as BookMetadata["binding_type"],
     script_type: book.scriptType as BookMetadata["script_type"],
     language: book.language as BookMetadata["language"],
     volume_count: book.volumeCount,
@@ -159,7 +158,6 @@ export type ListOptions = {
   onSale?: boolean
   q?: string
   language?: string | string[]
-  binding?: string | string[]
   publisher?: string | string[]
   priceMin?: number
   priceMax?: number
@@ -183,7 +181,6 @@ export async function listCatalogue(options: ListOptions = {}): Promise<{ books:
     q: options.q,
     sale: options.onSale,
     language: options.language,
-    binding: options.binding,
     publisher: options.publisher,
     priceMin: options.priceMin,
     priceMax: options.priceMax,
@@ -221,7 +218,6 @@ export async function getCatalogueFacets(options: ListOptions = {}) {
     q: options.q,
     sale: options.onSale,
     language: options.language,
-    binding: options.binding,
     publisher: options.publisher,
   })
 }
@@ -286,7 +282,7 @@ export async function getFreeShipping(currency: string): Promise<number | null> 
   return usd > 0 ? await convertFromBase(usd, code) : null
 }
 
-export const SEARCH_FACET_NAMES = ["categories", "language", "binding_type", "publisher"] as const
+export const SEARCH_FACET_NAMES = ["categories", "language", "publisher"] as const
 export type SearchFacetKey = (typeof SEARCH_FACET_NAMES)[number]
 export type SearchFacet = { field_name: SearchFacetKey; counts: { value: string; count: number }[] }
 
@@ -305,7 +301,6 @@ export async function searchCatalogue(
     q: q && q !== "*" ? q : undefined,
     category: selected.categories,
     language: selected.language,
-    binding: selected.binding_type,
     publisher: selected.publisher,
     sort: sort === "relevance" ? "featured" : sort,
     limit,
@@ -317,7 +312,6 @@ export async function searchCatalogue(
     facets: [
       { field_name: "categories", counts: facets.category },
       { field_name: "language", counts: facets.language },
-      { field_name: "binding_type", counts: facets.binding },
       { field_name: "publisher", counts: facets.publisher },
     ],
   }

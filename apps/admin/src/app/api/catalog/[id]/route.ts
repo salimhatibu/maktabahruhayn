@@ -13,7 +13,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
   const product = await database
     .prepare(
       `SELECT p.*, b.title_arabic, b.author, b.translator, b.commentator_tahqeeq, b.publisher,
-              b.binding_type, b.script_type, b.language, b.volume_count, b.isbn_10, b.isbn_13, b.sample_pdf_url
+              b.script_type, b.language, b.volume_count, b.isbn_10, b.isbn_13, b.sample_pdf_url
          FROM product p LEFT JOIN book b ON b.product_id = p.id
         WHERE p.id = ?1 AND p.deleted_at IS NULL`
     )
@@ -112,7 +112,6 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
         translator: product.translator,
         commentator_tahqeeq: product.commentator_tahqeeq,
         publisher: product.publisher,
-        binding_type: product.binding_type,
         script_type: product.script_type,
         language: product.language,
         volume_count: product.volume_count,

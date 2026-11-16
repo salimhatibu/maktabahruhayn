@@ -16,7 +16,7 @@ import { RatingLine, Stars } from "@/components/stars"
 import { WishlistButton } from "@/components/wishlist"
 import { getCustomer } from "@/lib/auth"
 import { siteUrl } from "@/lib/config"
-import { bindingLabel, formatDate, formatMoney, scriptLabel, titleCase } from "@/lib/format"
+import { formatDate, formatMoney, scriptLabel, titleCase } from "@/lib/format"
 import {
   getCatalogueBook,
   getFreeShipping,
@@ -90,7 +90,6 @@ function bookJsonLd(
     publisher: book.meta?.publisher ? { "@type": "Organization", name: book.meta.publisher } : undefined,
     inLanguage: book.meta?.language ? LANGUAGE_CODES[book.meta.language] || book.meta.language : undefined,
     isbn: book.meta?.isbn_13 || book.meta?.isbn_10 || undefined,
-    bookFormat: book.meta?.binding_type === "softcover" ? "https://schema.org/Paperback" : "https://schema.org/Hardcover",
     numberOfPages: book.pages || undefined,
     description: book.description || undefined,
     image: book.images.length ? book.images.map(absolute) : undefined,
@@ -148,7 +147,6 @@ export default async function BookPage({ params, searchParams }: Props) {
     ["Publisher", meta?.publisher || null],
     ["Language", meta?.language ? titleCase(meta.language) : null],
     ["Script", scriptLabel(meta?.script_type)],
-    ["Binding", bindingLabel(meta?.binding_type)],
     ["Volumes", meta?.volume_count && meta.volume_count > 1 ? String(meta.volume_count) : null],
     ["Pages", book.pages ? book.pages.toLocaleString("en") : null],
     ["Sold As", book.unit && book.unit !== "item" ? titleCase(book.unit) : null],

@@ -23,7 +23,7 @@ and so on.
 | Area | Details |
 |---|---|
 | Catalogue | 22 real titles (`packages/db/seed-data/books.json`): authors, translators, publishers, ISBNs, pages, sizes, weights, cover images, stock and sale prices |
-| Book metadata | Arabic title, author, translator, tahqeeq, publisher, binding, script, language, volumes, ISBN-10/13, sample PDF |
+| Book metadata | Arabic title, author, translator, tahqeeq, publisher, script, language, volumes, ISBN-10/13, sample PDF |
 | Currencies | 23 regions, one per currency, as configuration rather than data. USD is the base price; every other currency is converted at read time from the stored FX rates and rounded to a shelf-friendly figure |
 | Search | SQLite FTS5 over titles, Arabic titles, authors, publishers and categories, with prefix matching and diacritic folding, so "bukhar" finds "Sahih al-Bukhari" |
 | Storefront | Responsive from phone to desktop: menu drawer, category bar, collapsible filters, carousels, quick add, quick view, cart drawer, formats, editorial reviews, ratings and reviews, recently viewed, wishlist, sale items, stock badges, gift options, promo codes and a newsletter sign-up |

@@ -132,7 +132,6 @@ check("prefix search matches a hyphenated transliteration", search.results[0].hi
 // than assumed: a missing join only shows up at runtime.
 for (const [name, column] of [
   ["language", "b.language"],
-  ["binding", "b.binding_type"],
   ["publisher", "b.publisher"],
 ]) {
   const [facet] = sql(`SELECT ${column} AS value, COUNT(*) AS count

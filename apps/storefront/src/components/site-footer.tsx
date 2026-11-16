@@ -54,7 +54,7 @@ export function SiteFooter({ site, country = "KE", locale = "en" }: { site: Site
             <li><Link href="/books?tag=new-release">New Arrivals</Link></li>
             <li><Link href="/books?sale=1">Sale Items</Link></li>
             <li><Link href="/books?tag=coming-soon">Pre-Order</Link></li>
-            <li><Link href="/search?binding_type=multi_volume_box_set">Multi-volume Sets</Link></li>
+            <li><Link href="/search?q=volume">Multi-volume Sets</Link></li>
           </ul>
         </div>
         <div>
