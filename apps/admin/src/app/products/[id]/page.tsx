@@ -380,11 +380,6 @@ const BOOK_GROUPS: { title: string; fields: FieldDef[] }[] = [
         placeholder: "English, Arabic, Bilingual",
         pick: "languages",
       },
-      {
-        key: "binding_type",
-        label: "Binding",
-        placeholder: "Hardcover, Softcover",
-      },
       { key: "script_type", label: "Script", placeholder: "Uthmani, Indo-Pak" },
       { key: "volume_count", label: "Volumes", type: "number" },
     ],
@@ -405,6 +400,20 @@ const BOOK_GROUPS: { title: string; fields: FieldDef[] }[] = [
   },
 ];
 const BOOK_FIELDS = BOOK_GROUPS.flatMap((g) => g.fields);
+
+function uniqueCatalogOptions(values: string[]) {
+  const seen = new Set<string>()
+  const options: string[] = []
+  for (const value of values) {
+    const trimmed = value.trim()
+    const normalized = trimmed.toLowerCase()
+    if (trimmed && !seen.has(normalized)) {
+      seen.add(normalized)
+      options.push(trimmed)
+    }
+  }
+  return options
+}
 
 /* ------------------------------------------------------------------ */
 /* Conversions                                                         */
@@ -1174,41 +1183,26 @@ const ProductEditorPage = () => {
   // The curated list first, then everyone already in the catalogue, so the
   // picker is useful on day one without anyone retyping existing authors.
   const catalogOptions: Record<CatalogListKey, string[]> = {
-    authors: [
-      ...new Set(
-        [...(m.catalog.authors || []), ...(m.book_authors || [])]
-          .map((a) => a.trim())
-          .filter(Boolean),
-      ),
-    ],
-    translators: [
-      ...new Set(
-        [...(m.catalog.translators || []), ...(m.book_translators || [])]
-          .map((a) => a.trim())
-          .filter(Boolean),
-      ),
-    ],
-    commentaries: [
-      ...new Set(
-        [...(m.catalog.commentaries || []), ...(m.book_commentaries || [])]
-          .map((a) => a.trim())
-          .filter(Boolean),
-      ),
-    ],
-    publishers: [
-      ...new Set(
-        [...(m.catalog.publishers || []), ...(m.book_publishers || [])]
-          .map((a) => a.trim())
-          .filter(Boolean),
-      ),
-    ],
-    languages: [
-      ...new Set(
-        [...(m.catalog.languages || []), ...(m.book_languages || [])]
-          .map((a) => a.trim())
-          .filter(Boolean),
-      ),
-    ],
+    authors: uniqueCatalogOptions([
+      ...(m.catalog.authors || []),
+      ...(m.book_authors || []),
+    ]),
+    translators: uniqueCatalogOptions([
+      ...(m.catalog.translators || []),
+      ...(m.book_translators || []),
+    ]),
+    commentaries: uniqueCatalogOptions([
+      ...(m.catalog.commentaries || []),
+      ...(m.book_commentaries || []),
+    ]),
+    publishers: uniqueCatalogOptions([
+      ...(m.catalog.publishers || []),
+      ...(m.book_publishers || []),
+    ]),
+    languages: uniqueCatalogOptions([
+      ...(m.catalog.languages || []),
+      ...(m.book_languages || []),
+    ]),
   };
   const storefrontPath =
     product?.handle && product.status === "published"
@@ -1315,7 +1309,11 @@ const ProductEditorPage = () => {
                     Duplicate
                   </DropdownMenu.Item>
                   <DropdownMenu.Item
-                    onClick={() => leave(`/products/${id}?classic=1`)}
+                    onClick={() =>
+                      document
+                        .getElementById("details")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
                   >
                     Advanced settings
                   </DropdownMenu.Item>

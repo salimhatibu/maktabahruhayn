@@ -1,9 +1,3 @@
-export type BindingType =
-  | "hardcover"
-  | "softcover"
-  | "faux_leather"
-  | "multi_volume_box_set"
-
 export type ScriptType = "madani" | "indo_pak" | "other"
 
 export type BookLanguage =
@@ -20,7 +14,6 @@ export interface BookMetadata {
   translator?: string | null
   commentator_tahqeeq?: string | null
   publisher?: string | null
-  binding_type?: BindingType | null
   script_type?: ScriptType | null
   language?: BookLanguage | null
   volume_count?: number | null

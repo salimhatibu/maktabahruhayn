@@ -48,7 +48,6 @@ export type BookDetail = BookSummary & {
     translator: string | null
     commentatorTahqeeq: string | null
     publisher: string | null
-    bindingType: string | null
     scriptType: string | null
     language: string | null
     volumeCount: number | null
@@ -80,7 +79,6 @@ export type Facet = { value: string; count: number }
 
 export type BookFacets = {
   language: Facet[]
-  binding: Facet[]
   publisher: Facet[]
   category: Facet[]
 }
@@ -96,7 +94,6 @@ export type ListBooksOptions = {
   q?: string
   sale?: boolean
   language?: Filter
-  binding?: Filter
   publisher?: Filter
   sort?: "featured" | "price-asc" | "price-desc" | "newest"
   /** Minimum price in major units (inclusive). */

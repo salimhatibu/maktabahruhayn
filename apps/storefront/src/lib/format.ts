@@ -24,21 +24,10 @@ export function formatDate(iso: string) {
   }).format(date)
 }
 
-const BINDING_LABELS: Record<string, string> = {
-  hardcover: "Hardcover",
-  softcover: "Softcover",
-  faux_leather: "Faux Leather",
-  multi_volume_box_set: "Multi-volume Box Set",
-}
-
 const SCRIPT_LABELS: Record<string, string> = {
   madani: "Madani (Uthmani)",
   indo_pak: "Indo-Pak",
   other: "Other",
-}
-
-export function bindingLabel(value?: string | null) {
-  return value ? BINDING_LABELS[value] || titleCase(value) : null
 }
 
 export function scriptLabel(value?: string | null) {

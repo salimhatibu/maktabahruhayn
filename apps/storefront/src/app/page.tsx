@@ -133,7 +133,7 @@ export default async function HomePage() {
       ))}
 
       <section className="wrap">
-        <Link href="/search?binding_type=multi_volume_box_set" className="feature-banner">
+        <Link href="/search?q=volume" className="feature-banner">
           <div>
             <p className="hero-kicker">Build Your Library</p>
             <h2>Multi-volume Sets</h2>

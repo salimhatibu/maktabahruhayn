@@ -116,7 +116,6 @@ function buildFilters(options: ListBooksOptions, params: unknown[]) {
   )
   add("EXISTS (SELECT 1 FROM product_tag t WHERE t.product_id = p.id AND t.value IN (?))", options.tag)
   add("b.language IN (?)", options.language)
-  add("b.binding_type IN (?)", options.binding)
   add("b.publisher IN (?)", options.publisher)
   // A query of nothing but quotes and spaces has no terms; FTS5 would reject
   // the empty MATCH, so it is treated as no query.
@@ -255,7 +254,7 @@ export async function getBook(db: D1, handle: string, currency = BASE_CURRENCY):
   const row = await db
     .prepare(
       `SELECT p.*, b.title_arabic, b.author, b.translator, b.commentator_tahqeeq, b.publisher,
-              b.binding_type, b.script_type, b.language, b.volume_count, b.isbn_10, b.isbn_13, b.sample_pdf_url
+              b.script_type, b.language, b.volume_count, b.isbn_10, b.isbn_13, b.sample_pdf_url
          FROM product p LEFT JOIN book b ON b.product_id = p.id
         WHERE p.handle = ?1 AND p.status = 'published' AND p.deleted_at IS NULL
           AND (p.publish_at IS NULL OR p.publish_at <= ?2)`
@@ -364,7 +363,6 @@ export async function getBook(db: D1, handle: string, currency = BASE_CURRENCY):
       translator: row.translator ?? null,
       commentatorTahqeeq: row.commentator_tahqeeq ?? null,
       publisher: row.publisher ?? null,
-      bindingType: row.binding_type ?? null,
       scriptType: row.script_type ?? null,
       language: row.language ?? null,
       volumeCount: row.volume_count ?? null,
@@ -400,9 +398,8 @@ export async function getFacets(db: D1, options: ListBooksOptions = {}): Promise
       )
       .bind(...params)
 
-  const [language, binding, publisher, category] = await db.batch<{ value: string; count: number }>([
+  const [language, publisher, category] = await db.batch<{ value: string; count: number }>([
     field("b.language"),
-    field("b.binding_type"),
     field("b.publisher"),
     // Categories need their own join: a book can sit in several, so the count
     // is of distinct products rather than rows.
@@ -418,7 +415,6 @@ export async function getFacets(db: D1, options: ListBooksOptions = {}): Promise
   ])
   return {
     language: language.results,
-    binding: binding.results,
     publisher: publisher.results,
     category: category.results,
   }

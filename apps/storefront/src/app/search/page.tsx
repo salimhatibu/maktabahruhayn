@@ -3,7 +3,7 @@ import Link from "next/link"
 import { AutoSubmitSelect } from "@/components/auto-submit-select"
 import { BookCard } from "@/components/book-card"
 import { FiltersPanel } from "@/components/filters-panel"
-import { bindingLabel, titleCase } from "@/lib/format"
+import { titleCase } from "@/lib/format"
 import {
   SEARCH_FACET_NAMES as SEARCH_FACETS,
   searchCatalogue,
@@ -22,7 +22,6 @@ const SORTS: { value: SearchSort; label: string }[] = [
 const FACET_LABELS: Record<SearchFacetName, string> = {
   categories: "Subject",
   language: "Language",
-  binding_type: "Format",
   publisher: "Publisher",
 }
 
@@ -31,9 +30,6 @@ function list(value: string | string[] | undefined) {
 }
 
 function valueLabel(facet: SearchFacetName, value: string) {
-  if (facet === "binding_type") {
-    return bindingLabel(value) || value
-  }
   if (facet === "language") {
     return titleCase(value)
   }

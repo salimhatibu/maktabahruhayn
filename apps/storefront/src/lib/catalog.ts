@@ -107,14 +107,6 @@ export const NAV: NavItem[] = [
         ],
       },
       {
-        heading: "Format",
-        links: [
-          { label: "Hardcover", href: "/search?binding_type=hardcover" },
-          { label: "Softcover", href: "/search?binding_type=softcover" },
-          { label: "Multi-volume Sets", href: "/search?binding_type=multi_volume_box_set" },
-        ],
-      },
-      {
         heading: "Publishers",
         links: [
           { label: "Darussalam", href: "/search?publisher=Darussalam" },
@@ -149,7 +141,7 @@ export const NAV: NavItem[] = [
       {
         heading: "Hadith",
         href: "/books?category=hadith",
-        links: [subjectLink("hadith", "All Hadith"), { label: "Multi-volume Sets", href: "/search?categories=Hadith&binding_type=multi_volume_box_set" }],
+        links: [subjectLink("hadith", "All Hadith"), { label: "Multi-volume Sets", href: "/search?q=volume" }],
       },
       { heading: "Fiqh & Aqidah", href: "/books?category=fiqh-aqidah", links: [subjectLink("fiqh-aqidah", "All Fiqh & Aqidah")] },
     ],

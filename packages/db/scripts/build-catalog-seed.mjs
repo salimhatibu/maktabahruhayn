@@ -150,7 +150,6 @@ books.forEach((book, index) => {
       translator: b.translator || null,
       commentator_tahqeeq: b.commentator_tahqeeq || null,
       publisher: b.publisher || null,
-      binding_type: b.binding_type || null,
       script_type: b.script_type || null,
       language: b.language || null,
       volume_count: b.volume_count || null,

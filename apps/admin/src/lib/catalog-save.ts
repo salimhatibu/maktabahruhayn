@@ -201,13 +201,12 @@ export async function saveCatalogProduct(db: D1, input: CatalogProductInput): Pr
     db
       .prepare(
         `INSERT INTO book (product_id, title_arabic, author, translator, commentator_tahqeeq, publisher,
-            binding_type, script_type, language, volume_count, isbn_10, isbn_13, sample_pdf_url)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+            script_type, language, volume_count, isbn_10, isbn_13, sample_pdf_url)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
          ON CONFLICT (product_id) DO UPDATE SET
            title_arabic = excluded.title_arabic, author = excluded.author, translator = excluded.translator,
            commentator_tahqeeq = excluded.commentator_tahqeeq, publisher = excluded.publisher,
-           binding_type = excluded.binding_type, script_type = excluded.script_type,
-           language = excluded.language, volume_count = excluded.volume_count,
+           script_type = excluded.script_type, language = excluded.language, volume_count = excluded.volume_count,
            isbn_10 = excluded.isbn_10, isbn_13 = excluded.isbn_13, sample_pdf_url = excluded.sample_pdf_url`
       )
       .bind(
@@ -217,7 +216,6 @@ export async function saveCatalogProduct(db: D1, input: CatalogProductInput): Pr
         book.translator || null,
         book.commentator_tahqeeq || null,
         book.publisher || null,
-        book.binding_type || null,
         book.script_type || null,
         book.language || null,
         book.volume_count ?? null,
