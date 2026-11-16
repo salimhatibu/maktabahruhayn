@@ -3,6 +3,7 @@ import type { OrderSummary } from "@/lib/auth"
 import { mediaUrl } from "@/lib/config"
 import { countryName, formatMoney, titleCase } from "@/lib/format"
 import { BookCover } from "./book-cover"
+import { findKenyaCounty } from "@maktabah/shared"
 
 export function orderStatusLabel(order: OrderSummary) {
   const delivered = order.fulfillments?.some((f) => f.delivered_at)
@@ -24,6 +25,8 @@ export function orderStatusLabel(order: OrderSummary) {
 export function OrderDetails({ order }: { order: OrderSummary }) {
   const c = order.currency_code
   const address = order.shipping_address
+  const countyName =
+    address?.country_code === "ke" ? findKenyaCounty(address.province)?.name || address.province : address?.province
   const tracking = (order.fulfillments || []).flatMap((f) =>
     (f.labels || []).map((l) => ({ ...l, status: f.metadata?.tracking_status as string | undefined }))
   )
@@ -89,8 +92,10 @@ export function OrderDetails({ order }: { order: OrderSummary }) {
             {address.first_name} {address.last_name}
             <br />
             {address.address_1}
+            {address.address_2 ? `, ${address.address_2}` : ""}
             <br />
-            {address.city} {address.postal_code}
+            {address.city}
+            {countyName ? `, ${countyName}` : ""} {address.postal_code}
             <br />
             {countryName(address.country_code || "")}
           </address>

@@ -400,7 +400,6 @@ const BOOK_GROUPS: { title: string; fields: FieldDef[] }[] = [
   },
 ];
 const BOOK_FIELDS = BOOK_GROUPS.flatMap((g) => g.fields);
-
 function uniqueCatalogOptions(values: string[]) {
   const seen = new Set<string>()
   const options: string[] = []

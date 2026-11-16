@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { CURRENCY_REGIONS } from "@maktabah/shared"
+import { CURRENCY_REGIONS, findKenyaCounty } from "@maktabah/shared"
 import { toMajor } from "@maktabah/db"
 import { db } from "@/lib/db"
 import { shippoConfig } from "@/lib/payments"
@@ -27,7 +27,7 @@ export async function GET() {
   const database = await db()
   const [options, shipments] = await database.batch<Record<string, string | number | null>>([
     database.prepare(
-      `SELECT id, name, provider, countries, amount_minor, currency_code, free_above_minor, is_active
+      `SELECT id, name, provider, countries, amount_minor, currency_code, free_above_minor, is_active, county_prices_json
          FROM shipping_option ORDER BY rank, name`
     ),
     database.prepare(
@@ -58,7 +58,14 @@ export async function GET() {
           ]
         : [],
       order: row.order_id ? { id: row.order_id, display_id: Number(row.display_id || 0), email: row.email || "" } : null,
-      delivery_address: { country_code: address.country_code || "", city: address.city || "" },
+      delivery_address: {
+        country_code: address.country_code || "",
+        city: address.city || "",
+        province:
+          address.country_code?.toLowerCase() === "ke"
+            ? findKenyaCounty(address.province)?.name || address.province || ""
+            : address.province || "",
+      },
     }
   })
 
@@ -66,15 +73,25 @@ export async function GET() {
     shippo_configured: Boolean(shippoConfig()),
     webhook_configured: Boolean(process.env.SHIPPO_WEBHOOK_SECRET),
     fulfillments,
-    options: options.results.map((row) => ({
-      id: String(row.id),
-      name: String(row.name),
-      price_type: row.provider === "shippo" ? "calculated" : "flat",
-      provider_id: String(row.provider),
-      amount: row.amount_minor === null ? null : toMajor(Number(row.amount_minor)),
-      free_above: row.free_above_minor === null ? null : toMajor(Number(row.free_above_minor)),
-      service_zone: { name: JSON.parse(String(row.countries || "[]")).length ? "Selected countries" : "Worldwide" },
-    })),
+    options: options.results.map((row) => {
+      const countries = JSON.parse(String(row.countries || "[]")) as string[]
+      const countyPrices = JSON.parse(String(row.county_prices_json || "{}")) as Record<string, number>
+      return {
+        id: String(row.id),
+        name: String(row.name),
+        price_type: row.provider === "shippo" ? "calculated" : "flat",
+        provider_id: String(row.provider),
+        amount: row.amount_minor === null ? null : toMajor(Number(row.amount_minor)),
+        currency_code: row.currency_code === null ? null : String(row.currency_code),
+        countries,
+        county_prices: Object.keys(countyPrices).length
+          ? Object.fromEntries(Object.entries(countyPrices).map(([code, amount]) => [code, toMajor(Number(amount))]))
+          : null,
+        is_active: Boolean(row.is_active),
+        free_above: row.free_above_minor === null ? null : toMajor(Number(row.free_above_minor)),
+        service_zone: { name: countries.length ? "Selected countries" : "Worldwide" },
+      }
+    }),
     // Zones are the currency regions: that is what decides where we ship.
     zones: CURRENCY_REGIONS.map((region) => ({
       id: region.currency,

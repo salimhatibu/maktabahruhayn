@@ -7,6 +7,7 @@ import { countryName, formatMoney } from "@/lib/format"
 import { getFreeShipping } from "@/lib/catalogue"
 import { currentRegion, listShippingCountries } from "@/lib/region-context"
 import { AddressForm, DeliveryPaymentForm } from "./forms"
+import { findKenyaCounty } from "@maktabah/shared"
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } }
 
@@ -36,6 +37,8 @@ export default async function CheckoutPage({
   }
 
   const address = cart.shipping_address
+  const countyName =
+    address?.country_code === "ke" ? findKenyaCounty(address.province)?.name || address.province : address?.province
   const hasAddress = Boolean(address?.address_1 && address.country_code)
   const onDelivery = hasAddress && step !== "address"
   const currency = summary.currency
@@ -62,7 +65,14 @@ export default async function CheckoutPage({
       postal_code: a.postal_code || "",
       country_code: (a.country_code || "").toLowerCase(),
       phone: a.phone || "",
-      label: [a.address_1, a.city, countryName(a.country_code || "")].filter(Boolean).join(", "),
+      label: [
+        a.address_1,
+        a.city,
+        a.country_code === "ke" ? findKenyaCounty(a.province)?.name : a.province,
+        countryName(a.country_code || ""),
+      ]
+        .filter(Boolean)
+        .join(", "),
     }))
   const saved = savedAddresses[0]
   const preference = paymentPreference(customer)
@@ -109,7 +119,7 @@ export default async function CheckoutPage({
                   {address.address_2 ? `, ${address.address_2}` : ""}
                   <br />
                   {address.city}
-                  {address.province ? `, ${address.province}` : ""} {address.postal_code}
+                  {countyName ? `, ${countyName}` : ""} {address.postal_code}
                   <br />
                   {countryName(address.country_code || "")}
                   <br />

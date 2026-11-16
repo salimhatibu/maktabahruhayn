@@ -124,6 +124,123 @@ await test("a published, priced edition goes in the cart at its price", async ()
   assert.ok(cart.lines[0].unitPriceMinor > 0)
   assert.equal(cart.lines[0].quantity, 2)
 })
+await test("Kenya EXPRESS rates use the selected county and are not offered without one", async () => {
+  const row = await one(`SELECT county_prices_json FROM shipping_option WHERE id = 'express-kenya'`)
+  const countyPrices = JSON.parse(row.county_prices_json)
+  assert.equal(Object.keys(countyPrices).length, 47)
+  const getExpressRate = async (countyCode) =>
+    (await lib.listShippingOptions(db, { countryCode: "ke", currency: "kes", subtotalMinor: 0, countyCode })).find(
+      (option) => option.id === "express-kenya"
+    )
+  for (const [county, expectedMinor] of [
+    ["nairobi", 50000],
+    ["kiambu", 50000],
+    ["mombasa", 65000],
+    ["marsabit", 65000],
+    ["isiolo", 65000],
+    ["kilifi", 65000],
+    ["nakuru", 75000],
+  ]) {
+    assert.equal((await getExpressRate(county))?.amountMinor, expectedMinor, county)
+  }
+  assert.equal(await getExpressRate(null), undefined)
+  assert.equal(
+    (await lib.listShippingOptions(db, { countryCode: "us", currency: "usd", subtotalMinor: 0, countyCode: "nairobi" })).some(
+      (option) => option.id === "express-kenya"
+    ),
+    false
+  )
+})
+await test("manual shipping methods can be added and edited", async () => {
+  const countyPrices = JSON.stringify({ nairobi: 50000 })
+  await db
+    .prepare(
+      `INSERT INTO shipping_option (
+         id, name, provider, countries, amount_minor, currency_code, rank, is_active, county_prices_json
+       )
+       VALUES (?1, ?2, 'manual', ?3, ?4, ?5, 1, ?6, ?7)`
+    )
+    .bind("shipping-save-regression", "LOCAL", JSON.stringify(["ke"]), 0, "kes", 1, countyPrices)
+    .run()
+  await db
+    .prepare(
+      `UPDATE shipping_option
+          SET name = ?2, countries = ?3, amount_minor = ?4, currency_code = ?5,
+              county_prices_json = ?6, is_active = ?7
+        WHERE id = ?1`
+    )
+    .bind(
+      "shipping-save-regression",
+      "LOCAL EXPRESS",
+      JSON.stringify(["ke", "ug"]),
+      75000,
+      "kes",
+      JSON.stringify({ nairobi: 60000 }),
+      0
+    )
+    .run()
+  const saved = await one(
+    `SELECT name, countries, amount_minor, currency_code, county_prices_json, is_active
+       FROM shipping_option WHERE id = 'shipping-save-regression'`
+  )
+  assert.equal(saved.name, "LOCAL EXPRESS")
+  assert.deepEqual(JSON.parse(saved.countries), ["ke", "ug"])
+  assert.equal(saved.amount_minor, 75000)
+  assert.equal(saved.currency_code, "kes")
+  assert.deepEqual(JSON.parse(saved.county_prices_json), { nairobi: 60000 })
+  assert.equal(saved.is_active, 0)
+})
+await test("custom shipping methods cannot be deleted while in use and preserve order snapshots", async () => {
+  const methodId = "ship_delete_regression"
+  const orderId = "order_shipping_delete_regression"
+  const cartId = "cart_shipping_delete_regression"
+  const methodSnapshot = { name: "Custom delivery", provider: "manual", amount_minor: 450 }
+  await db
+    .prepare(
+      `INSERT INTO shipping_option (id, name, provider, countries, amount_minor, currency_code, is_active)
+       VALUES (?1, 'Custom delivery', 'manual', '[]', 450, 'usd', 1)`
+    )
+    .bind(methodId)
+    .run()
+  assert.ok(
+    (await lib.listShippingOptions(db, { countryCode: "us", currency: "usd", subtotalMinor: 0 })).some(
+      (option) => option.id === methodId
+    )
+  )
+  await db
+    .prepare(
+      `INSERT INTO "order" (
+         id, display_id, email, currency_code, subtotal_minor, shipping_minor, tax_minor, total_minor,
+         shipping_address, shipping_method
+       ) VALUES (?1, 900001, 'shipping@example.com', 'usd', 1000, 450, 0, 1450, '{}', ?2)`
+    )
+    .bind(orderId, JSON.stringify(methodSnapshot))
+    .run()
+  await db
+    .prepare(`INSERT INTO cart (id, currency_code, shipping_option_id) VALUES (?1, 'usd', ?2)`)
+    .bind(cartId, methodId)
+    .run()
+
+  assert.equal(await lib.deleteShippingOption(db, methodId), "in_use")
+  assert.equal((await one(`SELECT id FROM shipping_option WHERE id = ?1`, methodId)).id, methodId)
+
+  await db
+    .prepare(`UPDATE cart SET completed_order_id = ?2 WHERE id = ?1`)
+    .bind(cartId, orderId)
+    .run()
+  assert.equal(await lib.deleteShippingOption(db, methodId), "deleted")
+  assert.equal(await one(`SELECT id FROM shipping_option WHERE id = ?1`, methodId), null)
+  assert.deepEqual(JSON.parse((await one(`SELECT shipping_method FROM "order" WHERE id = ?1`, orderId)).shipping_method), methodSnapshot)
+  assert.equal(
+    (await lib.listShippingOptions(db, { countryCode: "us", currency: "usd", subtotalMinor: 0 })).some(
+      (option) => option.id === methodId
+    ),
+    false
+  )
+
+  assert.equal(await lib.deleteShippingOption(db, "express-kenya"), "system_managed")
+  assert.equal(await lib.deleteShippingOption(db, "missing-shipping-method"), "not_found")
+})
 await test("a draft product cannot be added", async () => {
   await db.prepare(`UPDATE product SET status = 'draft' WHERE id = ?1`).bind(B.product_id).run()
   const id = await lib.createCart(db, { currency: "usd" })
