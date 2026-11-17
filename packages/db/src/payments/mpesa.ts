@@ -30,6 +30,8 @@ export type StkStatus = {
   receipt?: string
 }
 
+export class MpesaRequestNotSentError extends Error {}
+
 const base64 = (value: string) => btoa(value)
 
 /** Safaricom wants 2547XXXXXXXX; shoppers type 07…, +2547… or 7…. */
@@ -60,6 +62,7 @@ export function callbackUrlWithToken(url: string, token: string): string {
   }
   try {
     const parsed = new URL(url)
+    if (parsed.protocol !== "https:") return ""
     parsed.searchParams.set("token", token)
     return parsed.toString()
   } catch {
@@ -121,7 +124,12 @@ export async function stkPush(
   }
 ): Promise<StkPushResult> {
   const stamp = timestamp()
-  const token = await accessToken(config)
+  let token: string
+  try {
+    token = await accessToken(config)
+  } catch (error) {
+    throw new MpesaRequestNotSentError("M-Pesa authentication failed before the payment request was sent.", { cause: error })
+  }
   const phone = normalizePhone(input.phone)
 
   const response = await fetch(`${baseUrl(config)}/mpesa/stkpush/v1/processrequest`, {
@@ -168,12 +176,16 @@ export async function queryStk(config: MpesaConfig, checkoutRequestId: string): 
     }),
   })
   const data = (await response.json()) as Record<string, string>
-  // While the shopper has not acted yet Daraja answers with an error body,
-  // which is a pending state rather than a failure.
   if (!response.ok) {
-    return { resultCode: 1032, resultDesc: data.errorMessage || "Waiting for the customer." }
+    throw new Error(data.errorMessage || `M-Pesa status query failed (${response.status})`)
   }
-  return { resultCode: Number(data.ResultCode ?? -1), resultDesc: data.ResultDesc || "" }
+  const rawResult = data.ResultCode
+  const resultCode = Number(rawResult)
+  if (String(data.ResponseCode) !== "0" || rawResult === null || rawResult === undefined ||
+      !/^\d+$/.test(String(rawResult)) || !Number.isSafeInteger(resultCode)) {
+    throw new Error("M-Pesa returned an invalid status response.")
+  }
+  return { resultCode, resultDesc: data.ResultDesc || "" }
 }
 
 export type MpesaCallback = {

@@ -113,7 +113,7 @@ function paymentFrom(formData: FormData): { metadata: Record<string, unknown> } 
   }
   return {
     metadata: {
-      preferred_payment: ["mpesa", "card"].includes(method) ? method : null,
+      preferred_payment: method === "mpesa" ? method : null,
       mpesa_phone: mpesa || null,
     },
   }

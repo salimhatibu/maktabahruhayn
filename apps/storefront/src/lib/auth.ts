@@ -53,13 +53,13 @@ export type Customer = {
   }[]
 }
 
-export type PaymentPreference = { method: "mpesa" | "card" | "none"; mpesa_phone: string | null }
+export type PaymentPreference = { method: "mpesa" | "none"; mpesa_phone: string | null }
 
 export function paymentPreference(customer: Customer | null): PaymentPreference {
   const meta = customer?.metadata || {}
   const method = meta.preferred_payment
   return {
-    method: method === "mpesa" || method === "card" ? method : "none",
+    method: method === "mpesa" ? method : "none",
     mpesa_phone: typeof meta.mpesa_phone === "string" ? meta.mpesa_phone : null,
   }
 }

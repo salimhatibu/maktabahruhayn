@@ -41,7 +41,7 @@ export default async function AccountPage() {
     .sort((a, b) => Number(Boolean(b.is_default_shipping)) - Number(Boolean(a.is_default_shipping)))
   const defaultAddress = addresses[0]
   const paymentLabel =
-    preference.method === "mpesa" ? `M-Pesa${preference.mpesa_phone ? ` · ${preference.mpesa_phone}` : ""}` : preference.method === "card" ? "Card" : "Decide at checkout"
+    preference.method === "mpesa" ? `M-Pesa${preference.mpesa_phone ? ` · ${preference.mpesa_phone}` : ""}` : "Decide at checkout"
 
   return (
     <main className="wrap account section-pad">

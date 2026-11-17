@@ -13,7 +13,7 @@ export type CurrencyRegion = {
   currency: string
   countries: string[]
   /** Payment provider ids, without the "pp_" prefix. */
-  payments: ("daraja_daraja" | "stripe_stripe")[]
+  payments: ("daraja_daraja")[]
   /** Also takes every country that no other region claims. */
   restOfWorld?: boolean
 }
@@ -24,33 +24,33 @@ export const BASE_CURRENCY = "usd"
 export const NO_SHIPPING = ["aq", "bv", "cu", "hm", "ir", "kp", "sy", "um"]
 
 export const CURRENCY_REGIONS: CurrencyRegion[] = [
-  { name: "Kenya", currency: "kes", countries: ["ke"], payments: ["daraja_daraja", "stripe_stripe"] },
-  { name: "Uganda", currency: "ugx", countries: ["ug"], payments: ["stripe_stripe"] },
-  { name: "Tanzania", currency: "tzs", countries: ["tz"], payments: ["stripe_stripe"] },
-  { name: "Rwanda", currency: "rwf", countries: ["rw"], payments: ["stripe_stripe"] },
-  { name: "Burundi", currency: "bif", countries: ["bi"], payments: ["stripe_stripe"] },
-  { name: "United Kingdom", currency: "gbp", countries: ["gb"], payments: ["stripe_stripe"] },
+  { name: "Kenya", currency: "kes", countries: ["ke"], payments: ["daraja_daraja"] },
+  { name: "Uganda", currency: "ugx", countries: ["ug"], payments: [] },
+  { name: "Tanzania", currency: "tzs", countries: ["tz"], payments: [] },
+  { name: "Rwanda", currency: "rwf", countries: ["rw"], payments: [] },
+  { name: "Burundi", currency: "bif", countries: ["bi"], payments: [] },
+  { name: "United Kingdom", currency: "gbp", countries: ["gb"], payments: [] },
   {
     name: "Europe",
     currency: "eur",
     countries: ["de", "fr", "nl", "it", "es", "ie", "be", "at", "pt", "fi"],
-    payments: ["stripe_stripe"],
+    payments: [],
   },
-  { name: "Sweden", currency: "sek", countries: ["se"], payments: ["stripe_stripe"] },
-  { name: "Norway", currency: "nok", countries: ["no"], payments: ["stripe_stripe"] },
-  { name: "Denmark", currency: "dkk", countries: ["dk"], payments: ["stripe_stripe"] },
-  { name: "Canada", currency: "cad", countries: ["ca"], payments: ["stripe_stripe"] },
-  { name: "Australia", currency: "aud", countries: ["au"], payments: ["stripe_stripe"] },
-  { name: "United Arab Emirates", currency: "aed", countries: ["ae"], payments: ["stripe_stripe"] },
-  { name: "Saudi Arabia", currency: "sar", countries: ["sa"], payments: ["stripe_stripe"] },
-  { name: "Malaysia", currency: "myr", countries: ["my"], payments: ["stripe_stripe"] },
-  { name: "Singapore", currency: "sgd", countries: ["sg"], payments: ["stripe_stripe"] },
-  { name: "South Africa", currency: "zar", countries: ["za"], payments: ["stripe_stripe"] },
-  { name: "India", currency: "inr", countries: ["in"], payments: ["stripe_stripe"] },
-  { name: "Pakistan", currency: "pkr", countries: ["pk"], payments: ["stripe_stripe"] },
-  { name: "Nigeria", currency: "ngn", countries: ["ng"], payments: ["stripe_stripe"] },
-  { name: "Egypt", currency: "egp", countries: ["eg"], payments: ["stripe_stripe"] },
-  { name: "Morocco", currency: "mad", countries: ["ma"], payments: ["stripe_stripe"] },
+  { name: "Sweden", currency: "sek", countries: ["se"], payments: [] },
+  { name: "Norway", currency: "nok", countries: ["no"], payments: [] },
+  { name: "Denmark", currency: "dkk", countries: ["dk"], payments: [] },
+  { name: "Canada", currency: "cad", countries: ["ca"], payments: [] },
+  { name: "Australia", currency: "aud", countries: ["au"], payments: [] },
+  { name: "United Arab Emirates", currency: "aed", countries: ["ae"], payments: [] },
+  { name: "Saudi Arabia", currency: "sar", countries: ["sa"], payments: [] },
+  { name: "Malaysia", currency: "myr", countries: ["my"], payments: [] },
+  { name: "Singapore", currency: "sgd", countries: ["sg"], payments: [] },
+  { name: "South Africa", currency: "zar", countries: ["za"], payments: [] },
+  { name: "India", currency: "inr", countries: ["in"], payments: [] },
+  { name: "Pakistan", currency: "pkr", countries: ["pk"], payments: [] },
+  { name: "Nigeria", currency: "ngn", countries: ["ng"], payments: [] },
+  { name: "Egypt", currency: "egp", countries: ["eg"], payments: [] },
+  { name: "Morocco", currency: "mad", countries: ["ma"], payments: [] },
   {
     name: "United States & International",
     currency: "usd",
@@ -60,7 +60,7 @@ export const CURRENCY_REGIONS: CurrencyRegion[] = [
       "us", "jp", "kr", "tr", "id", "qa", "kw", "bh", "om", "jo", "bd", "lk",
       "nz", "ch", "gh", "et", "so", "dj", "mv", "bn", "ph", "th",
     ],
-    payments: ["stripe_stripe"],
+    payments: [],
   },
 ]
 

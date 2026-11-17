@@ -6,8 +6,8 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import {
   addLine,
+  activeMpesaCheckout,
   applyPromotion,
-  completeCart,
   listPaymentChoices,
   moveCartToRegion,
   removeLine,
@@ -17,7 +17,8 @@ import {
   submitManualMpesaPayment,
   hasUnresolvedManualMpesaPayment,
   manualMpesaStatus,
-  startPaymentSession,
+  mpesaCheckoutStatus,
+  startMpesaCheckout,
   summarizeCart,
   updateCartAddress,
   updateLine,
@@ -28,7 +29,7 @@ import { saveCustomerAddress } from "@/lib/auth"
 import { REGION_COOKIE } from "@/lib/config"
 import { LIMITS, throttle } from "@/lib/rate-limit"
 import { currentRegion } from "@/lib/region-context"
-import { CartError, clampQuantity } from "@maktabah/db"
+import { CartError, clampQuantity, mpesa } from "@maktabah/db"
 import { resolveRegion } from "@maktabah/shared"
 import { manualRegion } from "@/lib/region"
 import { findKenyaCounty, findKenyaSubCounty } from "@maktabah/shared"
@@ -269,9 +270,12 @@ export type PaymentStart =
   | { kind: "error"; error: string }
   | { kind: "done"; orderId: string }
   | { kind: "submitted"; alreadyPending: boolean }
-  | { kind: "stripe"; clientSecret: string }
+  | { kind: "mpesa" }
 
 async function prepare(optionId: string, providerId: string) {
+  if (await activeMpesaCheckout()) {
+    return "An M-Pesa payment is already being processed. Please wait or contact us."
+  }
   if (!optionId) {
     return "Choose a delivery option."
   }
@@ -287,15 +291,18 @@ async function prepare(optionId: string, providerId: string) {
 }
 
 /**
- * Starts payment for the chosen method. Manual M-Pesa submissions wait for
- * staff verification; Stripe returns a client secret for the card form.
+ * Starts payment for the chosen method.
  */
 export async function startPaymentAction(input: {
   optionId: string
   providerId: string
   message?: string
+  phone?: string
 }): Promise<PaymentStart> {
   try {
+    if (input.providerId === "pp_daraja_daraja" && await activeMpesaCheckout()) {
+      return { kind: "mpesa" }
+    }
     const problem = await prepare(input.optionId, input.providerId)
     if (problem) {
       return { kind: "error", error: problem }
@@ -313,40 +320,23 @@ export async function startPaymentAction(input: {
       return { kind: "submitted", alreadyPending: submission.alreadyPending }
     }
 
-    if (input.providerId === "pp_stripe_stripe") {
-      const session = await startPaymentSession({ providerId: input.providerId })
-      const secret = session.data?.client_secret
-      if (typeof secret !== "string") {
-        return { kind: "error", error: "Card payments are unavailable right now." }
+    if (input.providerId === "pp_daraja_daraja") {
+      if (typeof input.phone !== "string" || !mpesa.isKenyanMobile(input.phone)) {
+        return { kind: "error", error: "Enter a valid Kenyan M-Pesa phone number." }
       }
-      return { kind: "stripe", clientSecret: secret }
+      const limited = await throttle("stk", LIMITS.stk.ip, {
+        ...LIMITS.stk.key, key: mpesa.normalizePhone(input.phone),
+      })
+      if (limited) return { kind: "error", error: limited }
+      await startMpesaCheckout(input.phone)
+      return { kind: "mpesa" }
     }
 
-    await startPaymentSession({ providerId: input.providerId })
-    const result = await completeCart(input.providerId)
-    if (result.type === "order") {
-      return { kind: "done", orderId: result.orderId }
-    }
-    return { kind: "error", error: result.message }
+    return { kind: "error", error: "Choose a payment method." }
   } catch (error) {
     console.error(error)
     return { kind: "error", error: publicError(error, "We could not start your payment.") }
   }
-}
-
-/** Retries cart completion (M-Pesa polling, after Stripe confirmation). */
-export async function completeOrderAction(): Promise<
-  { kind: "done"; orderId: string } | { kind: "pending" } | { kind: "error"; error: string }
-> {
-  const result = await completeCart()
-  if (result.type === "order") {
-    revalidatePath("/", "layout")
-    return { kind: "done", orderId: result.orderId }
-  }
-  if (result.type === "pending") {
-    return { kind: "pending" }
-  }
-  return { kind: "error", error: result.message }
 }
 
 export async function manualMpesaStatusAction() {
@@ -354,6 +344,13 @@ export async function manualMpesaStatusAction() {
   if (result.kind === "done") {
     revalidatePath("/", "layout")
   }
+
+  return result
+}
+
+export async function mpesaCheckoutStatusAction() {
+  const result = await mpesaCheckoutStatus()
+  if (result.kind === "done") revalidatePath("/", "layout")
   return result
 }
 

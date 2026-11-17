@@ -7,17 +7,43 @@ import { useFormStatus } from "react-dom"
 import {
   saveAddressAction,
   manualMpesaStatusAction,
+  mpesaCheckoutStatusAction,
   startPaymentAction,
   type FormState,
 } from "@/app/actions/cart"
 import type { PaymentChoice, ShippingOption } from "@/lib/cart"
 import { formatMoney } from "@/lib/format"
 import { AddressFields, type AddressValue, type CountryOption } from "@/components/address-fields"
-import { StripePay } from "./stripe-pay"
 import { callAction } from "@/lib/stale-action"
 import { useShippingSelection } from "./shipping-selection"
 
 const initial: FormState = { error: null }
+
+export function CompletedPaymentRedirect() {
+  const router = useRouter()
+  const [error, setError] = useState(false)
+  useEffect(() => {
+    let active = true
+    async function check() {
+      try {
+        const result = await callAction(() => mpesaCheckoutStatusAction())
+        if (!active) return
+        if (result?.kind === "done") router.replace(`/checkout/complete?order=${result.orderId}`)
+        else setError(true)
+      } catch (reason) {
+        console.error("Could not retrieve completed M-Pesa checkout", reason)
+        if (active) setError(true)
+      }
+    }
+    void check()
+    return () => { active = false }
+  }, [router])
+  return (
+    <main className="wrap empty-state" role="status">
+      {error ? "We could not retrieve your completed order. Please contact us." : "Retrieving your completed order…"}
+    </main>
+  )
+}
 
 function Submit({ children, pending: busy }: { children: React.ReactNode; pending?: boolean }) {
   // Forms submitted through keep() are not "form actions" to useFormStatus.
@@ -128,7 +154,7 @@ export function AddressForm({
 type Stage =
   | { name: "choose" }
   | { name: "submitted" }
-  | { name: "stripe"; clientSecret: string }
+  | { name: "mpesa"; review: boolean }
 
 export function DeliveryPaymentForm({
   options,
@@ -138,6 +164,8 @@ export function DeliveryPaymentForm({
   paymentRecipientPhone,
   preferredProvider,
   manualPaymentPending,
+  mpesaPaymentPending,
+  defaultPhone,
 }: {
   options: ShippingOption[]
   payments: PaymentChoice[]
@@ -146,6 +174,8 @@ export function DeliveryPaymentForm({
   paymentRecipientPhone: string
   preferredProvider?: string | null
   manualPaymentPending: boolean
+  mpesaPaymentPending: boolean
+  defaultPhone: string
 }) {
   const router = useRouter()
   const { optionId, setOptionId, total } = useShippingSelection()
@@ -153,10 +183,14 @@ export function DeliveryPaymentForm({
     (preferredProvider && payments.some((p) => p.id === preferredProvider) ? preferredProvider : null) || payments[0]?.id || ""
   )
   const [message, setMessage] = useState("")
-  const [stage, setStage] = useState<Stage>(manualPaymentPending ? { name: "submitted" } : { name: "choose" })
+  const [phone, setPhone] = useState(defaultPhone)
+  const [stage, setStage] = useState<Stage>(
+    manualPaymentPending ? { name: "submitted" } : mpesaPaymentPending ? { name: "mpesa", review: false } : { name: "choose" }
+  )
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const checkingManualPayment = useRef(false)
+  const checkingMpesa = useRef(false)
 
   const finish = (orderId: string) => router.push(`/checkout/complete?order=${orderId}`)
 
@@ -206,10 +240,51 @@ export function DeliveryPaymentForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage])
 
+  useEffect(() => {
+    if (stage.name !== "mpesa") return
+    let active = true
+    const check = async () => {
+      if (checkingMpesa.current) return
+      checkingMpesa.current = true
+      try {
+        const result = await callAction(() => mpesaCheckoutStatusAction())
+        if (!active || !result) return
+        if (result.kind === "done") {
+          window.clearInterval(timer)
+          finish(result.orderId)
+        } else if (result.kind === "failed") {
+          window.clearInterval(timer)
+          setError("The M-Pesa payment was not completed. You can try again.")
+          setStage({ name: "choose" })
+        } else if (result.kind === "review" && !stage.review) {
+          setStage({ name: "mpesa", review: true })
+        } else if (result.kind === "missing") {
+          window.clearInterval(timer)
+          setError("We could not find this M-Pesa payment. Please contact us before trying again.")
+        }
+      } catch (error) {
+        console.error("Could not check M-Pesa checkout status", error)
+      } finally {
+        checkingMpesa.current = false
+      }
+    }
+    const timer = window.setInterval(check, 5000)
+    const reviewTimer = stage.review ? undefined : window.setTimeout(() => {
+      if (active) setStage({ name: "mpesa", review: true })
+    }, 90000)
+    void check()
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.clearTimeout(reviewTimer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage])
+
   const start = () =>
     startTransition(async () => {
       setError(null)
-      const result = await callAction(() => startPaymentAction({ optionId, providerId, message }))
+      const result = await callAction(() => startPaymentAction({ optionId, providerId, message, phone }))
       if (!result) {
         return
       }
@@ -219,8 +294,8 @@ export function DeliveryPaymentForm({
         finish(result.orderId)
       } else if (result.kind === "submitted") {
         setStage({ name: "submitted" })
-      } else {
-        setStage({ name: "stripe", clientSecret: result.clientSecret })
+      } else if (result.kind === "mpesa") {
+        setStage({ name: "mpesa", review: false })
       }
     })
 
@@ -236,14 +311,16 @@ export function DeliveryPaymentForm({
     )
   }
 
-  if (stage.name === "stripe") {
+  if (stage.name === "mpesa") {
     return (
-      <div className="stack">
-        <h3 className="choice-legend">Card details</h3>
-        <StripePay clientSecret={stage.clientSecret} onDone={finish} />
-        <button type="button" className="link-btn" onClick={() => setStage({ name: "choose" })}>
-          Back
-        </button>
+      <div className="mpesa-wait" role="status" aria-live="polite">
+        <h3>{stage.review ? "Payment needs checking" : "Check your phone"}</h3>
+        <p>
+          {stage.review
+            ? "We could not confirm the prompt yet. Please contact us before making another payment."
+            : "Enter your M-Pesa PIN on your phone. Please keep this page open while we confirm payment."}
+        </p>
+        <p>Your order is created only after payment is confirmed.</p>
       </div>
     )
   }
@@ -302,6 +379,16 @@ export function DeliveryPaymentForm({
               />
               <label htmlFor={`payment-${payment.id}`} className="choice-label">{payment.label}</label>
               <span id={`payment-hint-${payment.id}`} className="choice-hint">{payment.hint}</span>
+              {payment.id === "pp_daraja_daraja" && providerId === payment.id ? (
+                <div className="choice-extra">
+                  <label htmlFor="mpesa-phone" className="mpesa-confirmation-label">M-Pesa phone number</label>
+                  <input id="mpesa-phone" type="tel" autoComplete="tel" value={phone}
+                    onChange={(event) => setPhone(event.target.value)} required placeholder="07XX XXX XXX" />
+                  <small>
+                    {total === null ? "Choose a delivery option before paying." : `Amount to pay: ${formatMoney(Math.ceil(total), currency)}.`}
+                  </small>
+                </div>
+              ) : null}
               {payment.id === "manual_mpesa" && providerId === payment.id ? (
                 <div className="choice-extra">
                   <div className="mpesa-payment-details">
@@ -353,9 +440,9 @@ export function DeliveryPaymentForm({
       <button type="submit" className="btn btn-primary btn-block" disabled={pending || !options.length || !payments.length}>
         {pending
           ? "Please wait…"
-          : providerId === "pp_stripe_stripe"
-            ? "Continue to Card Payment"
-            : providerId === "manual_mpesa"
+          : providerId === "pp_daraja_daraja"
+              ? "Send M-Pesa prompt"
+              : providerId === "manual_mpesa"
               ? "Submit M-Pesa message"
               : "Place Order"}
       </button>

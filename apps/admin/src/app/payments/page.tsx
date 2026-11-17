@@ -10,7 +10,17 @@ import { api, dateTime, isoDay, money, useApi } from "@/lib/api"
 type PaymentsData = {
   payments: { order_id: string; display_id: number; email: string; created_at: string; provider_id: string; amount: number; currency_code: string; captured: boolean; refunded: number }[]
   totals: { provider_id: string; currency_code: string; captured: number; pending: number; refunded: number; count: number }[]
-  providers: { stripe: boolean; mpesa: boolean }
+  providers: { mpesa: boolean }
+  mpesaCheckouts: {
+    id: string
+    phone: string
+    amount: number | null
+    checkout_id: string | null
+    status: "starting" | "pending" | "confirmed" | "review"
+    review_reason: string | null
+    created_at: string
+    email: string | null
+  }[]
   manualSubmissions: {
     id: string
     reference: string
@@ -28,7 +38,7 @@ type PaymentRequest = {
   phone: string
   amount: number
   reference: string
-  status: "pending" | "paid" | "failed" | "cancelled"
+  status: "pending" | "paid" | "failed" | "cancelled" | "review"
   mpesa_receipt: string | null
   result_description: string | null
   created_at: string
@@ -36,11 +46,10 @@ type PaymentRequest = {
 
 const PROVIDERS: Record<string, string> = {
   pp_daraja_daraja: "M-Pesa",
-  pp_stripe_stripe: "Card (Stripe)",
   pp_system_default: "Manual / Test",
 }
 
-const STATUS_COLOR = { pending: "orange", paid: "green", failed: "red", cancelled: "grey" } as const
+const STATUS_COLOR = { pending: "orange", paid: "green", failed: "red", cancelled: "grey", review: "orange" } as const
 
 const PaymentsPage = () => {
   const [range, setRange] = useState<"7" | "30" | "90" | "365">("30")
@@ -52,6 +61,20 @@ const PaymentsPage = () => {
   const [form, setForm] = useState({ phone: "", amount: "", reference: "", description: "" })
   const [sending, setSending] = useState(false)
   const [reviewing, setReviewing] = useState<string | null>(null)
+
+  const retryCheckout = async (id: string) => {
+    setReviewing(id)
+    try {
+      const result = await api<{ notificationError?: string }>(`/api/payments/mpesa/${id}`, { method: "POST" })
+      toast.success("Order created.")
+      if (result.notificationError) toast.error(`Order email failed: ${result.notificationError}`)
+      payments.reload()
+    } catch (error) {
+      toast.error((error as Error).message)
+    } finally {
+      setReviewing(null)
+    }
+  }
 
   const review = async (submission: PaymentsData["manualSubmissions"][number], action: "verify" | "reject") => {
     if (
@@ -83,16 +106,12 @@ const PaymentsPage = () => {
   const send = async () => {
     setSending(true)
     try {
-      const { request } = await api<{ request: PaymentRequest }>("/api/payment-requests", {
+      const { message } = await api<{ id: string; message: string }>("/api/payment-requests", {
         method: "POST",
         json: { ...form, amount: Number(form.amount), description: form.description || undefined },
       })
-      if (request.status === "failed") {
-        toast.error(request.result_description || "The request failed")
-      } else {
-        toast.success(`STK push sent to ${request.phone}`)
-        setForm({ phone: "", amount: "", reference: "", description: "" })
-      }
+      toast.success(message || "M-Pesa request submitted.")
+      setForm({ phone: "", amount: "", reference: "", description: "" })
       requests.reload()
     } catch (e) {
       toast.error((e as Error).message)
@@ -123,15 +142,12 @@ const PaymentsPage = () => {
 
       <Section
         title="Payment methods"
-        description="Authorized card and test payments are captured from the order page when you fulfil the order."
+        description="Payment totals include historical orders."
         flush
         actions={
           <div className="flex flex-wrap gap-4">
             <StatusBadge color={payments.data?.providers.mpesa ? "green" : "orange"}>
               M-Pesa {payments.data?.providers.mpesa ? "connected" : "not connected"}
-            </StatusBadge>
-            <StatusBadge color={payments.data?.providers.stripe ? "green" : "orange"}>
-              Stripe {payments.data?.providers.stripe ? "connected" : "not connected"}
             </StatusBadge>
           </div>
         }
@@ -160,6 +176,45 @@ const PaymentsPage = () => {
           </Table.Body>
         </Table>
             </div>
+      </Section>
+
+      <Section
+        title="M-Pesa checkout attempts"
+        description="Do not send another prompt while an outcome is uncertain. Check the Safaricom records and contact the customer. Only callback-confirmed payments can be retried here."
+        flush
+        actions={<Button size="small" variant="transparent" onClick={payments.reload}>Refresh</Button>}
+      >
+        {payments.data?.mpesaCheckouts.length ? (
+          <div className="mr-scroll-x">
+            <Table>
+              <Table.Header><Table.Row>
+                <Table.HeaderCell>Started</Table.HeaderCell>
+                <Table.HeaderCell>Customer / phone</Table.HeaderCell>
+                <Table.HeaderCell>Expected amount</Table.HeaderCell>
+                <Table.HeaderCell>Request ID</Table.HeaderCell>
+                <Table.HeaderCell>Status</Table.HeaderCell>
+                <Table.HeaderCell>Action</Table.HeaderCell>
+              </Table.Row></Table.Header>
+              <Table.Body>
+                {payments.data.mpesaCheckouts.map((attempt) => (
+                  <Table.Row key={attempt.id}>
+                    <Table.Cell>{dateTime(attempt.created_at)}</Table.Cell>
+                    <Table.Cell>{attempt.email || "—"}<br />{attempt.phone}</Table.Cell>
+                    <Table.Cell>{attempt.amount === null ? "Not prepared" : money(attempt.amount, "kes")}</Table.Cell>
+                    <Table.Cell>{attempt.checkout_id || "Not received"}</Table.Cell>
+                    <Table.Cell>{attempt.review_reason === "callback_mismatch" ? "Callback mismatch" : attempt.status}</Table.Cell>
+                    <Table.Cell>
+                      {attempt.status === "confirmed" ? (
+                        <Button size="small" isLoading={reviewing === attempt.id} disabled={reviewing !== null}
+                          onClick={() => retryCheckout(attempt.id)}>Retry order</Button>
+                      ) : "Check Safaricom"}
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          </div>
+        ) : <Text size="small" className="text-ui-fg-muted px-6 py-4">No unresolved checkout attempts.</Text>}
       </Section>
 
       <Section

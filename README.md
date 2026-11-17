@@ -29,7 +29,7 @@ and so on.
 | Storefront | Responsive from phone to desktop: menu drawer, category bar, collapsible filters, carousels, quick add, quick view, cart drawer, formats, editorial reviews, ratings and reviews, recently viewed, wishlist, sale items, stock badges, gift options, promo codes and a newsletter sign-up |
 | Accounts | Sign up with an optional shipping address and payment preference. Passwords are PBKDF2-HMAC-SHA256 through Web Crypto; a session is an opaque token stored only as a hash, so signing out genuinely ends it |
 | Cart and checkout | Prices are snapshotted onto the line, so a price change never alters a cart mid-shop. Moving region re-prices it |
-| Payments | M-Pesa STK push with an idempotent callback, and Stripe PaymentIntents with a signature-verified webhook. An order is created only once money is confirmed |
+| Payments | M-Pesa STK push with an idempotent callback. An order is created only once money is confirmed |
 | Shipping | Flat rates per destination from the database, plus live Shippo rates when it is configured; either degrades to the other |
 | Edge | Region detection from `CF-IPCountry` in middleware |
 
@@ -90,13 +90,10 @@ steps together:
 token on every page and API request (signature, audience, issuer and expiry),
 so a request that reaches the Worker any other way is refused.
 
-> **It currently has no sign-in.** `ADMIN_OPEN` is `"true"` in
-> `apps/admin/wrangler.jsonc`, so anyone who knows the address can read
-> customer details, place M-Pesa requests and change the shop. A red banner
-> says so on every page. Before this is reachable from the internet, put a
-> **Cloudflare Access** policy on the hostname and set `ADMIN_OPEN` to
-> `"false"`. Access then replaces the old admin login entirely: there is no
-> admin user table and no password, and whoever the policy admits is an
+> `ADMIN_OPEN` must remain `"false"` on a public deployment. Setting it to
+> `"true"` bypasses Access and lets anyone read customer details, send M-Pesa
+> prompts and change the shop. Access replaces an admin login: there is no
+> admin user table or password, and whoever the policy admits is an
 > administrator.
 
 ```bash
@@ -171,12 +168,57 @@ avoid that. On Cloudflare Workers Builds, set the project's **root directory**
 to `apps/storefront`, or leave it at the repo root and use
 `pnpm storefront:cf:build` and `pnpm storefront:cf:deploy` as the commands.
 
+### M-Pesa setup and recovery
+
+M-Pesa STK push is the only new checkout payment method, and is available for
+Kenyan-shilling carts only. Other regions cannot currently pay at checkout.
+Historical card payments remain in the database; the card webhook has been
+removed, so previously started card payments will not be finalized by it.
+
+For local development, set these values in the ignored
+`apps/storefront/.env.local` and `apps/admin/.env.local` files:
+
+```text
+DARAJA_CONSUMER_KEY=
+DARAJA_CONSUMER_SECRET=
+DARAJA_PASSKEY=
+DARAJA_SHORTCODE=
+DARAJA_PARTY_B=
+DARAJA_TRANSACTION_TYPE=CustomerBuyGoodsOnline
+DARAJA_ENVIRONMENT=sandbox
+DARAJA_CALLBACK_URL=https://your-public-host/api/payment/mpesa/callback
+DARAJA_CALLBACK_TOKEN=
+```
+
+For Buy Goods, `DARAJA_SHORTCODE` is the Safaricom business/store shortcode
+used to generate the password; `DARAJA_PARTY_B` is the till number. The
+callback must be publicly reachable over HTTPS even for sandbox testing.
+Generate a random callback token of at least 16 characters, and use the same
+token and callback URL in both apps. Keep credentials and the token private.
+
+Local `.env.local` files do **not** configure deployed Workers. Set the
+shortcode, till, transaction type, environment (`sandbox` or `production`)
+and callback URL in both Workers' `wrangler.jsonc` variables. Set
+`DARAJA_CONSUMER_KEY`, `DARAJA_CONSUMER_SECRET`, `DARAJA_PASSKEY` and
+`DARAJA_CALLBACK_TOKEN` as Worker secrets in each app directory with
+`pnpm exec wrangler secret put NAME`. Apply the database migration before
+deploying both Workers. Verify an actual Safaricom payment and its callback
+before accepting live orders; setting values alone does not verify connectivity.
+
+Unresolved checkout attempts appear on the admin Payments page. An attempt can
+remain pending or require review if a response or callback is lost, or if the
+callback details do not match. Do not send another prompt until the transaction
+has been checked against Safaricom records. A successful status query does not
+include the receipt and amount needed to confirm an order. Only an independently
+validated callback can confirm these checkouts; an unresolved attempt may need
+manual reconciliation. The admin can retry order creation for a
+callback-confirmed payment.
+
 ### Webhooks
 
 | Provider | Endpoint | Notes |
 |---|---|---|
-| Stripe | `/api/payment/stripe/webhook` | Signature verified against the raw body; stale timestamps refused |
-| M-Pesa | `/api/payment/mpesa/callback?token=…` | Daraja cannot sign, so the URL carries `DARAJA_CALLBACK_TOKEN`. Always answers 200, or Safaricom resends a payment already captured |
+| M-Pesa | `/api/payment/mpesa/callback?token=…` | Daraja cannot sign, so the URL carries `DARAJA_CALLBACK_TOKEN`. Processing errors return 503; recorded callbacks are idempotent. |
 
 ## Tests
 
@@ -190,8 +232,7 @@ pnpm html:test     # the description sanitiser against 29 XSS payloads
 `db:verify` covers the parts where mistakes cost money: the catalogue and
 search, the stock compare-and-set that stops two shoppers buying the last
 copy, checkout idempotency, order totals, password hashing and sessions,
-webhook signature verification, M-Pesa callback parsing and the currency
-rounding rules.
+M-Pesa callback parsing and the currency rounding rules.
 
 `db:test` runs the real `@maktabah/db` code against a throwaway database made
 from every migration and the seed, and replays attacks that once worked:
@@ -204,8 +245,7 @@ is never lost to a stock race, and hostile search input cannot break a query.
 
 - **Payments.** An order is placed only after the provider (never the
   browser) confirms the money, and only if the amount and currency cover the
-  cart as it is now. Stripe webhooks are signature-checked with a five-minute
-  replay window. M-Pesa callbacks need `DARAJA_CALLBACK_TOKEN` (16+
+  cart as it is now. M-Pesa callbacks need `DARAJA_CALLBACK_TOKEN` (16+
   characters), which is added to the callback URL automatically; without it
   M-Pesa is not offered.
 - **Headers.** The storefront sends a per-request nonce Content Security

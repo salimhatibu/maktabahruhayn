@@ -7,7 +7,7 @@ import { getSiteConfig } from "@/lib/site-config"
 
 export const metadata: Metadata = {
   title: "Help Center: Shipping, Returns, Payments & Currencies",
-  description: "How Maktabah Ruhayn ships worldwide, takes M-Pesa and cards, and prices books in your currency.",
+  description: "How Maktabah Ruhayn ships worldwide, takes M-Pesa, and prices books in your currency.",
 }
 
 export default async function HelpPage() {
@@ -75,22 +75,20 @@ export default async function HelpPage() {
         <p>
           <strong>Kenya:</strong> choose M-Pesa at checkout and enter your Safaricom number. You will receive an STK
           push; enter your M-Pesa PIN to approve. The checkout page waits for confirmation and lets you resend the
-          request if it times out.
+          request if it is declined. If its status is uncertain, contact us before paying again.
         </p>
         <p>
-          <strong>Everywhere:</strong> credit and debit cards, Apple Pay and Google Pay through Stripe, with 3D Secure
-          verification when your bank asks for it. Card payment is offered once the store&apos;s Stripe account is
-          connected.
+          M-Pesa is currently the only payment method and is available for orders in Kenyan shillings.
         </p>
       </section>
 
       <section id="currency" className="panel">
         <h2>Currencies</h2>
         <p>
-          You shop and pay in your own currency. We detect your country automatically (you are browsing in{" "}
+          You can browse in your local currency. We detect your country automatically (you are browsing in{" "}
           <strong>{region.currency.toUpperCase()}</strong>); change it any time with &ldquo;Ship to&rdquo; in the
           header. Prices are converted from our base US-dollar prices using exchange rates refreshed every six hours,
-          then rounded to a shelf price. The price you see in your cart is the amount you are charged.
+          then rounded to a shelf price. Checkout currently requires Kenyan shillings and M-Pesa.
         </p>
         <p className="muted small">Exchange rates by ExchangeRate-API.</p>
       </section>

@@ -24,18 +24,18 @@ function detectLocale(accept: string | null): string {
 /**
  * Content Security Policy with a fresh nonce per request. Next.js reads the
  * nonce from this request header and stamps it on its own scripts; with
- * 'strict-dynamic' those may load what they need (Stripe.js), and nothing
+ * 'strict-dynamic' those may load what they need, and nothing
  * else runs. Development skips it: hot reload relies on eval.
  */
 function contentSecurityPolicy(nonce: string) {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://js.stripe.com`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://api.stripe.com https://*.stripe.com",
-    "frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com",
+    "connect-src 'self'",
+    "frame-src 'self'",
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",

@@ -1,15 +1,10 @@
-import { mpesa, shippo, stripe, type MpesaConfig, type ShippoConfig, type StripeConfig } from "@maktabah/db"
+import { mpesa, shippo, type MpesaConfig, type ShippoConfig } from "@maktabah/db"
 
 /**
  * Provider configuration, read at request time from the Worker's variables
  * and secrets. A provider with no credentials is simply not offered, rather
  * than failing at checkout.
  */
-export function stripeConfig(): StripeConfig | null {
-  const secretKey = process.env.STRIPE_API_KEY
-  return secretKey ? { secretKey, webhookSecret: process.env.STRIPE_WEBHOOK_SECRET } : null
-}
-
 export function mpesaConfig(): MpesaConfig | null {
   const config = {
     consumerKey: process.env.DARAJA_CONSUMER_KEY || "",
@@ -41,4 +36,4 @@ export function shippoConfig(): ShippoConfig | null {
   return shippo.shippoConfigured(config) && config.fromAddress.street1 ? config : null
 }
 
-export { mpesa, shippo, stripe }
+export { mpesa, shippo }

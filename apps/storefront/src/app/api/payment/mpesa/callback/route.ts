@@ -1,5 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { finalizePaidCart, mpesa, settlePayment } from "@maktabah/db"
+import {
+  finalizeMpesaCheckout,
+  finalizePaidCart,
+  mpesa,
+  recordMpesaCheckoutCallback,
+  recordMpesaRequestCallback,
+  settlePayment,
+} from "@maktabah/db"
 import { db } from "@/lib/db"
 import { notifyConfirmedOrder } from "@/lib/order-notifications"
 
@@ -8,10 +15,8 @@ import { notifyConfirmedOrder } from "@/lib/order-notifications"
  *
  * Daraja cannot sign its callbacks, so the URL carries a shared secret
  * (DARAJA_CALLBACK_TOKEN) and nothing is accepted without it: otherwise anyone
- * could post a "paid" result for a checkout request. Past that check it
- * always answers 200, since a non-200 makes Safaricom resend a payment that
- * was already recorded; the row is keyed by the checkout request id, so a
- * replay updates the same row.
+ * could post a "paid" result for a checkout request. Processing failures
+ * return a non-200 response; recorded callbacks are safe to replay.
  *
  * A successful payment places the order here, so a shopper who closes the
  * page after entering their PIN still gets one.
@@ -44,7 +49,6 @@ export async function POST(request: NextRequest) {
   } catch {
     return accepted()
   }
-
   const callback = mpesa.parseCallback(body)
   if (!callback?.checkoutRequestId) {
     return accepted()
@@ -52,6 +56,31 @@ export async function POST(request: NextRequest) {
 
   try {
     const database = await db()
+    const attemptId = request.nextUrl.searchParams.get("attempt")
+    if (attemptId) {
+      const attempt = await recordMpesaCheckoutCallback(database, attemptId, callback)
+      if (!attempt) {
+        console.error("M-Pesa callback did not match a valid checkout attempt", attemptId)
+      } else if (attempt.status === "confirmed") {
+        const result = await finalizeMpesaCheckout(database, attempt.id)
+        if (result.ok) {
+          await notifyConfirmedOrder(database, result.orderId)
+        } else {
+          console.error("Confirmed M-Pesa checkout could not create an order", attempt.id, result)
+          return NextResponse.json({ ResultCode: 1, ResultDesc: "Order requires review" }, { status: 503 })
+        }
+      } else if (attempt.status === "review") {
+        console.error("M-Pesa callback needs manual review", attempt.id)
+      }
+      return accepted()
+    }
+    const paymentRequestId = request.nextUrl.searchParams.get("payment_request")
+    if (paymentRequestId) {
+      if (await recordMpesaRequestCallback(database, paymentRequestId, callback) === "review") {
+        console.error("M-Pesa admin callback needs manual review", paymentRequestId)
+      }
+      return accepted()
+    }
     const paidMinor = Math.round(Number(callback.amount ?? 0) * 100)
     // Prompts the admin sent for phone and WhatsApp orders share this URL.
     await database
@@ -87,6 +116,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("M-Pesa callback could not be recorded", error)
+    return NextResponse.json({ ResultCode: 1, ResultDesc: "Unable to process callback" }, { status: 503 })
   }
 
   return accepted()

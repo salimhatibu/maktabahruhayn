@@ -164,8 +164,8 @@ export default async function CartPage() {
             <h2>Ways to pay</h2>
             <p>
               {region.mpesa
-                ? "Lipa na M-Pesa: approve an STK push on your phone at checkout. Cards are accepted too."
-                : `You're charged in ${region.currency.toUpperCase()}. Express and postal delivery rates are calculated live at checkout.`}
+                ? "Lipa na M-Pesa: approve an STK push on your phone at checkout."
+                : "Checkout currently supports M-Pesa payments in Kenyan shillings only."}
             </p>
           </section>
         </aside>

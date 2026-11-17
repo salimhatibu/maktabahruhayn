@@ -15,8 +15,7 @@ const isProd = process.env.NODE_ENV === "production"
  * The URLs a deployed build falls back to are compiled in, so a build carrying
  * local ones would serve a storefront that talks to localhost - and no Worker
  * variable could undo it. `scripts/cf.mjs` sets DEPLOY_TARGET for build and
- * deploy, which turns that mistake into a failed build. (The publishable key is
- * not checked: it is read at runtime, so a Worker variable can supply it.)
+ * deploy, which turns that mistake into a failed build.
  */
 if (process.env.DEPLOY_TARGET === "cloudflare") {
   const isLocal = (url: string) => !url || /^https?:\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(url)
@@ -67,7 +66,7 @@ const nextConfig: NextConfig = {
           { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(), usb=(), interest-cohort=(), payment=(self \"https://js.stripe.com\")",
+            value: "camera=(), microphone=(), geolocation=(), usb=(), interest-cohort=(), payment=()",
           },
           // The rest of the policy (script nonces) is per request, in middleware.ts.
         ],

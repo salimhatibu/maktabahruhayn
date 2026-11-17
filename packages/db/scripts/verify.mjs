@@ -279,39 +279,6 @@ const [orphans] = sql(`SELECT COUNT(*) AS n FROM customer_session WHERE customer
 check("deleting a customer ends their sessions", orphans.results[0].n === 0)
 
 // -------------------------------------------------------------- payments
-const webhook = probe(
-  "payments/stripe",
-  `const m = await import('__MODULE__')
-   const secret = 'whsec_test_secret'
-   const body = JSON.stringify({ id: 'evt_1' })
-   const now = Math.floor(Date.now() / 1000)
-   const sign = async (ts, payload, key = secret) => {
-     const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-     const mac = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(ts + '.' + payload))
-     return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('')
-   }
-   console.log(JSON.stringify({
-     accepts: await m.verifyWebhook(secret, body, 't=' + now + ',v1=' + (await sign(now, body))),
-     tampered: await m.verifyWebhook(secret, body + ' ', 't=' + now + ',v1=' + (await sign(now, body))),
-     stale: await m.verifyWebhook(secret, body, 't=' + (now - 3600) + ',v1=' + (await sign(now - 3600, body))),
-     wrongKey: await m.verifyWebhook(secret, body, 't=' + now + ',v1=' + (await sign(now, body, 'other'))),
-     missing: await m.verifyWebhook(secret, body, null),
-     zeroDecimal: m.toStripeAmount(350000, 'ugx'),
-     normal: m.toStripeAmount(2699, 'usd'),
-   }))`
-)
-if (!webhook) {
-  console.log("[ skip ] Stripe webhook checks (needs a Node that can read TypeScript)")
-} else {
-  check("a correctly signed webhook is accepted", webhook.accepts)
-  check("a tampered body is rejected", webhook.tampered === false)
-  check("a replayed old signature is rejected", webhook.stale === false)
-  check("a signature from the wrong secret is rejected", webhook.wrongKey === false)
-  check("an unsigned request is rejected", webhook.missing === false)
-  check("zero-decimal currencies are not multiplied again", webhook.zeroDecimal === 3500, `${webhook.zeroDecimal}`)
-  check("ordinary currencies pass through unchanged", webhook.normal === 2699)
-}
-
 const stk = probe(
   "payments/mpesa",
   `const m = await import('__MODULE__')

@@ -13,7 +13,7 @@ import { mpesaConfig } from "@/lib/payments"
 export async function GET() {
   const { results } = await (await db())
     .prepare(
-      `SELECT id, phone, amount_minor, reference, description, status, receipt, created_at
+      `SELECT id, phone, amount_minor, reference, description, status, receipt, created_at, mpesa_review
          FROM payment_request ORDER BY created_at DESC LIMIT 100`
     )
     .all<Record<string, string | number | null>>()
@@ -25,7 +25,7 @@ export async function GET() {
       phone: row.phone,
       amount: toMajor(Number(row.amount_minor || 0)),
       reference: row.reference,
-      status: row.status,
+      status: row.status === "pending" && row.mpesa_review ? "review" : row.status,
       mpesa_receipt: row.receipt ?? null,
       result_description: row.description ?? null,
       created_at: row.created_at,
@@ -49,30 +49,51 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Enter a Safaricom number, e.g. 0712345678." }, { status: 400 })
   }
   const amount = Number(body.amount || 0)
-  if (!(amount > 0)) {
-    return NextResponse.json({ message: "Enter the amount to request." }, { status: 400 })
+  if (!Number.isSafeInteger(amount) || amount < 1) {
+    return NextResponse.json({ message: "Enter an amount in whole Kenyan shillings." }, { status: 400 })
   }
 
   const id = newId("preq")
   const reference = (body.reference || id.slice(-8)).slice(0, 12)
   const database = await db()
+  await database
+    .prepare(
+      `INSERT INTO payment_request (id, phone, amount_minor, reference, description, status)
+       VALUES (?1, ?2, ?3, ?4, ?5, 'pending')`
+    )
+    .bind(id, mpesa.normalizePhone(body.phone), toMinor(amount), reference, body.description || null)
+    .run()
 
   try {
+    const callbackUrl = new URL(config.callbackUrl)
+    callbackUrl.searchParams.set("payment_request", id)
     const push = await mpesa.stkPush(config, {
       phone: body.phone,
-      amount: Math.ceil(amount),
+      amount,
       accountReference: reference,
       description: body.description || "Maktabah Ruhayn",
+      callbackUrl: callbackUrl.toString(),
     })
-    await database
+    const saved = await database
       .prepare(
-        `INSERT INTO payment_request (id, phone, amount_minor, reference, description, status, checkout_id)
-         VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6)`
+        `UPDATE payment_request SET checkout_id = ?2
+          WHERE id = ?1 AND (checkout_id IS NULL OR checkout_id = ?2)`
       )
-      .bind(id, mpesa.normalizePhone(body.phone), toMinor(amount), reference, body.description || null, push.checkoutRequestId)
+      .bind(id, push.checkoutRequestId)
       .run()
+    if (!push.checkoutRequestId || !saved.meta?.changes) {
+      throw new Error("The M-Pesa request ID could not be matched.")
+    }
     return NextResponse.json({ id, message: push.customerMessage })
   } catch (error) {
-    return NextResponse.json({ message: (error as Error).message }, { status: 502 })
+    console.error("M-Pesa admin request failed or has an uncertain outcome", id, error)
+    if (error instanceof mpesa.MpesaRequestNotSentError) {
+      await database.prepare(`UPDATE payment_request SET status = 'failed' WHERE id = ?1 AND checkout_id IS NULL`).bind(id).run()
+      return NextResponse.json({ message: "M-Pesa is unavailable. The prompt was not sent." }, { status: 502 })
+    }
+    return NextResponse.json({
+      id,
+      message: "The outcome is uncertain. Check the request and M-Pesa records before sending another prompt.",
+    }, { status: 202 })
   }
 }

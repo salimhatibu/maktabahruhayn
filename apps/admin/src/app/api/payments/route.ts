@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { toMajor } from "@maktabah/db"
 import { db } from "@/lib/db"
+import { mpesaConfig } from "@/lib/payments"
 
 type PaymentRow = {
   id: string
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     : new Date(to.getTime() - 29 * 86_400_000)
 
   const database = await db()
-  const [paymentRows, submissionRows] = await Promise.all([
+  const [paymentRows, submissionRows, checkoutRows] = await Promise.all([
     database.prepare(
       `SELECT p.id, p.order_id, p.provider, p.status, p.amount_minor, p.currency_code,
               p.reference, p.created_at,
@@ -59,6 +60,17 @@ export async function GET(request: NextRequest) {
           ORDER BY p.created_at ASC LIMIT 100`
       )
       .all<ManualSubmissionRow>(),
+    database.prepare(
+      `SELECT m.id, m.phone, m.amount_minor, m.checkout_id, m.status, m.review_reason,
+              m.result_description, m.created_at, c.email
+         FROM mpesa_checkout m JOIN cart c ON c.id = m.cart_id
+        WHERE c.completed_order_id IS NULL AND m.status IN ('starting', 'pending', 'confirmed', 'review')
+        ORDER BY m.created_at ASC LIMIT 100`
+    ).all<{
+      id: string; phone: string; amount_minor: number | null; checkout_id: string | null;
+      status: string; review_reason: string | null; result_description: string | null;
+      created_at: string; email: string | null
+    }>(),
   ])
   const { results } = paymentRows
 
@@ -115,6 +127,7 @@ export async function GET(request: NextRequest) {
       reference: row.reference,
       amount: toMajor(row.amount_minor),
       currency_code: row.currency_code,
+      status: row.status,
       created_at: row.created_at,
       email: row.email,
       message,
@@ -125,9 +138,12 @@ export async function GET(request: NextRequest) {
     payments,
     totals: Object.values(totals),
     manualSubmissions,
+    mpesaCheckouts: checkoutRows.results.map((row) => ({
+      ...row,
+      amount: row.amount_minor === null ? null : toMajor(row.amount_minor),
+    })),
     providers: {
-      stripe: Boolean(process.env.STRIPE_API_KEY),
-      mpesa: Boolean(process.env.DARAJA_CONSUMER_KEY && process.env.DARAJA_SHORTCODE),
+      mpesa: Boolean(mpesaConfig()),
     },
   })
 }

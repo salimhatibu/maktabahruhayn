@@ -115,6 +115,46 @@ const test = async (name, fn) => {
 }
 const one = (sql, ...args) => db.prepare(sql).bind(...args).first()
 
+await test("M-Pesa does not send an STK request when authentication fails", async () => {
+  const originalFetch = globalThis.fetch
+  let calls = 0
+  try {
+    globalThis.fetch = async () => {
+      calls++
+      return Response.json({ error: "unauthorized" }, { status: 401 })
+    }
+    await assert.rejects(
+      lib.mpesa.stkPush(mpesaConfig, { phone: "0712345678", amount: 100, accountReference: "test", description: "test" }),
+      lib.mpesa.MpesaRequestNotSentError
+    )
+    assert.equal(calls, 1)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+await test("M-Pesa status queries reject missing or malformed result codes", async () => {
+  const originalFetch = globalThis.fetch
+  let queryResult = { ResponseCode: "0", ResultCode: "0", ResultDesc: "Success" }
+  try {
+    globalThis.fetch = async (url) => url.includes("/oauth/")
+      ? Response.json({ access_token: "test-token" })
+      : Response.json(queryResult)
+    assert.equal((await lib.mpesa.queryStk(mpesaConfig, "checkout")).resultCode, 0)
+    for (const result of [null, "", "not-a-number", -1]) {
+      queryResult = { ResponseCode: "0", ResultCode: result }
+      await assert.rejects(lib.mpesa.queryStk(mpesaConfig, "checkout"), /invalid status/)
+    }
+    queryResult = { ResponseCode: "1", ResultCode: "0" }
+    await assert.rejects(lib.mpesa.queryStk(mpesaConfig, "checkout"), /invalid status/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+await test("M-Pesa callback URLs must use HTTPS", async () => {
+  assert.equal(lib.mpesa.callbackUrlWithToken("http://example.com/callback", "0123456789abcdef"), "")
+  assert.ok(lib.mpesa.callbackUrlWithToken("https://example.com/callback", "0123456789abcdef"))
+})
+
 await test("binding metadata is removed from the schema and navigation", async () => {
   const columns = await db.prepare(`PRAGMA table_info(book)`).all()
   assert.equal(columns.results.some((column) => column.name === "binding_type"), false)
@@ -408,6 +448,115 @@ await test("free-shipping promotions waive the selected delivery rate", async ()
 })
 
 /* ------------------------------------------------------------- payments */
+await test("concurrent STK starts claim the cart once and freeze its contents", async () => {
+  const id = await cartWith([[A.variant_id, 1]], { currency: "kes" })
+  const attempts = await Promise.all([
+    lib.beginMpesaCheckout(db, id, "0712345678"),
+    lib.beginMpesaCheckout(db, id, "0712345678"),
+  ])
+  assert.equal(attempts.filter(Boolean).length, 1)
+  await assert.rejects(lib.addLine(db, id, B.variant_id, 1), /M-Pesa payment is being processed/)
+  await assert.rejects(lib.setCartFields(db, id, { shippingTotalMinor: 1 }), /M-Pesa payment is being processed/)
+  await lib.cancelUnsentMpesaCheckout(db, attempts.find(Boolean).id)
+  await lib.addLine(db, id, B.variant_id, 1)
+})
+await test("STK callbacks before the initiation response create one confirmed order", async () => {
+  const id = await cartWith([[A.variant_id, 1]], { currency: "kes" })
+  const attempt = await lib.beginMpesaCheckout(db, id, "0712345678")
+  const cart = await lib.getCart(db, id)
+  const amount = Math.ceil(cart.totals.totalMinor / 100) * 100
+  await lib.setMpesaCheckoutAmount(db, attempt.id, amount)
+  const callback = {
+    checkoutRequestId: `checkout_${id}`, merchantRequestId: "merchant",
+    resultCode: 0, resultDesc: "Success", amount: amount / 100,
+    phone: "254712345678", receipt: `receipt_${id}`,
+  }
+  assert.equal((await lib.recordMpesaCheckoutCallback(db, attempt.id, callback)).status, "confirmed")
+  await lib.markMpesaCheckoutSent(db, attempt.id, callback.checkoutRequestId)
+  const first = await lib.finalizeMpesaCheckout(db, attempt.id)
+  assert.equal(first.ok, true)
+  await lib.recordMpesaCheckoutCallback(db, attempt.id, callback)
+  const replay = await lib.finalizeMpesaCheckout(db, attempt.id)
+  assert.equal(replay.ok, true)
+  assert.equal(first.orderId, replay.orderId)
+})
+await test("STK callback mismatches cannot confirm payment or unlock the cart", async () => {
+  const id = await cartWith([[A.variant_id, 1]], { currency: "kes" })
+  const attempt = await lib.beginMpesaCheckout(db, id, "0712345678")
+  await lib.setMpesaCheckoutAmount(db, attempt.id, 10000)
+  const callback = {
+    checkoutRequestId: `checkout_${id}`, merchantRequestId: "merchant",
+    resultCode: 0, resultDesc: "Success", amount: 99,
+    phone: "254712345678", receipt: `receipt_${id}`,
+  }
+  assert.equal((await lib.recordMpesaCheckoutCallback(db, attempt.id, callback)).status, "review")
+  await assert.rejects(lib.finalizeMpesaCheckout(db, attempt.id), /not confirmed/)
+  await assert.rejects(lib.addLine(db, id, B.variant_id, 1), /M-Pesa payment is being processed/)
+  assert.equal((await lib.recordMpesaCheckoutCallback(db, attempt.id, { ...callback, resultCode: 1032 })).status, "review")
+})
+await test("an uncertain initiation accepts a late decline without unlocking a mismatched success", async () => {
+  const id = await cartWith([[A.variant_id, 1]], { currency: "kes" })
+  const attempt = await lib.beginMpesaCheckout(db, id, "0712345678")
+  await lib.setMpesaCheckoutAmount(db, attempt.id, 10000)
+  await lib.reviewMpesaCheckout(db, attempt.id)
+  const callback = {
+    checkoutRequestId: `checkout_${id}`, merchantRequestId: "merchant",
+    resultCode: 1032, resultDesc: "Cancelled",
+  }
+  assert.equal((await lib.recordMpesaCheckoutCallback(db, attempt.id, callback)).status, "failed")
+  await lib.addLine(db, id, B.variant_id, 1)
+})
+await test("STK finalization never overwrites a conflicting existing payment", async () => {
+  const id = await cartWith([[A.variant_id, 1]], { currency: "kes" })
+  const attempt = await lib.beginMpesaCheckout(db, id, "0712345678")
+  const amount = Math.ceil((await lib.getCart(db, id)).totals.totalMinor / 100) * 100
+  await lib.setMpesaCheckoutAmount(db, attempt.id, amount)
+  const checkoutId = `checkout_${id}`
+  await lib.recordPendingPayment(db, { cartId: id, provider: "mpesa", reference: checkoutId, amountMinor: 100, currency: "kes" })
+  await lib.recordMpesaCheckoutCallback(db, attempt.id, {
+    checkoutRequestId: checkoutId, merchantRequestId: "merchant", resultCode: 0,
+    resultDesc: "Success", amount: amount / 100, phone: "254712345678", receipt: `receipt_${id}`,
+  })
+  await assert.rejects(lib.finalizeMpesaCheckout(db, attempt.id), /does not match/)
+  const payment = await one(`SELECT amount_minor, status FROM payment WHERE reference = ?1`, checkoutId)
+  assert.equal(payment.amount_minor, 100)
+  assert.equal(payment.status, "pending")
+})
+await test("admin STK callbacks arriving before the response verify their request", async () => {
+  const id = lib.newId("preq")
+  await db.prepare(
+    `INSERT INTO payment_request (id, phone, amount_minor, reference, status)
+     VALUES (?1, '254712345678', 10000, 'test', 'pending')`
+  ).bind(id).run()
+  const callback = {
+    checkoutRequestId: `checkout_${id}`, merchantRequestId: "merchant",
+    resultCode: 0, resultDesc: "Success", amount: 100,
+    phone: "254712345678", receipt: `receipt_${id}`,
+  }
+  assert.equal(await lib.recordMpesaRequestCallback(db, id, callback), "recorded")
+  assert.equal(await lib.recordMpesaRequestCallback(db, id, callback), "recorded")
+  const row = await one(`SELECT status, checkout_id, receipt FROM payment_request WHERE id = ?1`, id)
+  assert.deepEqual(row, { status: "paid", checkout_id: callback.checkoutRequestId, receipt: callback.receipt })
+})
+await test("admin STK mismatches remain reviewable even after a late decline", async () => {
+  const id = lib.newId("preq")
+  await db.prepare(
+    `INSERT INTO payment_request (id, phone, amount_minor, reference, status)
+     VALUES (?1, '254712345678', 10000, 'test', 'pending')`
+  ).bind(id).run()
+  const callback = {
+    checkoutRequestId: `checkout_${id}`, merchantRequestId: "merchant",
+    resultCode: 0, resultDesc: "Success", amount: 99,
+    phone: "254712345678", receipt: `receipt_${id}`,
+  }
+  assert.equal(await lib.recordMpesaRequestCallback(db, id, callback), "review")
+  assert.equal(await lib.recordMpesaRequestCallback(db, id, { ...callback, resultCode: 1032 }), "review")
+  const row = await one(`SELECT status, mpesa_review FROM payment_request WHERE id = ?1`, id)
+  assert.deepEqual(row, { status: "pending", mpesa_review: 1 })
+  assert.equal(await lib.recordMpesaRequestCallback(db, id, { ...callback, amount: 100 }), "recorded")
+  assert.equal((await one(`SELECT status FROM payment_request WHERE id = ?1`, id)).status, "paid")
+})
+
 await test("a pending payment can be recorded, and re-recorded, without SQL errors", async () => {
   const id = await cartWith([[A.variant_id, 1]])
   const input = { cartId: id, provider: "stripe", reference: `pi_${id}`, amountMinor: 100, currency: "usd" }
