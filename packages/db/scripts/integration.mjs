@@ -61,6 +61,45 @@ await esbuild.build({
 })
 const { checkoutTotal } = await import(path.join(work, "checkout-total.mjs"))
 
+const mpesaConfig = {
+  consumerKey: "test-key",
+  consumerSecret: "test-secret",
+  passkey: "test-passkey",
+  shortcode: "123456",
+  partyB: "654321",
+  transactionType: "CustomerBuyGoodsOnline",
+  callbackUrl: "https://example.com/callback",
+  environment: "sandbox",
+}
+assert.equal(lib.mpesa.mpesaConfigured(mpesaConfig), true)
+assert.equal(lib.mpesa.mpesaConfigured({ ...mpesaConfig, partyB: "" }), false)
+assert.equal(lib.mpesa.mpesaConfigured({ ...mpesaConfig, transactionType: "invalid" }), false)
+assert.equal(lib.mpesa.mpesaConfigured({ ...mpesaConfig, environment: "invalid" }), false)
+{
+  const originalFetch = globalThis.fetch
+  let pushBody
+  try {
+    globalThis.fetch = async (url, init) => {
+      if (url.includes("/oauth/")) {
+        return Response.json({ access_token: "test-token" })
+      }
+      pushBody = JSON.parse(init.body)
+      return Response.json({ ResponseCode: "0", MerchantRequestID: "merchant", CheckoutRequestID: "checkout" })
+    }
+    await lib.mpesa.stkPush(mpesaConfig, {
+      phone: "0712345678",
+      amount: 100,
+      accountReference: "test",
+      description: "test",
+    })
+    assert.equal(pushBody.TransactionType, "CustomerBuyGoodsOnline")
+    assert.equal(pushBody.BusinessShortCode, "123456")
+    assert.equal(pushBody.PartyB, "654321")
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+}
+
 const proxy = await getPlatformProxy({ configPath: path.join(work, "wrangler.jsonc"), persist: { path: path.join(work, "state/v3") } })
 const db = proxy.env.DB
 let passed = 0
