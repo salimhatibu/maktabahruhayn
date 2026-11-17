@@ -52,9 +52,9 @@
 		// as vars, and DARAJA_CONSUMER_KEY, DARAJA_CONSUMER_SECRET, DARAJA_PASSKEY
 		// and DARAJA_CALLBACK_TOKEN as secrets, the token identical to the
 		// storefront's (wrangler secret put ...).
-		"DARAJA_SHORTCODE": "",
+		"DARAJA_SHORTCODE": "1447471",
 		"DARAJA_TRANSACTION_TYPE": "CustomerBuyGoodsOnline",
-		"DARAJA_PARTY_B": "",
+		"DARAJA_PARTY_B": "1926044",
 		"DARAJA_ENVIRONMENT": "production",
 		"DARAJA_CALLBACK_URL": "https://maktabahruhayn.com/api/payment/mpesa/callback",
 		// The shop's public origin, for "View store" and cover images. After

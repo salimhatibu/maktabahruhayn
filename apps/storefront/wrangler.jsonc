@@ -53,20 +53,12 @@
 		// The callback token is appended to DARAJA_CALLBACK_URL automatically and
 		// checked on every callback; without it M-Pesa is not offered, because
 		// its confirmations would be refused. Give the admin Worker the same one.
-		"DARAJA_SHORTCODE": "",
+		"DARAJA_SHORTCODE": "1447471",
 		"DARAJA_TRANSACTION_TYPE": "CustomerBuyGoodsOnline",
-		"DARAJA_PARTY_B": "",
+		"DARAJA_PARTY_B": "1926044",
 		"DARAJA_ENVIRONMENT": "production",
 		// Safaricom posts here; the token guards it, since Daraja cannot sign.
 		"DARAJA_CALLBACK_URL": "https://maktabahruhayn.com/api/payment/mpesa/callback",
-		"SHIPPO_FROM_NAME": "Maktabah Ruhayn",
-		"SHIPPO_FROM_STREET1": "",
-		"SHIPPO_FROM_CITY": "Nairobi",
-		"SHIPPO_FROM_STATE": "Nairobi",
-		"SHIPPO_FROM_ZIP": "00100",
-		"SHIPPO_FROM_COUNTRY": "KE",
-		"SHIPPO_FROM_PHONE": "",
-		"SHIPPO_FROM_EMAIL": ""
 	},
 	// maktabahruhayn.com is attached to the router Worker (apps/router), which
 	// serves this Worker through a service binding; it is not attached here.
