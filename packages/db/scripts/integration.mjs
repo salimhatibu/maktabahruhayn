@@ -309,6 +309,82 @@ await test("another cart cannot take over a recorded payment", async () => {
   assert.equal(row.cart_id, mine)
   assert.equal(row.amount_minor, 100)
 })
+await test("manual M-Pesa messages stay pending and cannot create an order before verification", async () => {
+  const id = await cartWith([[A.variant_id, 1]], { currency: "kes" })
+  const input = { cartId: id, message: "QAB123456789 confirmed KES payment" }
+  const [first, replay] = await Promise.all([
+    lib.recordManualMpesaSubmission(db, input),
+    lib.recordManualMpesaSubmission(db, input),
+  ])
+  assert.equal(first.alreadyPending || replay.alreadyPending, true)
+  const submission = first.alreadyPending ? replay : first
+  const cart = await lib.getCart(db, id)
+  assert.equal(submission.amountMinor, Math.ceil(cart.totals.totalMinor / 100) * 100)
+  const row = await one(`SELECT status, amount_minor, currency_code, raw FROM payment WHERE reference = ?1`, submission.reference)
+  assert.equal(row.status, "pending")
+  assert.equal(row.amount_minor, submission.amountMinor)
+  assert.equal(row.currency_code, "kes")
+  assert.equal(JSON.parse(row.raw).message, input.message)
+  const result = await lib.finalizePaidCart(db, {
+    cartId: id,
+    provider: "manual",
+    reference: submission.reference,
+    paidMinor: submission.amountMinor,
+    currency: submission.currency,
+  })
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "payment_not_for_cart")
+  assert.equal(await one(`SELECT completed_order_id AS id FROM cart WHERE id = ?1`, id).then((row) => row.id), null)
+})
+await test("a rejected manual M-Pesa message can be replaced without overwriting its history", async () => {
+  const id = await cartWith([[A.variant_id, 1]], { currency: "kes" })
+  const first = await lib.recordManualMpesaSubmission(db, { cartId: id, message: "QAB111111111 first payment" })
+  await db.prepare(`UPDATE payment SET status = 'failed' WHERE reference = ?1`).bind(first.reference).run()
+  const retry = await lib.recordManualMpesaSubmission(db, { cartId: id, message: "QAB222222222 replacement payment" })
+  assert.notEqual(retry.reference, first.reference)
+  assert.equal((await one(`SELECT status FROM payment WHERE reference = ?1`, first.reference)).status, "failed")
+  assert.equal((await one(`SELECT status FROM payment WHERE reference = ?1`, retry.reference)).status, "pending")
+})
+await test("a manually verified M-Pesa payment creates one order and requires the rounded cart amount", async () => {
+  const id = await cartWith([[B.variant_id, 1]], { currency: "kes" })
+  const submission = await lib.recordManualMpesaSubmission(db, {
+    cartId: id,
+    message: "QAB987654321 confirmed KES payment",
+  })
+  await db
+    .prepare(`UPDATE payment SET status = 'captured' WHERE reference = ?1 AND status = 'pending'`)
+    .bind(submission.reference)
+    .run()
+  await lib.addLine(db, id, A.variant_id, 1, "kes")
+  const mismatch = await lib.finalizePaidCart(db, {
+    cartId: id,
+    provider: "manual",
+    reference: submission.reference,
+    paidMinor: submission.amountMinor,
+    currency: submission.currency,
+  })
+  assert.equal(mismatch.ok, false)
+  assert.equal(mismatch.reason, "amount_mismatch")
+  await lib.removeLine(db, id, (await lib.getCart(db, id)).lines.find((line) => line.variantId === A.variant_id).id)
+  const verified = await lib.finalizePaidCart(db, {
+    cartId: id,
+    provider: "manual",
+    reference: submission.reference,
+    paidMinor: submission.amountMinor,
+    currency: submission.currency,
+  })
+  assert.equal(verified.ok, true, JSON.stringify(verified))
+  assert.equal((await one(`SELECT payment_status FROM "order" WHERE id = ?1`, verified.orderId)).payment_status, "captured")
+  const replay = await lib.finalizePaidCart(db, {
+    cartId: id,
+    provider: "manual",
+    reference: submission.reference,
+    paidMinor: submission.amountMinor,
+    currency: submission.currency,
+  })
+  assert.equal(replay.ok, true)
+  assert.equal(replay.orderId, verified.orderId)
+})
 
 async function paidCart(lines) {
   const id = await cartWith(lines)

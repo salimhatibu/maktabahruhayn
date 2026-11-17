@@ -6,6 +6,8 @@ import {
   convert,
   createCart,
   finalizePaidCart,
+  findLatestManualMpesaPayment,
+  hasUnresolvedManualMpesaPayment as dbHasUnresolvedManualMpesaPayment,
   getCart as dbGetCart,
   getFxRates,
   getSettings,
@@ -14,6 +16,7 @@ import {
   orderKeyForCart,
   placeOrder,
   recordPendingPayment,
+  recordManualMpesaSubmission,
   removeLine as dbRemoveLine,
   repriceCart,
   setCartFields,
@@ -31,7 +34,7 @@ import { getAuthToken } from "./auth"
 import { AFFILIATE_COOKIE, CART_COOKIE, LAST_ORDER_COOKIE, mediaUrl, stripePublishableKey } from "./config"
 import { db } from "./db"
 import { convertFromBase } from "./pricing"
-import { mpesa, mpesaConfig, shippo, shippoConfig, stripe, stripeConfig } from "./payments"
+import { shippo, shippoConfig, stripe, stripeConfig } from "./payments"
 import { currentRegion } from "./region-context"
 
 /**
@@ -524,9 +527,9 @@ function notReadyForPayment(cart: Cart): string | null {
 export type PaymentChoice = { id: string; label: string; hint: string }
 
 const PAYMENT_LABELS: Record<string, Omit<PaymentChoice, "id">> = {
-  pp_daraja_daraja: {
+  manual_mpesa: {
     label: "M-Pesa",
-    hint: "We send an STK push to your phone. Enter your M-Pesa PIN to approve.",
+    hint: "Pay using your M-Pesa app, then paste the confirmation message for manual verification.",
   },
   pp_stripe_stripe: {
     label: "Credit / Debit Card, Apple Pay, Google Pay",
@@ -540,9 +543,10 @@ const PAYMENT_LABELS: Record<string, Omit<PaymentChoice, "id">> = {
 
 /** Payment methods the shopper's region offers, from configuration. */
 export async function listPaymentChoices(): Promise<PaymentChoice[]> {
-  const region = await currentRegion()
+  const [region, cart] = await Promise.all([currentRegion(), getCart()])
+  const currency = cart?.currency_code || region.currency
   const ids = [
-    ...(region.mpesa && mpesaConfig() ? ["pp_daraja_daraja"] : []),
+    ...(region.mpesa && currency.toLowerCase() === "kes" ? ["manual_mpesa"] : []),
     ...(stripePublishableKey && stripeConfig() ? ["pp_stripe_stripe"] : []),
     ...(process.env.NODE_ENV === "production" ? [] : ["pp_system_default"]),
   ]
@@ -558,8 +562,7 @@ export type PaymentSessionInput = {
 /**
  * Starts a payment with the chosen provider.
  *
- * M-Pesa pushes an STK prompt to the shopper's phone and returns while they
- * approve it; Stripe returns a client secret for the card form to confirm.
+ * Stripe returns a client secret for the card form to confirm.
  * Neither creates the order - that happens once the money is confirmed, so a
  * failed payment never leaves an order behind.
  */
@@ -575,47 +578,6 @@ export async function startPaymentSession(input: PaymentSessionInput): Promise<P
 
   if (input.providerId === "pp_system_default") {
     return { id: "test", provider_id: input.providerId, status: "pending", data: {} }
-  }
-
-  if (input.providerId === "pp_daraja_daraja") {
-    const config = mpesaConfig()
-    if (!config) {
-      throw new CartError("M-Pesa is not available right now.")
-    }
-    if (currency !== "kes") {
-      throw new CartError("M-Pesa is only available for orders in Kenyan shillings.")
-    }
-    const phone = String(input.data?.phone || "")
-    if (!mpesa.isKenyanMobile(phone)) {
-      throw new CartError("Enter your M-Pesa number as 2547XXXXXXXX or 2541XXXXXXXX.")
-    }
-    // Daraja deals in whole shillings; the attempt records exactly what was asked for.
-    const shillings = Math.ceil(totalMinor / 100)
-    const push = await mpesa
-      .stkPush(config, {
-        phone,
-        amount: shillings,
-        accountReference: cart.id.slice(-12),
-        description: "Maktabah Ruhayn order",
-        callbackUrl: config.callbackUrl,
-      })
-      .catch((error) => {
-        console.error("STK push failed", error)
-        throw new CartError("We couldn't send the M-Pesa prompt. Check the number and try again.")
-      })
-    await recordPendingPayment(database, {
-      cartId: cart.id,
-      provider: "mpesa",
-      reference: push.checkoutRequestId,
-      amountMinor: shillings * 100,
-      currency,
-    })
-    return {
-      id: push.checkoutRequestId,
-      provider_id: input.providerId,
-      status: "pending",
-      data: { checkout_request_id: push.checkoutRequestId, message: push.customerMessage },
-    }
   }
 
   if (input.providerId === "pp_stripe_stripe") {
@@ -649,6 +611,54 @@ export async function startPaymentSession(input: PaymentSessionInput): Promise<P
   }
 
   throw new CartError("That payment method is not available.")
+}
+
+export async function hasUnresolvedManualMpesaPayment(): Promise<boolean> {
+  const id = await cartId()
+  return id ? dbHasUnresolvedManualMpesaPayment(await db(), id) : false
+}
+
+export async function manualMpesaStatus(): Promise<
+  { kind: "pending" } | { kind: "rejected" } | { kind: "missing" } | { kind: "done"; orderId: string }
+> {
+  const id = await cartId()
+  if (!id) {
+    return { kind: "missing" }
+  }
+  const database = await db()
+  const cart = await dbGetCart(database, id)
+  if (!cart) {
+    return { kind: "missing" }
+  }
+  if (cart.completedOrderId) {
+    await orderPlaced(cart.completedOrderId)
+    return { kind: "done", orderId: cart.completedOrderId }
+  }
+  const payment = await findLatestManualMpesaPayment(database, cart.id)
+  if (!payment) {
+    return { kind: "missing" }
+  }
+  return payment.status === "failed" || payment.status === "cancelled" ? { kind: "rejected" } : { kind: "pending" }
+}
+
+export async function submitManualMpesaPayment(message: string) {
+  const id = await cartId()
+  if (!id) {
+    throw new CartError("Your cart has expired. Please add your books again.")
+  }
+  const database = await db()
+  const cart = await dbGetCart(database, id)
+  if (!cart) {
+    throw new CartError("Your cart has expired. Please add your books again.")
+  }
+  const problem = notReadyForPayment(toCart(cart))
+  if (problem) {
+    throw new CartError(problem)
+  }
+  if (cart.currency !== "kes") {
+    throw new CartError("M-Pesa is only available for orders in Kenyan shillings.")
+  }
+  return recordManualMpesaSubmission(database, { cartId: cart.id, message })
 }
 
 /** Which provider this cart already started paying with, if any. */

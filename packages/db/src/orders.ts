@@ -320,21 +320,40 @@ export async function shippingMethodFor(db: D1, cart: CartRow) {
 /** The fallback delivery option, priced from the admin's shipping settings. */
 export const STANDARD_SHIPPING_ID = "standard"
 
+function manualCartSnapshot(cart: CartRow) {
+  return {
+    currency: cart.currency,
+    totalMinor: cart.totals.totalMinor,
+    lines: cart.lines.map((line) => ({
+      id: line.id,
+      variantId: line.variantId,
+      productTitle: line.productTitle,
+      variantTitle: line.variantTitle,
+      quantity: line.quantity,
+      unitPriceMinor: line.unitPriceMinor,
+      thumbnail: line.thumbnail,
+    })),
+    shippingAddress: cart.shippingAddress,
+    shippingOptionId: cart.shippingOptionId,
+    promotionCode: cart.promotionCode,
+    giftNote: cart.giftNote,
+  }
+}
+
 /**
- * Turns a cart whose payment the provider has confirmed into an order.
+ * Turns a cart whose payment has been confirmed into an order.
  *
- * Webhooks, the M-Pesa callback and the shopper's own browser all end here,
- * under one idempotency key per cart, so whichever arrives first places the
- * order and the rest read it back. Before anything is written it checks that
- * the payment was started for this cart and covers what the cart costs now:
- * a cart that grew after the payment was started is not handed over for the
- * smaller amount.
+ * Provider webhooks and the admin's manual M-Pesa review end here under one
+ * idempotency key per cart. Before anything is written it checks that the
+ * captured payment belongs to this cart and covers its current total. Manual
+ * M-Pesa also requires the cart snapshot and rounded whole-shilling amount to
+ * match submission.
  */
 export async function finalizePaidCart(
   db: D1,
   input: {
     cartId: string
-    provider: "stripe" | "mpesa"
+    provider: "stripe" | "mpesa" | "manual"
     reference: string
     /** What the provider says was paid, in our minor units. */
     paidMinor: number
@@ -354,13 +373,28 @@ export async function finalizePaidCart(
   }
 
   const attempt = await db
-    .prepare(`SELECT cart_id, order_id FROM payment WHERE provider = ?1 AND reference = ?2`)
+    .prepare(`SELECT cart_id, order_id, status, raw FROM payment WHERE provider = ?1 AND reference = ?2`)
     .bind(input.provider, input.reference)
-    .first<{ cart_id: string | null; order_id: string | null }>()
-  if (!attempt || attempt.cart_id !== cart.id || attempt.order_id) {
+    .first<{ cart_id: string | null; order_id: string | null; status: string; raw: string | null }>()
+  if (!attempt || attempt.cart_id !== cart.id || attempt.order_id || attempt.status !== "captured") {
     return { ok: false, reason: "payment_not_for_cart" }
   }
-  if (input.currency.toLowerCase() !== cart.currency || !(input.paidMinor >= cart.totals.totalMinor)) {
+  if (input.provider === "manual") {
+    let submittedSnapshot: unknown
+    try {
+      submittedSnapshot = (JSON.parse(attempt.raw || "{}") as { cartSnapshot?: unknown }).cartSnapshot
+    } catch {
+      return { ok: false, reason: "payment_not_for_cart" }
+    }
+    if (JSON.stringify(submittedSnapshot) !== JSON.stringify(manualCartSnapshot(cart))) {
+      return { ok: false, reason: "amount_mismatch", detail: "The cart changed after the M-Pesa message was submitted." }
+    }
+  }
+  const amountMatches =
+    input.provider === "manual"
+      ? input.paidMinor === Math.ceil(cart.totals.totalMinor / 100) * 100
+      : input.paidMinor >= cart.totals.totalMinor
+  if (input.currency.toLowerCase() !== cart.currency || !amountMatches) {
     return {
       ok: false,
       reason: "amount_mismatch",
@@ -506,6 +540,115 @@ export async function recordPendingPayment(
     )
     .bind(newId("pay"), input.cartId, input.provider, input.amountMinor, input.currency.toLowerCase(), input.reference)
     .run()
+}
+
+export async function recordManualMpesaSubmission(
+  db: D1,
+  input: { cartId: string; message: string }
+): Promise<{ reference: string; amountMinor: number; currency: string; alreadyPending: boolean }> {
+  const message = input.message.trim()
+  if (message.length < 10 || message.length > 1000) {
+    throw new Error("Enter the M-Pesa confirmation message (10 to 1000 characters).")
+  }
+
+  const cart = await getCart(db, input.cartId)
+  if (!cart || cart.completedOrderId || !cart.lines.length) {
+    throw new Error("Your cart has expired. Please add your books again.")
+  }
+  if (
+    cart.currency !== "kes" ||
+    !cart.email ||
+    !cart.shippingAddress ||
+    !cart.shippingOptionId ||
+    cart.totals.totalMinor <= 0
+  ) {
+    throw new Error("Complete your delivery details before submitting payment.")
+  }
+
+  const findPending = () =>
+    db
+      .prepare(
+        `SELECT reference, amount_minor, currency_code
+           FROM payment
+          WHERE cart_id = ?1 AND provider = 'manual' AND status = 'pending' AND order_id IS NULL
+          LIMIT 1`
+      )
+      .bind(cart.id)
+      .first<{ reference: string; amount_minor: number; currency_code: string }>()
+
+  const existing = await findPending()
+  const amountMinor = Math.ceil(cart.totals.totalMinor / 100) * 100
+  if (existing) {
+    return {
+      reference: existing.reference,
+      amountMinor: Number(existing.amount_minor),
+      currency: existing.currency_code,
+      alreadyPending: true,
+    }
+  }
+
+  const reference = newId("manual")
+  try {
+    await db
+      .prepare(
+        `INSERT INTO payment (id, cart_id, provider, status, amount_minor, currency_code, reference, raw)
+         VALUES (?1, ?2, 'manual', 'pending', ?3, 'kes', ?4, ?5)`
+      )
+      .bind(
+        newId("pay"),
+        cart.id,
+        amountMinor,
+        reference,
+        JSON.stringify({ message, cartSnapshot: manualCartSnapshot(cart) })
+      )
+      .run()
+  } catch (error) {
+    const pending = await findPending()
+    if (!pending) {
+      throw error
+    }
+    return {
+      reference: pending.reference,
+      amountMinor: Number(pending.amount_minor),
+      currency: pending.currency_code,
+      alreadyPending: true,
+    }
+  }
+
+  return {
+    reference,
+    amountMinor,
+    currency: cart.currency,
+    alreadyPending: false,
+  }
+}
+
+export async function hasUnresolvedManualMpesaPayment(db: D1, cartId: string): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT 1 AS pending
+         FROM payment
+        WHERE cart_id = ?1 AND provider = 'manual' AND status IN ('pending', 'captured') AND order_id IS NULL
+        LIMIT 1`
+    )
+    .bind(cartId)
+    .first<{ pending: number }>()
+  return Boolean(row)
+}
+
+export async function findLatestManualMpesaPayment(
+  db: D1,
+  cartId: string
+): Promise<{ reference: string; status: string } | null> {
+  return db
+    .prepare(
+      `SELECT reference, status
+         FROM payment
+        WHERE cart_id = ?1 AND provider = 'manual' AND order_id IS NULL
+        ORDER BY created_at DESC LIMIT 1`
+    )
+    .bind(cartId)
+    .first<{ reference: string; status: string }>()
 }
 
 export async function findPendingPayment(

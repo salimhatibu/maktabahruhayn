@@ -57,6 +57,7 @@ export const LIMITS = {
   register: { ip: { limit: 20, windowSeconds: 3600 } },
   promo: { ip: { limit: 30, windowSeconds: 600 } },
   stk: { ip: { limit: 20, windowSeconds: 900 }, key: { limit: 5, windowSeconds: 900 } },
+  manualMpesa: { ip: { limit: 10, windowSeconds: 900 } },
   review: { ip: { limit: 30, windowSeconds: 3600 }, key: { limit: 5, windowSeconds: 3600 } },
   newsletter: { ip: { limit: 20, windowSeconds: 3600 } },
   orderLookup: { ip: { limit: 30, windowSeconds: 600 } },

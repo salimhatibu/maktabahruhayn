@@ -14,6 +14,9 @@ import {
   removePromotion,
   selectShipping,
   setGiftOptions,
+  submitManualMpesaPayment,
+  hasUnresolvedManualMpesaPayment,
+  manualMpesaStatus,
   startPaymentSession,
   summarizeCart,
   updateCartAddress,
@@ -265,7 +268,7 @@ export async function saveAddressAction(_prev: FormState, formData: FormData): P
 export type PaymentStart =
   | { kind: "error"; error: string }
   | { kind: "done"; orderId: string }
-  | { kind: "mpesa"; message: string }
+  | { kind: "submitted"; alreadyPending: boolean }
   | { kind: "stripe"; clientSecret: string }
 
 async function prepare(optionId: string, providerId: string) {
@@ -276,20 +279,21 @@ async function prepare(optionId: string, providerId: string) {
   if (!choices.some((c) => c.id === providerId)) {
     return "Choose a payment method."
   }
+  if (providerId !== "manual_mpesa" && (await hasUnresolvedManualMpesaPayment())) {
+    return "Your M-Pesa payment is awaiting verification. You cannot start another payment yet."
+  }
   await selectShipping(optionId)
   return null
 }
 
 /**
- * Starts payment for the chosen method. Test payments complete at once,
- * M-Pesa sends an STK push and returns for polling, Stripe returns the
- * PaymentIntent client secret for the card form.
+ * Starts payment for the chosen method. Manual M-Pesa submissions wait for
+ * staff verification; Stripe returns a client secret for the card form.
  */
 export async function startPaymentAction(input: {
   optionId: string
   providerId: string
-  phone?: string
-  restart?: boolean
+  message?: string
 }): Promise<PaymentStart> {
   try {
     const problem = await prepare(input.optionId, input.providerId)
@@ -297,27 +301,20 @@ export async function startPaymentAction(input: {
       return { kind: "error", error: problem }
     }
 
-    if (input.providerId === "pp_daraja_daraja") {
-      const phone = String(input.phone || "").replace(/\D/g, "")
-      if (!/^254[17]\d{8}$/.test(phone)) {
-        return { kind: "error", error: "Enter your M-Pesa number as 2547XXXXXXXX or 2541XXXXXXXX." }
+    if (input.providerId === "manual_mpesa") {
+      if (typeof input.message !== "string" || input.message.trim().length < 10 || input.message.length > 1000) {
+        return { kind: "error", error: "Paste the full M-Pesa confirmation message (10 to 1000 characters)." }
       }
-      // Each attempt rings a real phone, so neither a visitor nor a number
-      // can be used to send a stream of payment prompts.
-      const limited = await throttle("stk", LIMITS.stk.ip, { ...LIMITS.stk.key, key: phone })
+      const limited = await throttle("manual_mpesa", LIMITS.manualMpesa.ip)
       if (limited) {
         return { kind: "error", error: limited }
       }
-      await startPaymentSession({ providerId: input.providerId, data: { phone }, restart: input.restart })
-      const result = await completeCart(input.providerId)
-      if (result.type === "order") {
-        return { kind: "done", orderId: result.orderId }
-      }
-      return { kind: "mpesa", message: "Check your phone and enter your M-Pesa PIN to pay." }
+      const submission = await submitManualMpesaPayment(input.message)
+      return { kind: "submitted", alreadyPending: submission.alreadyPending }
     }
 
     if (input.providerId === "pp_stripe_stripe") {
-      const session = await startPaymentSession({ providerId: input.providerId, restart: input.restart })
+      const session = await startPaymentSession({ providerId: input.providerId })
       const secret = session.data?.client_secret
       if (typeof secret !== "string") {
         return { kind: "error", error: "Card payments are unavailable right now." }
@@ -350,5 +347,13 @@ export async function completeOrderAction(): Promise<
     return { kind: "pending" }
   }
   return { kind: "error", error: result.message }
+}
+
+export async function manualMpesaStatusAction() {
+  const result = await manualMpesaStatus()
+  if (result.kind === "done") {
+    revalidatePath("/", "layout")
+  }
+  return result
 }
 

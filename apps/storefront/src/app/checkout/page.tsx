@@ -2,7 +2,14 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { FreeShippingMeter, SummaryRows } from "@/components/order-summary"
 import { getCustomer, paymentPreference } from "@/lib/auth"
-import { getCart, listPaymentChoices, listShippingOptions, readGiftOptions, summarizeCart } from "@/lib/cart"
+import {
+  getCart,
+  hasUnresolvedManualMpesaPayment,
+  listPaymentChoices,
+  listShippingOptions,
+  readGiftOptions,
+  summarizeCart,
+} from "@/lib/cart"
 import { countryName, formatMoney } from "@/lib/format"
 import { getFreeShipping } from "@/lib/catalogue"
 import { currentRegion, listShippingCountries } from "@/lib/region-context"
@@ -43,10 +50,11 @@ export default async function CheckoutPage({
   const onDelivery = hasAddress && step !== "address"
   const currency = summary.currency
 
-  const [threshold, options, payments] = await Promise.all([
+  const [threshold, options, payments, manualPaymentPending] = await Promise.all([
     getFreeShipping(currency),
     onDelivery ? listShippingOptions(cart.id).catch(() => []) : Promise.resolve([]),
     onDelivery ? listPaymentChoices() : Promise.resolve([]),
+    onDelivery ? hasUnresolvedManualMpesaPayment() : Promise.resolve(false),
   ])
 
   const shippingMethod = cart.shipping_methods?.[0]
@@ -76,7 +84,8 @@ export default async function CheckoutPage({
     }))
   const saved = savedAddresses[0]
   const preference = paymentPreference(customer)
-  const preferredProvider = preference.method === "mpesa" ? "pp_daraja_daraja" : preference.method === "card" ? "pp_stripe_stripe" : null
+  const preferredProvider =
+    preference.method === "mpesa" ? "manual_mpesa" : preference.method === "card" ? "pp_stripe_stripe" : null
 
   return (
     <main className="wrap checkout">
@@ -131,9 +140,16 @@ export default async function CheckoutPage({
                   options={options}
                   payments={payments}
                   currency={currency}
+                  manualPaymentAmount={Math.ceil(
+                    cart.total ??
+                      summary.subtotal +
+                        (cart.shipping_total ?? 0) +
+                        (cart.tax_total ?? 0) -
+                        (cart.discount_total ?? 0)
+                  )}
                   selectedOptionId={shippingMethod?.shipping_option_id}
-                  defaultPhone={region.mpesa ? preference.mpesa_phone || address.phone || "" : ""}
                   preferredProvider={preferredProvider}
+                  manualPaymentPending={manualPaymentPending}
                 />
               </section>
             </>

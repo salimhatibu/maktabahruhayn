@@ -5,15 +5,14 @@ import { useRouter } from "next/navigation"
 import { useActionState, useEffect, useRef, useState, useTransition } from "react"
 import { useFormStatus } from "react-dom"
 import {
-  completeOrderAction,
   saveAddressAction,
+  manualMpesaStatusAction,
   startPaymentAction,
   type FormState,
 } from "@/app/actions/cart"
 import type { PaymentChoice, ShippingOption } from "@/lib/cart"
 import { formatMoney } from "@/lib/format"
 import { AddressFields, type AddressValue, type CountryOption } from "@/components/address-fields"
-import { PhoneInput } from "@/components/phone-input"
 import { StripePay } from "./stripe-pay"
 import { callAction } from "@/lib/stale-action"
 
@@ -125,84 +124,91 @@ export function AddressForm({
   )
 }
 
-const MPESA_POLL_MS = 4000
-const MPESA_TIMEOUT_MS = 120000
-
 type Stage =
   | { name: "choose" }
-  | { name: "mpesa"; startedAt: number }
+  | { name: "submitted" }
   | { name: "stripe"; clientSecret: string }
 
 export function DeliveryPaymentForm({
   options,
   payments,
   currency,
+  manualPaymentAmount,
   selectedOptionId,
-  defaultPhone,
   preferredProvider,
+  manualPaymentPending,
 }: {
   options: ShippingOption[]
   payments: PaymentChoice[]
   currency: string
+  manualPaymentAmount: number
   selectedOptionId?: string
-  defaultPhone: string
   preferredProvider?: string | null
+  manualPaymentPending: boolean
 }) {
   const router = useRouter()
   const [optionId, setOptionId] = useState(selectedOptionId || options[0]?.id || "")
   const [providerId, setProviderId] = useState(
     (preferredProvider && payments.some((p) => p.id === preferredProvider) ? preferredProvider : null) || payments[0]?.id || ""
   )
-  const [phone, setPhone] = useState(defaultPhone)
-  const [stage, setStage] = useState<Stage>({ name: "choose" })
+  const [message, setMessage] = useState("")
+  const [stage, setStage] = useState<Stage>(manualPaymentPending ? { name: "submitted" } : { name: "choose" })
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
-  const [timedOut, setTimedOut] = useState(false)
-  const polling = useRef(false)
+  const checkingManualPayment = useRef(false)
 
   const finish = (orderId: string) => router.push(`/checkout/complete?order=${orderId}`)
 
-  // M-Pesa: poll cart completion until the STK push is approved.
   useEffect(() => {
-    if (stage.name !== "mpesa") {
+    if (stage.name !== "submitted") {
       return
     }
-    const timer = window.setInterval(async () => {
-      if (polling.current) {
+    let active = true
+    const check = async () => {
+      if (checkingManualPayment.current) {
         return
       }
-      if (Date.now() - stage.startedAt > MPESA_TIMEOUT_MS) {
-        setTimedOut(true)
-        window.clearInterval(timer)
-        return
-      }
-      polling.current = true
+      checkingManualPayment.current = true
       try {
-        const result = await callAction(() => completeOrderAction())
-        if (!result) {
+        let result: Awaited<ReturnType<typeof manualMpesaStatusAction>> | undefined
+        try {
+          result = await callAction(() => manualMpesaStatusAction())
+        } catch (error) {
+          console.error("Could not check M-Pesa payment status", error)
+          return
+        }
+        if (!active || !result) {
           return
         }
         if (result.kind === "done") {
           window.clearInterval(timer)
           finish(result.orderId)
-        } else if (result.kind === "error") {
+        } else if (result.kind === "rejected" || result.kind === "missing") {
           window.clearInterval(timer)
-          setError(result.error)
+          setError(
+            result.kind === "rejected"
+              ? "We could not verify that M-Pesa payment. Check the message or contact us, then submit it again."
+              : "We could not find your M-Pesa submission. Please try again."
+          )
           setStage({ name: "choose" })
         }
       } finally {
-        polling.current = false
+        checkingManualPayment.current = false
       }
-    }, MPESA_POLL_MS)
-    return () => window.clearInterval(timer)
+    }
+    const timer = window.setInterval(check, 5000)
+    void check()
+    return () => {
+      active = false
+      window.clearInterval(timer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage])
 
-  const start = (restart = false) =>
+  const start = () =>
     startTransition(async () => {
       setError(null)
-      setTimedOut(false)
-      const result = await callAction(() => startPaymentAction({ optionId, providerId, phone, restart }))
+      const result = await callAction(() => startPaymentAction({ optionId, providerId, message }))
       if (!result) {
         return
       }
@@ -210,33 +216,21 @@ export function DeliveryPaymentForm({
         setError(result.error)
       } else if (result.kind === "done") {
         finish(result.orderId)
-      } else if (result.kind === "mpesa") {
-        setStage({ name: "mpesa", startedAt: Date.now() })
+      } else if (result.kind === "submitted") {
+        setStage({ name: "submitted" })
       } else {
         setStage({ name: "stripe", clientSecret: result.clientSecret })
       }
     })
 
-  if (stage.name === "mpesa") {
+  if (stage.name === "submitted") {
     return (
       <div className="mpesa-wait" role="status" aria-live="polite">
-        <span className="spinner" aria-hidden="true" />
-        <h3>Check your phone</h3>
+        <h3>M-Pesa message received</h3>
         <p>
-          We sent an M-Pesa request to <strong>{phone}</strong>. Enter your M-Pesa PIN to pay. This page updates
-          automatically.
+          Your payment message is waiting for manual verification. We&apos;ll create your order after we confirm the
+          payment. Please don&apos;t change your cart while it is being reviewed.
         </p>
-        {timedOut ? (
-          <>
-            <p className="form-error">We haven&apos;t received confirmation yet.</p>
-            <button type="button" className="btn btn-primary" onClick={() => start(true)} disabled={pending}>
-              Resend M-Pesa Request
-            </button>
-          </>
-        ) : null}
-        <button type="button" className="link-btn" onClick={() => setStage({ name: "choose" })}>
-          Use a different payment method
-        </button>
       </div>
     )
   }
@@ -305,16 +299,23 @@ export function DeliveryPaymentForm({
               />
               <span className="choice-label">{payment.label}</span>
               <span className="choice-hint">{payment.hint}</span>
-              {payment.id === "pp_daraja_daraja" && providerId === payment.id ? (
-                <PhoneInput
-                  className="choice-extra"
-                  name="mpesa_phone"
-                  label="M-Pesa number"
-                  defaultValue={phone}
-                  defaultCountry="KE"
-                  required
-                  onChange={(v) => setPhone(v.e164.replace(/\D/g, ""))}
-                />
+              {payment.id === "manual_mpesa" && providerId === payment.id ? (
+                <span className="choice-extra">
+                  <strong>Confirmation message</strong>
+                  <textarea
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    rows={5}
+                    maxLength={1000}
+                    required
+                    placeholder="Paste the full M-Pesa message, including the transaction code"
+                    aria-label="M-Pesa confirmation message"
+                  />
+                  <small>
+                    Pay exactly {formatMoney(manualPaymentAmount, currency)} in your M-Pesa app first. Your order is
+                    created after staff verifies payment.
+                  </small>
+                </span>
               ) : null}
             </label>
           ))
@@ -328,8 +329,8 @@ export function DeliveryPaymentForm({
           ? "Please wait…"
           : providerId === "pp_stripe_stripe"
             ? "Continue to Card Payment"
-            : providerId === "pp_daraja_daraja"
-              ? "Pay with M-Pesa"
+            : providerId === "manual_mpesa"
+              ? "Submit M-Pesa message"
               : "Place Order"}
       </button>
     </form>

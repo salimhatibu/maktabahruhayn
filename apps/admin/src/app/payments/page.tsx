@@ -11,6 +11,16 @@ type PaymentsData = {
   payments: { order_id: string; display_id: number; email: string; created_at: string; provider_id: string; amount: number; currency_code: string; captured: boolean; refunded: number }[]
   totals: { provider_id: string; currency_code: string; captured: number; pending: number; refunded: number; count: number }[]
   providers: { stripe: boolean; mpesa: boolean }
+  manualSubmissions: {
+    id: string
+    reference: string
+    amount: number
+    currency_code: string
+    status: "pending" | "captured"
+    created_at: string
+    email: string | null
+    message: string
+  }[]
 }
 
 type PaymentRequest = {
@@ -41,6 +51,33 @@ const PaymentsPage = () => {
   const requests = useApi<{ requests: PaymentRequest[] }>("/api/payment-requests")
   const [form, setForm] = useState({ phone: "", amount: "", reference: "", description: "" })
   const [sending, setSending] = useState(false)
+  const [reviewing, setReviewing] = useState<string | null>(null)
+
+  const review = async (submission: PaymentsData["manualSubmissions"][number], action: "verify" | "reject") => {
+    if (
+      action === "verify" &&
+      !window.confirm(
+        submission.status === "captured"
+          ? "Retry creating the order for this already-verified M-Pesa payment?"
+          : "Verify that this exact M-Pesa payment was received before creating the order?"
+      )
+    ) {
+      return
+    }
+    setReviewing(submission.id)
+    try {
+      const result = await api<{ displayId?: number }>(`/api/payments/manual/${submission.id}`, {
+        method: "POST",
+        json: { action },
+      })
+      toast.success(action === "verify" ? `Payment verified. Order #${result.displayId} created.` : "Submission rejected.")
+      payments.reload()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setReviewing(null)
+    }
+  }
 
   const send = async () => {
     setSending(true)
@@ -122,6 +159,73 @@ const PaymentsPage = () => {
           </Table.Body>
         </Table>
             </div>
+      </Section>
+
+      <Section
+        title="M-Pesa messages awaiting verification"
+        description="Compare the message, transaction code, and amount with the M-Pesa payment received. Verifying creates the order; the shopper's message alone never confirms payment."
+        flush
+        actions={
+          <Button size="small" variant="transparent" onClick={payments.reload}>
+            Refresh
+          </Button>
+        }
+      >
+        {payments.data?.manualSubmissions.length ? (
+          <div className="mr-scroll-x">
+            <Table>
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell>Submitted</Table.HeaderCell>
+                  <Table.HeaderCell>Customer</Table.HeaderCell>
+                  <Table.HeaderCell>Confirmation message</Table.HeaderCell>
+                  <Table.HeaderCell className="text-right">Expected amount</Table.HeaderCell>
+                  <Table.HeaderCell>Review</Table.HeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {payments.data.manualSubmissions.map((submission) => (
+                  <Table.Row key={submission.id}>
+                    <Table.Cell>{dateTime(submission.created_at)}</Table.Cell>
+                    <Table.Cell>{submission.email || "—"}</Table.Cell>
+                    <Table.Cell>
+                      <div className="max-w-[420px] whitespace-pre-wrap break-words text-sm">
+                        {submission.message || "Message could not be read"}
+                      </div>
+                    </Table.Cell>
+                    <Table.Cell className="text-right mr-tabular">
+                      {money(submission.amount, submission.currency_code)}
+                    </Table.Cell>
+                    <Table.Cell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="small"
+                          isLoading={reviewing === submission.id}
+                          disabled={reviewing !== null}
+                          onClick={() => review(submission, "verify")}
+                        >
+                          {submission.status === "captured" ? "Retry order creation" : "Verify & create order"}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="secondary"
+                          disabled={reviewing !== null}
+                          onClick={() => review(submission, "reject")}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          </div>
+        ) : (
+          <Text size="small" className="text-ui-fg-muted px-6 py-4">
+            No M-Pesa messages are awaiting verification.
+          </Text>
+        )}
       </Section>
 
       <Section title="M-Pesa STK Push" description="Send a payment prompt to a customer's phone (Kenya, KES).">

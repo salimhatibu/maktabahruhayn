@@ -16,6 +16,17 @@ type PaymentRow = {
   order_payment_status: string | null
 }
 
+type ManualSubmissionRow = {
+  id: string
+  reference: string
+  amount_minor: number
+  currency_code: string
+  status: string
+  created_at: string
+  email: string | null
+  raw: string | null
+}
+
 /**
  * GET /api/payments?from=&to= — payments across orders, with totals per
  * provider and currency, and which gateways are actually configured.
@@ -27,17 +38,29 @@ export async function GET(request: NextRequest) {
     ? new Date(`${params.get("from")}T00:00:00.000Z`)
     : new Date(to.getTime() - 29 * 86_400_000)
 
-  const { results } = await (await db())
-    .prepare(
+  const database = await db()
+  const [paymentRows, submissionRows] = await Promise.all([
+    database.prepare(
       `SELECT p.id, p.order_id, p.provider, p.status, p.amount_minor, p.currency_code,
               p.reference, p.created_at,
               o.display_id, o.email, o.payment_status AS order_payment_status
          FROM payment p LEFT JOIN "order" o ON o.id = p.order_id
         WHERE p.created_at >= ?1 AND p.created_at <= ?2
+          AND NOT (p.provider = 'manual' AND p.order_id IS NULL)
         ORDER BY p.created_at DESC`
     )
     .bind(from.toISOString(), to.toISOString())
-    .all<PaymentRow>()
+    .all<PaymentRow>(),
+    database
+      .prepare(
+        `SELECT p.id, p.reference, p.amount_minor, p.currency_code, p.status, p.created_at, p.raw, c.email
+           FROM payment p LEFT JOIN cart c ON c.id = p.cart_id
+          WHERE p.provider = 'manual' AND p.status IN ('pending', 'captured') AND p.order_id IS NULL
+          ORDER BY p.created_at ASC LIMIT 100`
+      )
+      .all<ManualSubmissionRow>(),
+  ])
+  const { results } = paymentRows
 
   const payments = results.map((row) => ({
     order_id: row.order_id,
@@ -47,6 +70,7 @@ export async function GET(request: NextRequest) {
     provider_id: row.provider,
     amount: toMajor(row.amount_minor),
     currency_code: row.currency_code,
+    status: row.status,
     captured: row.status === "captured",
     refunded: row.status === "refunded" ? toMajor(row.amount_minor) : 0,
     order_payment_status: row.order_payment_status,
@@ -76,9 +100,31 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const manualSubmissions = submissionRows.results.map((row) => {
+    let message = ""
+    if (row.raw) {
+      try {
+        const raw = JSON.parse(row.raw) as { message?: unknown }
+        message = typeof raw.message === "string" ? raw.message : ""
+      } catch {
+        message = ""
+      }
+    }
+    return {
+      id: row.id,
+      reference: row.reference,
+      amount: toMajor(row.amount_minor),
+      currency_code: row.currency_code,
+      created_at: row.created_at,
+      email: row.email,
+      message,
+    }
+  })
+
   return NextResponse.json({
     payments,
     totals: Object.values(totals),
+    manualSubmissions,
     providers: {
       stripe: Boolean(process.env.STRIPE_API_KEY),
       mpesa: Boolean(process.env.DARAJA_CONSUMER_KEY && process.env.DARAJA_SHORTCODE),
