@@ -11,6 +11,8 @@ export type MpesaConfig = {
   consumerSecret: string
   passkey: string
   shortcode: string
+  transactionType?: "CustomerPayBillOnline" | "CustomerBuyGoodsOnline"
+  partyB?: string
   callbackUrl: string
   environment?: string
 }
@@ -65,9 +67,14 @@ export function callbackUrlWithToken(url: string, token: string): string {
   }
 }
 
-export function mpesaConfigured(config: Partial<MpesaConfig>): config is MpesaConfig {
+export function mpesaConfigured(
+  config: Partial<Omit<MpesaConfig, "transactionType">> & { transactionType?: string }
+): config is MpesaConfig {
   return Boolean(
-    config.consumerKey && config.consumerSecret && config.passkey && config.shortcode && config.callbackUrl
+    config.consumerKey && config.consumerSecret && config.passkey && config.shortcode && config.callbackUrl &&
+    (config.environment === undefined || config.environment === "sandbox" || config.environment === "production") &&
+    (config.transactionType === undefined || config.transactionType === "CustomerPayBillOnline" ||
+      (config.transactionType === "CustomerBuyGoodsOnline" && config.partyB))
   )
 }
 
@@ -124,10 +131,10 @@ export async function stkPush(
       BusinessShortCode: config.shortcode,
       Password: base64(`${config.shortcode}${config.passkey}${stamp}`),
       Timestamp: stamp,
-      TransactionType: "CustomerPayBillOnline",
+      TransactionType: config.transactionType || "CustomerPayBillOnline",
       Amount: Math.max(1, Math.round(input.amount)),
       PartyA: phone,
-      PartyB: config.shortcode,
+      PartyB: config.partyB || config.shortcode,
       PhoneNumber: phone,
       CallBackURL: input.callbackUrl || config.callbackUrl,
       AccountReference: input.accountReference.slice(0, 12),
