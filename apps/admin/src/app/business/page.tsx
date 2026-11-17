@@ -11,6 +11,8 @@ type Business = {
   tagline: string
   email: string
   phone: string
+  mpesaRecipientName: string
+  mpesaRecipientPhone: string
   whatsapp: string
   address: string
   instagram: string
@@ -82,6 +84,12 @@ const BusinessPage = () => {
           </div>
           <Field label="Phone">
             <Input value={form.phone} onChange={set("phone")} placeholder="+254 7XX XXX XXX" />
+          </Field>
+          <Field label="M-Pesa recipient name" hint="Name customers should see when sending their payment">
+            <Input value={form.mpesaRecipientName} onChange={set("mpesaRecipientName")} />
+          </Field>
+          <Field label="M-Pesa recipient number" hint="Number customers should pay before submitting their confirmation">
+            <Input value={form.mpesaRecipientPhone} onChange={set("mpesaRecipientPhone")} placeholder="+254 7XX XXX XXX" />
           </Field>
           <Field label="WhatsApp number" hint="Adds a chat button to the storefront (wa.me link)">
             <Input value={form.whatsapp} onChange={set("whatsapp")} placeholder="+254712345678" />

@@ -114,7 +114,7 @@ pnpm admin:cf:deploy
 | Menus | The category bar, dropdown columns and footer links |
 | Appearance | Theme colours, with a live preview |
 | Business Details | Store name, contact details, WhatsApp number, socials and reporting currency |
-| Orders | Every order, filtered by fulfilment state, with a detail page: items, totals, delivery address, payments, and marking shipped or delivered with tracking |
+| Orders | Every order, filtered by fulfilment state, with details, payment history, delivery tracking, and permanent deletion |
 | Payments | Gateway status, totals by provider and currency, and the M-Pesa STK tool for phone and WhatsApp orders |
 | Shipping | Shippo status, free-shipping thresholds, fallback rates, zones and shipments with tracking |
 | Emails | Provider status, editable templates, test sends and the send log |
@@ -124,6 +124,11 @@ pnpm admin:cf:deploy
 With `ADMIN_OPEN` set to `"false"`, the admin stays locked until the Access
 team domain and application audience are set in `apps/admin/wrangler.jsonc`.
 Image uploads need the `maktabah-media` R2 bucket and `R2_PUBLIC_URL`.
+Order confirmation and completion emails use the HTTP email provider. Set
+`EMAIL_API_URL` and `EMAIL_API_KEY` as secrets on both the storefront and admin
+Workers; `SMTP_FROM` can override the default sender. Failed sends are logged
+and can be retried from the order page. Deleting an order also deletes its
+payment history, but does not refund the customer or restore stock.
 
 ## Deploying
 
@@ -132,8 +137,8 @@ One Worker, one database, one bill.
 ```bash
 pnpm storefront:cf:build     # build with OpenNext
 pnpm storefront:cf:preview   # run the built Worker locally in workerd
-pnpm storefront:cf:deploy    # build and deploy
 pnpm db:migrate              # apply migrations to the deployed database
+pnpm storefront:cf:deploy    # build and deploy
 pnpm db:seed                 # load the catalogue into it
 ```
 

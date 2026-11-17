@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { toMajor } from "@maktabah/db"
+import { notifyOrder, toMajor } from "@maktabah/db"
 import { db } from "@/lib/db"
 
 /** GET /api/orders/:id — one order with its items, payment and shipment. */
@@ -15,10 +15,11 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     return NextResponse.json({ message: "Order not found." }, { status: 404 })
   }
 
-  const [items, payments, shipments] = await database.batch<Record<string, string | number | null>>([
+  const [items, payments, shipments, notifications] = await database.batch<Record<string, string | number | null>>([
     database.prepare(`SELECT * FROM order_item WHERE order_id = ?1`).bind(id),
     database.prepare(`SELECT * FROM payment WHERE order_id = ?1 ORDER BY created_at DESC`).bind(id),
     database.prepare(`SELECT * FROM shipment WHERE order_id = ?1 ORDER BY created_at DESC`).bind(id),
+    database.prepare(`SELECT event, status FROM order_notification WHERE order_id = ?1`).bind(id),
   ])
 
   return NextResponse.json({
@@ -39,8 +40,20 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
         amount: toMajor(Number(payment.amount_minor || 0)),
       })),
       shipments: shipments.results,
+      notifications: notifications.results,
     },
   })
+}
+
+/** DELETE /api/orders/:id — permanently remove the order and its payment history. */
+export async function DELETE(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params
+  const database = await db()
+  const result = await database.prepare(`DELETE FROM "order" WHERE id = ?1`).bind(id).run()
+  if (!result.meta?.changes) {
+    return NextResponse.json({ message: "Order not found." }, { status: 404 })
+  }
+  return NextResponse.json({ id, deleted: true })
 }
 
 /** POST /api/orders/:id — update order status, details, or tracking. */
@@ -54,12 +67,20 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     shipping_address?: Record<string, string>
     tracking_number?: string
     tracking_url?: string
+    retry_notification?: string
   }
   const database = await db()
 
-  const order = await database.prepare(`SELECT id FROM "order" WHERE id = ?1`).bind(id).first()
+  const order = await database.prepare(`SELECT id, status, payment_status FROM "order" WHERE id = ?1`).bind(id)
+    .first<{ id: string; status: string; payment_status: string }>()
   if (!order) {
     return NextResponse.json({ message: "Order not found." }, { status: 404 })
+  }
+  if (body.retry_notification && !(
+    (body.retry_notification === "order_placed" && order.payment_status === "captured") ||
+    (body.retry_notification === "order_completed" && order.status === "completed")
+  )) {
+    return NextResponse.json({ message: "That notification cannot be sent for this order." }, { status: 400 })
   }
 
   const sets: string[] = []
@@ -117,5 +138,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       .run()
   }
 
-  return NextResponse.json({ id, updated: true })
+  const event = body.retry_notification === "order_placed" || body.retry_notification === "order_completed"
+    ? body.retry_notification
+    : body.status === "completed" && order.status !== "completed"
+    ? "order_completed"
+    : body.payment_status === "captured" && order.payment_status !== "captured"
+      ? "order_placed"
+      : null
+  const notification = event ? await notifyOrder(database, id, event, {
+    endpoint: process.env.EMAIL_API_URL,
+    token: process.env.EMAIL_API_KEY,
+    from: process.env.SMTP_FROM,
+    storeUrl: process.env.STOREFRONT_URL,
+  }) : null
+  return NextResponse.json({ id, updated: true, notificationError: notification?.error })
 }
