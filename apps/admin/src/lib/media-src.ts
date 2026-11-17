@@ -20,7 +20,7 @@ export function mediaSrc(url: string | null | undefined): string {
   return base ? `${base}${url}` : url
 }
 
-function storefrontBase(): string {
+export function storefrontBase(): string {
   if (typeof document === "undefined") {
     return (process.env.STOREFRONT_URL || "").replace(/\/+$/, "")
   }

@@ -30,7 +30,7 @@ and so on.
 | Accounts | Sign up with an optional shipping address and payment preference. Passwords are PBKDF2-HMAC-SHA256 through Web Crypto; a session is an opaque token stored only as a hash, so signing out genuinely ends it |
 | Cart and checkout | Prices are snapshotted onto the line, so a price change never alters a cart mid-shop. Moving region re-prices it |
 | Payments | M-Pesa STK push with an idempotent callback. An order is created only once money is confirmed |
-| Shipping | Flat rates per destination from the database, plus live Shippo rates when it is configured; either degrades to the other |
+| Shipping | Flat rates per destination from the database, with a fallback rate when none matches |
 | Edge | Region detection from `CF-IPCountry` in middleware |
 
 ## The database
@@ -113,7 +113,7 @@ pnpm admin:cf:deploy
 | Business Details | Store name, contact details, WhatsApp number, socials and reporting currency |
 | Orders | Every order, filtered by fulfilment state, with details, payment history, delivery tracking, and permanent deletion |
 | Payments | Gateway status, totals by provider and currency, and the M-Pesa STK tool for phone and WhatsApp orders |
-| Shipping | Shippo status, free-shipping thresholds, fallback rates, zones and shipments with tracking |
+| Shipping | Free-shipping thresholds, fallback rates, zones and shipments with tracking |
 | Emails | Provider status, editable templates, test sends and the send log |
 | Customers | Everyone with an account, their order count and what they have spent |
 | Product editor | The one-page editor: up to 10 images, rich-text description, categories, variants with KES selling, original and cost prices, stock per location, book details, editorial reviews, scheduling and bundles |

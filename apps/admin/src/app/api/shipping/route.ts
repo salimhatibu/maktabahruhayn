@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { CURRENCY_REGIONS, findKenyaCounty } from "@maktabah/shared"
 import { toMajor } from "@maktabah/db"
 import { db } from "@/lib/db"
-import { shippoConfig } from "@/lib/payments"
 
 type ShipmentRow = {
   id: string
@@ -70,8 +69,6 @@ export async function GET() {
   })
 
   return NextResponse.json({
-    shippo_configured: Boolean(shippoConfig()),
-    webhook_configured: Boolean(process.env.SHIPPO_WEBHOOK_SECRET),
     fulfillments,
     options: options.results.map((row) => {
       const countries = JSON.parse(String(row.countries || "[]")) as string[]
@@ -79,7 +76,7 @@ export async function GET() {
       return {
         id: String(row.id),
         name: String(row.name),
-        price_type: row.provider === "shippo" ? "calculated" : "flat",
+        price_type: "flat",
         provider_id: String(row.provider),
         amount: row.amount_minor === null ? null : toMajor(Number(row.amount_minor)),
         currency_code: row.currency_code === null ? null : String(row.currency_code),

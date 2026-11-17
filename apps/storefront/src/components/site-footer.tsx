@@ -80,7 +80,7 @@ export function SiteFooter({ site, country = "KE", locale = "en" }: { site: Site
       </div>
       <div className="footer-base wrap">
         <p>{t(locale, "footer.copyright", { year: new Date().getFullYear(), name: b.name })}</p>
-        <p>Lipa na M-Pesa in Kenya · Rates by Shippo · FX by ExchangeRate-API</p>
+        <p>Lipa na M-Pesa in Kenya · FX by ExchangeRate-API</p>
       </div>
     </footer>
   )

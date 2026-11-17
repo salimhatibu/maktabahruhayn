@@ -11,7 +11,7 @@ export type PlaceOrderInput = {
    */
   idempotencyKey: string
   email: string
-  payment: { provider: "stripe" | "mpesa" | "manual"; reference?: string | null; status?: "authorized" | "captured" }
+  payment: { provider: "mpesa" | "manual"; reference?: string | null; status?: "authorized" | "captured" }
   shippingMethod?: { name: string; provider: string; amountMinor: number } | null
   /**
    * The money is already taken: place the order even if stock ran out in the
@@ -302,14 +302,12 @@ export async function shippingMethodFor(db: D1, cart: CartRow) {
   if (!cart.shippingOptionId) {
     return null
   }
-  const option = cart.shippingOptionId.startsWith("shippo:")
-    ? { name: "Courier", provider: "shippo" }
-    : cart.shippingOptionId === STANDARD_SHIPPING_ID
-      ? { name: "Standard delivery", provider: "manual" }
-      : await db
-          .prepare(`SELECT name, provider FROM shipping_option WHERE id = ?1`)
-          .bind(cart.shippingOptionId)
-          .first<{ name: string; provider: string }>()
+  const option = cart.shippingOptionId === STANDARD_SHIPPING_ID
+    ? { name: "Standard delivery", provider: "manual" }
+    : await db
+        .prepare(`SELECT name, provider FROM shipping_option WHERE id = ?1`)
+        .bind(cart.shippingOptionId)
+        .first<{ name: string; provider: string }>()
   return {
     name: option?.name || "Delivery",
     provider: option?.provider || "manual",
@@ -353,7 +351,7 @@ export async function finalizePaidCart(
   db: D1,
   input: {
     cartId: string
-    provider: "stripe" | "mpesa" | "manual"
+    provider: "mpesa" | "manual"
     reference: string
     /** What the provider says was paid, in our minor units. */
     paidMinor: number
@@ -525,7 +523,7 @@ export type PendingPayment = {
  */
 export async function recordPendingPayment(
   db: D1,
-  input: { cartId: string; provider: "stripe" | "mpesa"; reference: string; amountMinor: number; currency: string }
+  input: { cartId: string; provider: "mpesa"; reference: string; amountMinor: number; currency: string }
 ): Promise<void> {
   // The conflict target repeats the partial index's WHERE, without which
   // SQLite refuses the upsert outright.
@@ -655,7 +653,7 @@ export async function findLatestManualMpesaPayment(
 export async function findPendingPayment(
   db: D1,
   cartId: string,
-  provider: "stripe" | "mpesa"
+  provider: "mpesa"
 ): Promise<PendingPayment | null> {
   const row = await db
     .prepare(
@@ -687,7 +685,7 @@ export async function findPendingPayment(
 export async function settlePayment(
   db: D1,
   input: {
-    provider: "stripe" | "mpesa"
+    provider: "mpesa"
     reference: string
     status: "captured" | "failed"
     /** Kept with the row; an M-Pesa receipt number travels in here. */

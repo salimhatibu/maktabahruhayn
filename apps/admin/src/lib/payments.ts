@@ -1,4 +1,4 @@
-import { mpesa, shippo, type MpesaConfig, type ShippoConfig } from "@maktabah/db"
+import { mpesa, type MpesaConfig } from "@maktabah/db"
 
 /**
  * Provider configuration, read from the Worker's variables and secrets. The
@@ -18,21 +18,4 @@ export function mpesaConfig(): MpesaConfig | null {
     environment: process.env.DARAJA_ENVIRONMENT || "sandbox",
   }
   return mpesa.mpesaConfigured(config) ? config : null
-}
-
-export function shippoConfig(): ShippoConfig | null {
-  const config = {
-    apiKey: process.env.SHIPPO_API_KEY || "",
-    fromAddress: {
-      name: process.env.SHIPPO_FROM_NAME || "Maktabah Ruhayn",
-      street1: process.env.SHIPPO_FROM_STREET1 || "",
-      city: process.env.SHIPPO_FROM_CITY || "",
-      state: process.env.SHIPPO_FROM_STATE || "",
-      zip: process.env.SHIPPO_FROM_ZIP || "",
-      country: process.env.SHIPPO_FROM_COUNTRY || "KE",
-      phone: process.env.SHIPPO_FROM_PHONE || "",
-      email: process.env.SHIPPO_FROM_EMAIL || "",
-    },
-  }
-  return shippo.shippoConfigured(config) && config.fromAddress.street1 ? config : null
 }

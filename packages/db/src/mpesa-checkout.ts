@@ -38,8 +38,7 @@ export async function beginMpesaCheckout(db: D1, cartId: string, phone: string):
       WHERE id = ?2 AND completed_order_id IS NULL
         AND NOT EXISTS (
           SELECT 1 FROM payment WHERE cart_id = ?2 AND order_id IS NULL
-            AND ((provider = 'manual' AND status IN ('pending', 'captured'))
-              OR (provider = 'stripe' AND status IN ('pending', 'authorized', 'captured')))
+            AND provider = 'manual' AND status IN ('pending', 'captured')
         )`
   ).bind(id, cartId, normalizePhone(phone)).run()
   return result.meta?.changes ? getMpesaCheckout(db, id) : null

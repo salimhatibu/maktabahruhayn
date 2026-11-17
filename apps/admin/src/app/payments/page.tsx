@@ -103,6 +103,20 @@ const PaymentsPage = () => {
     }
   }
 
+  const deleteRequest = async (id: string) => {
+    if (!window.confirm("Delete this M-Pesa request? This cannot be undone.")) return
+    setReviewing(id)
+    try {
+      await api(`/api/payment-requests/${id}`, { method: "DELETE" })
+      toast.success("Request deleted.")
+      requests.reload()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setReviewing(null)
+    }
+  }
+
   const send = async () => {
     setSending(true)
     try {
@@ -325,6 +339,7 @@ const PaymentsPage = () => {
               <Table.HeaderCell>Status</Table.HeaderCell>
               <Table.HeaderCell>Receipt / note</Table.HeaderCell>
               <Table.HeaderCell className="text-right">Amount</Table.HeaderCell>
+              <Table.HeaderCell />
             </Table.Row>
           </Table.Header>
           <Table.Body>
@@ -338,6 +353,11 @@ const PaymentsPage = () => {
                 </Table.Cell>
                 <Table.Cell className="text-ui-fg-subtle max-w-[320px] truncate">{r.mpesa_receipt || r.result_description}</Table.Cell>
                 <Table.Cell className="text-right mr-tabular">{money(r.amount, "kes")}</Table.Cell>
+                <Table.Cell>
+                  <Button size="small" variant="danger" isLoading={reviewing === r.id} onClick={() => deleteRequest(r.id)}>
+                    Delete
+                  </Button>
+                </Table.Cell>
               </Table.Row>
             ))}
           </Table.Body>

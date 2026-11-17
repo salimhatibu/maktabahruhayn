@@ -1,5 +1,5 @@
 import type { D1 } from "./client"
-import { BASE_CURRENCY, convert } from "./money"
+import { BASE_CURRENCY, convert, convertToBase } from "./money"
 import { getFxRates } from "./catalogue"
 import { newId } from "./writes"
 
@@ -68,40 +68,37 @@ export async function createCart(
   return id
 }
 
-/** Discount for a promotion code, in minor units of the cart's currency. */
-async function discountFor(
+type PromoRow = {
+  code: string
+  type: string
+  value: number
+  currency_code: string | null
+  min_subtotal_minor: number | null
+  usage_limit: number | null
+  used_count: number
+}
+
+const NO_DISCOUNT = { minor: 0, freeShipping: false }
+
+/** What one promotion takes off a cart, in minor units of the cart's currency. */
+async function applyRow(
   db: D1,
-  code: string | null,
+  promo: PromoRow,
   subtotalMinor: number,
   currency: string
 ): Promise<{ minor: number; freeShipping: boolean }> {
-  if (!code) {
-    return { minor: 0, freeShipping: false }
+  if (promo.usage_limit !== null && promo.used_count >= promo.usage_limit) {
+    return NO_DISCOUNT
   }
-  const now = new Date().toISOString()
-  const promo = await db
-    .prepare(
-      `SELECT type, value, currency_code, min_subtotal_minor, usage_limit, used_count
-         FROM promotion
-        WHERE code = ?1 COLLATE NOCASE AND is_active = 1
-          AND (starts_at IS NULL OR starts_at <= ?2)
-          AND (ends_at IS NULL OR ends_at >= ?2)`
-    )
-    .bind(code, now)
-    .first<{
-      type: string
-      value: number
-      currency_code: string | null
-      min_subtotal_minor: number | null
-      usage_limit: number | null
-      used_count: number
-    }>()
-
-  if (!promo || (promo.usage_limit !== null && promo.used_count >= promo.usage_limit)) {
-    return { minor: 0, freeShipping: false }
+  const into = async (amount: number) => {
+    const from = promo.currency_code || BASE_CURRENCY
+    if (from === currency) return amount
+    const rates = await getFxRates(db)
+    return convert(convertToBase(amount, from, rates), currency, rates)
   }
-  if (promo.min_subtotal_minor && subtotalMinor < promo.min_subtotal_minor) {
-    return { minor: 0, freeShipping: false }
+  // Amounts are set in the promotion's currency and compared in the cart's.
+  if (promo.min_subtotal_minor && subtotalMinor < (await into(promo.min_subtotal_minor))) {
+    return NO_DISCOUNT
   }
   if (promo.type === "free_shipping") {
     return { minor: 0, freeShipping: true }
@@ -109,13 +106,55 @@ async function discountFor(
   if (promo.type === "percentage") {
     return { minor: Math.round((subtotalMinor * Math.min(promo.value, 100)) / 100), freeShipping: false }
   }
-  // A fixed amount is set in one currency and converted into the cart's.
-  const rates = await getFxRates(db)
-  const inCart =
-    (promo.currency_code || BASE_CURRENCY) === currency
-      ? promo.value
-      : convert(promo.value, currency, rates)
-  return { minor: Math.min(inCart, subtotalMinor), freeShipping: false }
+  return { minor: Math.min(await into(promo.value), subtotalMinor), freeShipping: false }
+}
+
+const LIVE_PROMO = `is_active = 1
+  AND (starts_at IS NULL OR starts_at <= ?1)
+  AND (ends_at IS NULL OR ends_at >= ?1)`
+
+/** Discount for a code a customer entered. Automatic promotions cannot be entered. */
+async function discountFor(
+  db: D1,
+  code: string | null,
+  subtotalMinor: number,
+  currency: string
+): Promise<{ minor: number; freeShipping: boolean }> {
+  if (!code) {
+    return NO_DISCOUNT
+  }
+  const promo = await db
+    .prepare(
+      `SELECT code, type, value, currency_code, min_subtotal_minor, usage_limit, used_count
+         FROM promotion
+        WHERE code = ?2 COLLATE NOCASE AND automatic = 0 AND ${LIVE_PROMO}`
+    )
+    .bind(new Date().toISOString(), code)
+    .first<PromoRow>()
+  return promo ? applyRow(db, promo, subtotalMinor, currency) : NO_DISCOUNT
+}
+
+/** The most generous automatic promotion that currently applies, if any. */
+async function automaticDiscount(
+  db: D1,
+  subtotalMinor: number,
+  currency: string
+): Promise<{ code: string; minor: number; freeShipping: boolean } | null> {
+  const { results } = await db
+    .prepare(
+      `SELECT code, type, value, currency_code, min_subtotal_minor, usage_limit, used_count
+         FROM promotion WHERE automatic = 1 AND ${LIVE_PROMO}`
+    )
+    .bind(new Date().toISOString())
+    .all<PromoRow>()
+  let best: { code: string; minor: number; freeShipping: boolean } | null = null
+  for (const promo of results) {
+    const found = await applyRow(db, promo, subtotalMinor, currency)
+    if (!found.minor && !found.freeShipping) continue
+    // Free shipping is worth little next to a real discount; prefer the larger cut.
+    if (!best || found.minor > best.minor) best = { code: promo.code, ...found }
+  }
+  return best
 }
 
 export async function getCart(db: D1, cartId: string): Promise<CartRow | null> {
@@ -168,7 +207,15 @@ export async function getCart(db: D1, cartId: string): Promise<CartRow | null> {
   }))
 
   const itemSubtotalMinor = mapped.reduce((sum, line) => sum + line.subtotalMinor, 0)
-  const discount = await discountFor(db, cart.promotion_code, itemSubtotalMinor, cart.currency_code)
+  let promotionCode: string | null = cart.promotion_code ?? null
+  let discount = await discountFor(db, promotionCode, itemSubtotalMinor, cart.currency_code)
+  if (!discount.minor && !discount.freeShipping) {
+    const auto = await automaticDiscount(db, itemSubtotalMinor, cart.currency_code)
+    if (auto) {
+      promotionCode = auto.code
+      discount = auto
+    }
+  }
   const shippingMinor = discount.freeShipping ? 0 : Number(cart.shipping_total || 0)
 
   return {
@@ -180,7 +227,7 @@ export async function getCart(db: D1, cartId: string): Promise<CartRow | null> {
     shippingAddress: cart.shipping_address ? JSON.parse(cart.shipping_address) : null,
     billingAddress: cart.billing_address ? JSON.parse(cart.billing_address) : null,
     shippingOptionId: cart.shipping_option_id ?? null,
-    promotionCode: cart.promotion_code ?? null,
+    promotionCode,
     giftNote: cart.gift_note ?? null,
     completedOrderId: cart.completed_order_id ?? null,
     lines: mapped,

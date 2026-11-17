@@ -38,13 +38,12 @@
 	"vars": {
 		// This Worker's own public origin.
 		"SITE_URL": "https://maktabahruhayn.com",
-		// Payments and shipping. Only the non-secret half belongs here; the rest
+		// Payments. Only the non-secret half belongs here; the rest
 		// are Worker secrets:
 		//   wrangler secret put DARAJA_CONSUMER_KEY
 		//   wrangler secret put DARAJA_CONSUMER_SECRET
 		//   wrangler secret put DARAJA_PASSKEY
 		//   wrangler secret put DARAJA_CALLBACK_TOKEN   (16+ random chars: openssl rand -hex 24)
-		//   wrangler secret put SHIPPO_API_KEY
 		//   wrangler secret put EMAIL_API_URL
 		//   wrangler secret put EMAIL_API_KEY
 		// Set EMAIL_API_URL and EMAIL_API_KEY on both storefront and admin for

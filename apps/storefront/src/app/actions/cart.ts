@@ -22,7 +22,6 @@ import {
   summarizeCart,
   updateCartAddress,
   updateLine,
-  validateAddress,
   type CartSummary,
 } from "@/lib/cart"
 import { saveCustomerAddress } from "@/lib/auth"
@@ -220,19 +219,6 @@ export async function saveAddressAction(_prev: FormState, formData: FormData): P
   try {
     if (target.currency !== current.currency) {
       await moveCartToRegion(target.currency)
-    }
-    const validation = await validateAddress({
-      name: `${address.first_name} ${address.last_name}`,
-      street1: address.address_1,
-      street2: address.address_2 || undefined,
-      city: address.city,
-      state: kenyaCounty?.name || address.province || undefined,
-      zip: address.postal_code || undefined,
-      country: address.country_code.toUpperCase(),
-      phone: address.phone,
-    })
-    if (!validation.is_valid) {
-      return { error: validation.messages.join(" ") || "We could not verify this address." }
     }
     await updateCartAddress(address)
   } catch (error) {

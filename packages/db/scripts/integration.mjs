@@ -446,6 +446,47 @@ await test("free-shipping promotions waive the selected delivery rate", async ()
   assert.equal(cart.totals.shippingMinor, 0)
   assert.equal(cart.totals.totalMinor, cart.totals.itemSubtotalMinor)
 })
+await test("automatic promotions apply only inside their period and cannot be typed in", async () => {
+  const insert = (id, start, end) =>
+    db
+      .prepare(
+        `INSERT INTO promotion (id, code, type, value, is_active, automatic, starts_at, ends_at)
+         VALUES (?1, ?2, 'percentage', 20, 1, 1, ?3, ?4)`
+      )
+      .bind(id, `AUTO-${id}`, start, end)
+      .run()
+  const past = new Date(Date.now() - 86400000 * 2).toISOString()
+  const soon = new Date(Date.now() + 86400000).toISOString()
+  await insert("auto_live", past, soon)
+  await insert("auto_expired", past, new Date(Date.now() - 86400000).toISOString())
+  try {
+    const id = await cartWith([[A.variant_id, 1]])
+    const cart = await lib.getCart(db, id)
+    assert.equal(cart.promotionCode, "AUTO-auto_live")
+    assert.equal(cart.totals.discountMinor, Math.round(cart.totals.itemSubtotalMinor * 0.2))
+    assert.equal(await lib.applyPromotion(db, id, "AUTO-auto_live"), false)
+    await db.prepare(`UPDATE promotion SET is_active = 0 WHERE id = 'auto_live'`).run()
+    assert.equal((await lib.getCart(db, id)).totals.discountMinor, 0)
+  } finally {
+    await db.prepare(`DELETE FROM promotion WHERE id LIKE 'auto_%'`).run()
+  }
+})
+await test("a fixed discount and its minimum spend are converted into the cart's currency", async () => {
+  await db
+    .prepare(
+      `INSERT INTO promotion (id, code, type, value, currency_code, min_subtotal_minor, is_active)
+       VALUES ('promo_fixed_kes', 'KES500', 'fixed', 50000, 'kes', 1, 1)`
+    )
+    .run()
+  try {
+    const id = await cartWith([[A.variant_id, 1]], { currency: "kes" })
+    assert.equal(await lib.applyPromotion(db, id, "KES500"), true)
+    const cart = await lib.getCart(db, id)
+    assert.equal(cart.totals.discountMinor, Math.min(50000, cart.totals.itemSubtotalMinor))
+  } finally {
+    await db.prepare(`DELETE FROM promotion WHERE id = 'promo_fixed_kes'`).run()
+  }
+})
 
 /* ------------------------------------------------------------- payments */
 await test("concurrent STK starts claim the cart once and freeze its contents", async () => {
@@ -559,7 +600,7 @@ await test("admin STK mismatches remain reviewable even after a late decline", a
 
 await test("a pending payment can be recorded, and re-recorded, without SQL errors", async () => {
   const id = await cartWith([[A.variant_id, 1]])
-  const input = { cartId: id, provider: "stripe", reference: `pi_${id}`, amountMinor: 100, currency: "usd" }
+  const input = { cartId: id, provider: "mpesa", reference: `pi_${id}`, amountMinor: 100, currency: "usd" }
   await lib.recordPendingPayment(db, input)
   await lib.recordPendingPayment(db, { ...input, amountMinor: 250 })
   const rows = await db.prepare(`SELECT amount_minor FROM payment WHERE reference = ?1`).bind(input.reference).all()
@@ -569,8 +610,8 @@ await test("a pending payment can be recorded, and re-recorded, without SQL erro
 await test("another cart cannot take over a recorded payment", async () => {
   const mine = await cartWith([[A.variant_id, 1]])
   const other = await cartWith([[A.variant_id, 1]])
-  await lib.recordPendingPayment(db, { cartId: mine, provider: "stripe", reference: `pi_x_${mine}`, amountMinor: 100, currency: "usd" })
-  await lib.recordPendingPayment(db, { cartId: other, provider: "stripe", reference: `pi_x_${mine}`, amountMinor: 1, currency: "usd" })
+  await lib.recordPendingPayment(db, { cartId: mine, provider: "mpesa", reference: `pi_x_${mine}`, amountMinor: 100, currency: "usd" })
+  await lib.recordPendingPayment(db, { cartId: other, provider: "mpesa", reference: `pi_x_${mine}`, amountMinor: 1, currency: "usd" })
   const row = await one(`SELECT cart_id, amount_minor FROM payment WHERE reference = ?1`, `pi_x_${mine}`)
   assert.equal(row.cart_id, mine)
   assert.equal(row.amount_minor, 100)
@@ -656,22 +697,22 @@ async function paidCart(lines) {
   const id = await cartWith(lines)
   const cart = await lib.getCart(db, id)
   const reference = `pi_${id}`
-  await lib.recordPendingPayment(db, { cartId: id, provider: "stripe", reference, amountMinor: cart.totals.totalMinor, currency: "usd" })
-  await lib.settlePayment(db, { provider: "stripe", reference, status: "captured" })
+  await lib.recordPendingPayment(db, { cartId: id, provider: "mpesa", reference, amountMinor: cart.totals.totalMinor, currency: "usd" })
+  await lib.settlePayment(db, { provider: "mpesa", reference, status: "captured" })
   return { id, reference, total: cart.totals.totalMinor }
 }
 
 await test("ATTACK: paying for a small cart, then adding books, does not buy the bigger cart", async () => {
   const { id, reference, total } = await paidCart([[A.variant_id, 1]])
   await lib.addLine(db, id, B.variant_id, 5)
-  const result = await lib.finalizePaidCart(db, { cartId: id, provider: "stripe", reference, paidMinor: total, currency: "usd" })
+  const result = await lib.finalizePaidCart(db, { cartId: id, provider: "mpesa", reference, paidMinor: total, currency: "usd" })
   assert.equal(result.ok, false)
   assert.equal(result.reason, "amount_mismatch")
   assert.equal(await one(`SELECT completed_order_id AS c FROM cart WHERE id = ?1`, id).then((r) => r.c), null)
 })
 await test("ATTACK: paying in a cheaper currency is refused", async () => {
   const { id, reference, total } = await paidCart([[A.variant_id, 1]])
-  const result = await lib.finalizePaidCart(db, { cartId: id, provider: "stripe", reference, paidMinor: total, currency: "kes" })
+  const result = await lib.finalizePaidCart(db, { cartId: id, provider: "mpesa", reference, paidMinor: total, currency: "kes" })
   assert.equal(result.reason, "amount_mismatch")
 })
 await test("ATTACK: a payment made for one cart cannot complete another", async () => {
@@ -679,7 +720,7 @@ await test("ATTACK: a payment made for one cart cannot complete another", async 
   const second = await cartWith([[A.variant_id, 1]])
   const result = await lib.finalizePaidCart(db, {
     cartId: second,
-    provider: "stripe",
+    provider: "mpesa",
     reference: first.reference,
     paidMinor: first.total,
     currency: "usd",
@@ -690,7 +731,7 @@ await test("ATTACK: a payment made for one cart cannot complete another", async 
 await test("a fully paid cart becomes exactly one order, with stock and payment attached", async () => {
   const before = await stock(A.variant_id)
   const { id, reference, total } = await paidCart([[A.variant_id, 2]])
-  const result = await lib.finalizePaidCart(db, { cartId: id, provider: "stripe", reference, paidMinor: total, currency: "usd" })
+  const result = await lib.finalizePaidCart(db, { cartId: id, provider: "mpesa", reference, paidMinor: total, currency: "usd" })
   assert.equal(result.ok, true, JSON.stringify(result))
   assert.ok(result.displayId >= 1000)
   const order = await one(`SELECT total_minor, payment_status, shipping_method FROM "order" WHERE id = ?1`, result.orderId)
@@ -703,7 +744,7 @@ await test("a fully paid cart becomes exactly one order, with stock and payment 
   assert.equal(await stock(A.variant_id), before - 2)
 
   // The webhook and the shopper's browser both finishing: one order.
-  const again = await lib.finalizePaidCart(db, { cartId: id, provider: "stripe", reference, paidMinor: total, currency: "usd" })
+  const again = await lib.finalizePaidCart(db, { cartId: id, provider: "mpesa", reference, paidMinor: total, currency: "usd" })
   assert.equal(again.ok, true)
   assert.equal(again.orderId, result.orderId)
   assert.equal(again.replayed, true)
@@ -714,7 +755,7 @@ await test("a paid order is still placed when its last copy sold meanwhile (over
   const { id, reference, total } = await paidCart([[A.variant_id, 1]])
   const saved = await db.prepare(`SELECT location_id, stocked_quantity FROM inventory_level WHERE variant_id = ?1`).bind(A.variant_id).all()
   await db.prepare(`UPDATE inventory_level SET stocked_quantity = reserved_quantity WHERE variant_id = ?1`).bind(A.variant_id).run()
-  const result = await lib.finalizePaidCart(db, { cartId: id, provider: "stripe", reference, paidMinor: total, currency: "usd" })
+  const result = await lib.finalizePaidCart(db, { cartId: id, provider: "mpesa", reference, paidMinor: total, currency: "usd" })
   assert.equal(result.ok, true, JSON.stringify(result))
   for (const row of saved.results) {
     await db.prepare(`UPDATE inventory_level SET stocked_quantity = ?3 WHERE variant_id = ?1 AND location_id = ?2`).bind(A.variant_id, row.location_id, row.stocked_quantity).run()
@@ -753,7 +794,7 @@ await test("a double submit of the same checkout places one order", async () => 
 })
 await test("a late 'failed' event cannot undo a captured payment", async () => {
   const { reference } = await paidCart([[A.variant_id, 1]])
-  await lib.settlePayment(db, { provider: "stripe", reference, status: "failed" })
+  await lib.settlePayment(db, { provider: "mpesa", reference, status: "failed" })
   assert.equal((await one(`SELECT status FROM payment WHERE reference = ?1`, reference)).status, "captured")
 })
 await test("an M-Pesa callback keeps the request id as the reference (replays still match)", async () => {

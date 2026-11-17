@@ -29,12 +29,11 @@ import {
   type CartRow,
   type D1,
 } from "@maktabah/db"
-import { findKenyaCounty, resolveRegion } from "@maktabah/shared"
+import { resolveRegion } from "@maktabah/shared"
 import { getAuthToken } from "./auth"
 import { AFFILIATE_COOKIE, CART_COOKIE, LAST_ORDER_COOKIE, mediaUrl } from "./config"
 import { db } from "./db"
-import { convertFromBase } from "./pricing"
-import { mpesa, mpesaConfig, shippo, shippoConfig } from "./payments"
+import { mpesa, mpesaConfig } from "./payments"
 import { currentRegion } from "./region-context"
 import { notifyConfirmedOrder } from "./order-notifications"
 
@@ -406,14 +405,12 @@ export async function listShippingOptions(id: string): Promise<ShippingOption[]>
     countyCode: (row.shippingAddress as Record<string, string> | null)?.province,
   })
 
-  const flat: ShippingOption[] = options
-    .filter((option) => option.provider !== "shippo")
-    .map((option) => ({
-      id: option.id,
-      name: option.free ? `${option.name} (free)` : option.name,
-      amount: row.totals.freeShipping ? 0 : toMajor(option.amountMinor),
-      price_type: "flat",
-    }))
+  const flat: ShippingOption[] = options.map((option) => ({
+    id: option.id,
+    name: option.free ? `${option.name} (free)` : option.name,
+    amount: row.totals.freeShipping ? 0 : toMajor(option.amountMinor),
+    price_type: "flat",
+  }))
   // Nothing set up for this destination: offer standard delivery at the
   // admin's fallback rate, so a shopper is never left with no way to check out.
   if (!flat.length) {
@@ -421,48 +418,7 @@ export async function listShippingOptions(id: string): Promise<ShippingOption[]>
     flat.push(row.totals.freeShipping ? { ...fallback, amount: 0 } : fallback)
   }
 
-  // Live courier rates, when Shippo is configured and we have somewhere to
-  // ship to. If it is unavailable the flat rates above still carry the order.
-  const config = shippoConfig()
-  const address = row.shippingAddress as Record<string, string> | null
-  if (!config || !options.some((option) => option.provider === "shippo") || !address?.address_1) {
-    return flat
-  }
-
-  const rates = await shippo.getRates(config, {
-    to: {
-      name: [address.first_name, address.last_name].filter(Boolean).join(" ") || "Customer",
-      street1: address.address_1,
-      street2: address.address_2 || undefined,
-      city: address.city || "",
-      state:
-        address.country_code?.toLowerCase() === "ke"
-          ? findKenyaCounty(address.province)?.name || undefined
-          : address.province || undefined,
-      zip: address.postal_code || undefined,
-      country: (address.country_code || "").toUpperCase(),
-      phone: address.phone || undefined,
-    },
-    parcel: shippo.parcelFor(
-      row.lines.map((line) => ({ ...line.dimensions, quantity: line.quantity }))
-    ),
-  })
-
-  const live = await Promise.all(
-    rates.slice(0, 4).map(async (rate) => ({
-      id: `shippo:${rate.objectId}`,
-      name: `${rate.provider} ${rate.service}${rate.estimatedDays ? ` (${rate.estimatedDays} days)` : ""}`,
-      // Shippo quotes in its own currency; the cart charges in the shopper's.
-      amount:
-        row.totals.freeShipping
-          ? 0
-          : rate.currency.toLowerCase() === row.currency
-          ? rate.amount
-          : await convertFromBase(rate.amount, row.currency),
-      price_type: "calculated",
-    }))
-  )
-  return [...flat, ...live]
+  return flat
 }
 
 /**
@@ -707,31 +663,4 @@ async function orderPlaced(orderId: string): Promise<CompleteResult> {
     maxAge: 60 * 60 * 24,
   })
   return { type: "order", orderId }
-}
-
-export async function validateAddress(address: {
-  name: string
-  street1: string
-  street2?: string
-  city: string
-  state?: string
-  zip?: string
-  country: string
-  phone?: string
-}) {
-  const config = shippoConfig()
-  if (!config) {
-    return { is_valid: true, messages: [] as string[] }
-  }
-  const result = await shippo.validateAddress(config, {
-    name: address.name,
-    street1: address.street1,
-    street2: address.street2,
-    city: address.city,
-    state: address.state,
-    zip: address.zip,
-    country: address.country.toUpperCase(),
-    phone: address.phone,
-  })
-  return { is_valid: result.isValid, messages: result.messages }
 }

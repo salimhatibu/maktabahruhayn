@@ -45,8 +45,6 @@ type Fulfillment = {
 }
 
 type Overview = {
-  shippo_configured: boolean
-  webhook_configured: boolean
   fulfillments: Fulfillment[]
   options: ShippingMethod[]
   zones: { id: string; name: string; countries: string[] }[]
@@ -139,24 +137,18 @@ const ShippingPage = () => {
 
   return (
     <div>
-      <PageHeader icon={TruckFast} tone="teal" title="Shipping" subtitle="Shippo rates, free-shipping rules, shipments and tracking." />
+      <PageHeader icon={TruckFast} tone="teal" title="Shipping" subtitle="Delivery rates, free-shipping rules, shipments and tracking." />
       <ErrorNote message={error || settings.error} />
 
       <Section
         title="Delivery methods"
-        description="Add and edit the rates customers can choose at checkout. Live Shippo rates are managed by the carrier."
+        description="Add and edit the rates customers can choose at checkout."
         flush
         actions={
           <div className="flex flex-wrap gap-4">
             <Button size="small" onClick={addMethod}>
               Add delivery method
             </Button>
-            <StatusBadge color={data?.shippo_configured ? "green" : "orange"}>
-              Shippo {data?.shippo_configured ? "connected" : "using fallback rates"}
-            </StatusBadge>
-            <StatusBadge color={data?.webhook_configured ? "green" : "grey"}>
-              Tracking webhook {data?.webhook_configured ? "on" : "off"}
-            </StatusBadge>
           </div>
         }
       >
@@ -176,9 +168,7 @@ const ShippingPage = () => {
               <Table.Row key={o.id}>
                 <Table.Cell>{o.name}</Table.Cell>
                 <Table.Cell>
-                  {o.price_type === "calculated"
-                    ? "Live (Shippo)"
-                    : o.county_prices
+                  {o.county_prices
                       ? "County rates (KES)"
                       : o.amount === null
                         ? "—"
@@ -314,7 +304,7 @@ const ShippingPage = () => {
               <Field label="Free above (KES)">
                 <Input type="number" min={0} value={form.freeThresholdKes} onChange={(e) => setForm({ ...form, freeThresholdKes: Number(e.target.value) })} />
               </Field>
-              <Field label="Fallback rate (USD)" hint="Used when Shippo has no quote">
+              <Field label="Fallback rate (USD)" hint="Used when no delivery method matches the destination">
                 <Input type="number" min={0} value={form.fallbackUsd} onChange={(e) => setForm({ ...form, fallbackUsd: Number(e.target.value) })} />
               </Field>
               <Field label="Fallback rate (KES)">
