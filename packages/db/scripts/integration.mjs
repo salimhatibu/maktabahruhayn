@@ -488,6 +488,30 @@ await test("a fixed discount and its minimum spend are converted into the cart's
   }
 })
 
+await test("review requests are sent once, three days after delivery", async () => {
+  const config = { endpoint: "https://example.invalid/emails", token: "test", storeUrl: "https://example.invalid" }
+  const insert = (id, display, delivered) => db.prepare(
+    `INSERT INTO "order" (id, display_id, email, currency_code, subtotal_minor, total_minor, shipping_address, fulfillment_status, delivered_at)
+     VALUES (?1, ?2, 'reader@example.com', 'kes', 1000, 1000, '{"first_name":"R"}', 'delivered', ${delivered})`
+  ).bind(id, display).run()
+  await insert("review_old", 900101, "strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days')")
+  await insert("review_new", 900102, "strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 days')")
+  const originalFetch = globalThis.fetch
+  let sent = []
+  try {
+    globalThis.fetch = async (_url, request) => {
+      sent.push(JSON.parse(request.body))
+      return new Response(JSON.stringify({ id: "p" }), { status: 200 })
+    }
+    assert.deepEqual(await lib.sendDueReviewRequests(db, config), { sent: 1, failed: 0 })
+    assert.match(sent[0].subject, /900101/)
+    assert.deepEqual(await lib.sendDueReviewRequests(db, config), { sent: 0, failed: 0 })
+  } finally {
+    globalThis.fetch = originalFetch
+    await db.prepare(`DELETE FROM "order" WHERE id IN ('review_old', 'review_new')`).run()
+  }
+})
+
 await test("delivery towns are seeded under Nairobi and can be added and removed", async () => {
   assert.equal(await lib.findCountyTown(db, "nairobi", "  ruiru "), "Ruiru")
   assert.equal(await lib.findCountyTown(db, "mombasa", "Ruiru"), null)

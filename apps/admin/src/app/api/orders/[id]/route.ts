@@ -71,14 +71,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
   const database = await db()
 
-  const order = await database.prepare(`SELECT id, status, payment_status FROM "order" WHERE id = ?1`).bind(id)
-    .first<{ id: string; status: string; payment_status: string }>()
+  const order = await database.prepare(`SELECT id, status, payment_status, fulfillment_status FROM "order" WHERE id = ?1`).bind(id)
+    .first<{ id: string; status: string; payment_status: string; fulfillment_status: string }>()
   if (!order) {
     return NextResponse.json({ message: "Order not found." }, { status: 404 })
   }
   if (body.retry_notification && !(
     (body.retry_notification === "order_placed" && order.payment_status === "captured") ||
-    (body.retry_notification === "order_completed" && order.status === "completed")
+    (body.retry_notification === "order_completed" && order.status === "completed") ||
+    (body.retry_notification === "review_request" && order.fulfillment_status === "delivered")
   )) {
     return NextResponse.json({ message: "That notification cannot be sent for this order." }, { status: 400 })
   }
@@ -92,6 +93,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     }
     sets.push(`fulfillment_status = ?${params.length + 1}`)
     params.push(body.fulfillment_status)
+    if (body.fulfillment_status === "delivered") {
+      sets.push(`delivered_at = COALESCE(delivered_at, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)
+    }
   }
 
   if (body.payment_status) {
@@ -138,7 +142,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       .run()
   }
 
-  const event = body.retry_notification === "order_placed" || body.retry_notification === "order_completed"
+  const event = body.retry_notification === "order_placed" || body.retry_notification === "order_completed" || body.retry_notification === "review_request"
     ? body.retry_notification
     : body.status === "completed" && order.status !== "completed"
     ? "order_completed"

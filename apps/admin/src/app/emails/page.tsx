@@ -7,7 +7,7 @@ import { ErrorNote, Field, PageHeader, Section } from "@/components/kit"
 import { RichEditor } from "@/components/rich-editor"
 import { api, dateTime, useApi, useSettings } from "@/lib/api"
 
-type TemplateKey = "order_placed" | "order_completed" | "order_shipped" | "order_delivered" | "customer_welcome" | "abandoned_cart" | "newsletter_welcome"
+type TemplateKey = "order_placed" | "order_completed" | "order_shipped" | "order_delivered" | "review_request" | "customer_welcome" | "abandoned_cart" | "newsletter_welcome"
 type Template = { subject: string; body: string; enabled: boolean }
 type EmailSettings = {
   fromName: string
@@ -22,12 +22,13 @@ const LABELS: Record<TemplateKey, string> = {
   order_completed: "Order completed",
   order_shipped: "Order shipped",
   order_delivered: "Order delivered",
+  review_request: "Review request (3 days after delivery)",
   customer_welcome: "Welcome (new account)",
   abandoned_cart: "Abandoned cart reminder",
   newsletter_welcome: "Newsletter welcome",
 }
 
-const VARIABLES = "{{customer.first_name}} {{order.display_id}} {{order.items}} {{order.total}} {{tracking.number}} {{tracking.url}} {{cart.items}} {{store.name}} {{store.url}}"
+const VARIABLES = "{{customer.first_name}} {{order.display_id}} {{order.items}} {{order.total}} {{tracking.number}} {{tracking.url}} {{review.links}} {{cart.items}} {{store.name}} {{store.url}}"
 
 type EmailRow = { id: string; to: string; template: string; subject: string | null; status: string; provider_id: string | null; created_at: string }
 

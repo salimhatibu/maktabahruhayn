@@ -5,7 +5,7 @@ import { toMajor } from "./money"
 import { DEFAULT_SETTINGS, type EmailSettings } from "./settings-defaults"
 import { newId } from "./writes"
 
-export type OrderNotificationEvent = "order_placed" | "order_completed"
+export type OrderNotificationEvent = "order_placed" | "order_completed" | "review_request"
 
 /** Attempts one transactional email per order and event; failed attempts can be retried. */
 export async function notifyOrder(
@@ -38,6 +38,13 @@ async function sendOrderNotification(
 
   const items = await db.prepare(`SELECT product_title, quantity FROM order_item WHERE order_id = ?1 ORDER BY rowid`)
     .bind(orderId).all<{ product_title: string; quantity: number }>()
+  const reviewLinks = event === "review_request"
+    ? await db.prepare(
+      `SELECT DISTINCT p.title, p.handle FROM order_item oi
+       JOIN variant v ON v.id = oi.variant_id JOIN product p ON p.id = v.product_id
+       WHERE oi.order_id = ?1 ORDER BY oi.rowid`
+    ).bind(orderId).all<{ title: string; handle: string }>()
+    : null
   const address = JSON.parse(order.shipping_address) as { first_name?: string }
   const storeName = settings.business?.name || "Maktabah Ruhayn"
   const storeUrl = (config.storeUrl || "").replace(/\/+$/, "")
@@ -46,6 +53,8 @@ async function sendOrderNotification(
     "order.display_id": String(order.display_id),
     "order.items": items.results.map((item) => `${item.product_title} × ${item.quantity}`).join("\n"),
     "order.total": `${order.currency_code.toUpperCase()} ${toMajor(order.total_minor).toFixed(2)}`,
+    "review.links": (reviewLinks?.results ?? [])
+      .map((item) => `${item.title}: ${(config.storeUrl || "").replace(/\/+$/, "")}/books/${item.handle}#reviews`).join("\n"),
     "store.name": storeName,
     "store.url": storeUrl,
   }
@@ -104,4 +113,33 @@ async function sendOrderNotification(
   ])
   if (error) console.error(`Order ${orderId} ${event} notification failed: ${error}`)
   return error ? { ok: false, error } : { ok: true }
+}
+
+/** How long after delivery the review request is sent. */
+export const REVIEW_REQUEST_DELAY_DAYS = 3
+
+/** Sends review requests for orders delivered at least three days ago; safe to run repeatedly. */
+export async function sendDueReviewRequests(
+  db: D1,
+  config: { endpoint?: string; token?: string; from?: string; storeUrl?: string },
+  limit = 25
+): Promise<{ sent: number; failed: number }> {
+  const due = await db.prepare(
+    `SELECT o.id FROM "order" o
+     LEFT JOIN order_notification n ON n.order_id = o.id AND n.event = 'review_request'
+     WHERE o.fulfillment_status = 'delivered' AND o.status != 'cancelled'
+       AND o.delivered_at IS NOT NULL
+       AND o.delivered_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now', '-${REVIEW_REQUEST_DELAY_DAYS} days')
+       AND (n.order_id IS NULL OR n.status = 'failed'
+            OR (n.status = 'sending' AND n.updated_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', '-5 minutes')))
+     ORDER BY o.delivered_at LIMIT ?1`
+  ).bind(limit).all<{ id: string }>()
+  let sent = 0
+  let failed = 0
+  for (const row of due.results) {
+    const result = await notifyOrder(db, row.id, "review_request", config)
+    if (result.ok) sent += 1
+    else failed += 1
+  }
+  return { sent, failed }
 }

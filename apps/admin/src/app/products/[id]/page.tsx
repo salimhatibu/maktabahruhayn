@@ -1307,15 +1307,6 @@ const ProductEditorPage = () => {
                   >
                     Duplicate
                   </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    onClick={() =>
-                      document
-                        .getElementById("details")
-                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                    }
-                  >
-                    Advanced settings
-                  </DropdownMenu.Item>
                   <DropdownMenu.Separator />
                   <DropdownMenu.Item
                     className="text-ui-fg-error"

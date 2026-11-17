@@ -81,6 +81,7 @@ export type EmailSettings = {
     | "order_completed"
     | "order_shipped"
     | "order_delivered"
+    | "review_request"
     | "customer_welcome"
     | "abandoned_cart"
     | "newsletter_welcome",
@@ -390,6 +391,11 @@ export const DEFAULT_SETTINGS: SettingsMap = {
         enabled: true,
         subject: "Order #{{order.display_id}} was delivered",
         body: "Assalamu alaikum {{customer.first_name}},\n\nYour order #{{order.display_id}} has been delivered. We hope you benefit from your books. If you have a moment, a review helps other readers: {{store.url}}/account\n\n{{store.name}}",
+      },
+      review_request: {
+        enabled: true,
+        subject: "How did you find your books from order #{{order.display_id}}?",
+        body: "Assalamu alaikum {{customer.first_name}},\n\nWe hope you are benefiting from your order #{{order.display_id}}. We would love to hear what you thought.\n\nPlease write a short review:\n{{review.links}}\n\nIf you can, simply reply to this email with a photo of your purchase. It means a lot to a small shop and helps other readers.\n\nJazakAllahu khayran,\n{{store.name}}",
       },
       customer_welcome: {
         enabled: true,

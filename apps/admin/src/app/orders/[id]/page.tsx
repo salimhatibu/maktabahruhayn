@@ -36,7 +36,7 @@ type Order = {
   items: Item[]
   payments: { id: string; provider: string; status: string; amount: number; reference: string | null }[]
   shipments: { id: string; tracking_number: string | null; tracking_url: string | null; created_at: string }[]
-  notifications: { event: "order_placed" | "order_completed"; status: "sending" | "sent" | "failed" }[]
+  notifications: { event: "order_placed" | "order_completed" | "review_request"; status: "sending" | "sent" | "failed" }[]
 }
 
 const STATUS_COLORS: Record<string, "green" | "orange" | "red" | "grey"> = {
@@ -246,12 +246,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           >
             Delete order
           </Button>
-          {!isCancelled && order.fulfillment_status !== "shipped" && order.fulfillment_status !== "delivered" && (
-            <Button size="small" variant="secondary" disabled={saving} onClick={() => update({ fulfillment_status: "shipped" })}>
-              Mark shipped
-            </Button>
-          )}
-          {!isCancelled && order.fulfillment_status === "shipped" && (
+          {!isCancelled && order.fulfillment_status !== "delivered" && (
             <Button size="small" variant="secondary" disabled={saving} onClick={() => update({ fulfillment_status: "delivered" })}>
               Mark delivered
             </Button>
@@ -363,7 +358,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 size="small"
                 disabled={!tracking.trim() || saving}
                 onClick={() => {
-                  void update({ tracking_number: tracking.trim(), fulfillment_status: "shipped" })
+                  void update({ tracking_number: tracking.trim() })
                   setTracking("")
                 }}
               >
@@ -381,7 +376,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             <Heading level="h2">Order emails</Heading>
             {order.notifications.length ? order.notifications.map((notification) => (
               <div key={notification.event} className="flex items-center justify-between gap-2">
-                <Text size="small">{notification.event === "order_placed" ? "Confirmation" : "Completion"}: {notification.status}</Text>
+                <Text size="small">{{ order_placed: "Confirmation", order_completed: "Completion", review_request: "Review request" }[notification.event]}: {notification.status}</Text>
                 {notification.status === "failed" || notification.status === "sending" ? (
                   <Button size="small" variant="secondary" disabled={saving} onClick={() => update({ retry_notification: notification.event })}>
                     Retry
