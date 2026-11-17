@@ -3760,6 +3760,64 @@ input[type="radio"] {
   grid-column: 2 / -1;
 }
 
+.choice-stack {
+  cursor: default;
+}
+
+.choice-stack .choice-label {
+  cursor: pointer;
+}
+
+.choice-extra {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.mpesa-payment-details {
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+}
+
+.mpesa-payment-details dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0.65rem 0 0;
+}
+
+.mpesa-payment-details dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.mpesa-payment-details dd {
+  margin: 0.2rem 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mpesa-payment-details p {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+}
+
+.mpesa-recipient-warning {
+  font-weight: 600;
+}
+
+.mpesa-confirmation-label {
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .mpesa-payment-details dl {
+    grid-template-columns: 1fr;
+  }
+}
+
 .choice:not(:has(input:checked)) .choice-extra {
   display: none;
 }

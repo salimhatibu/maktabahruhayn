@@ -289,43 +289,61 @@ export function DeliveryPaymentForm({
         <legend>Payment</legend>
         {payments.length ? (
           payments.map((payment) => (
-            <label key={payment.id} className="choice choice-stack">
+            <div key={payment.id} className="choice choice-stack">
               <input
+                id={`payment-${payment.id}`}
                 type="radio"
                 name="payment_provider"
                 value={payment.id}
                 checked={providerId === payment.id}
                 onChange={() => setProviderId(payment.id)}
+                aria-describedby={`payment-hint-${payment.id}`}
                 required
               />
-              <span className="choice-label">{payment.label}</span>
-              <span className="choice-hint">{payment.hint}</span>
+              <label htmlFor={`payment-${payment.id}`} className="choice-label">{payment.label}</label>
+              <span id={`payment-hint-${payment.id}`} className="choice-hint">{payment.hint}</span>
               {payment.id === "manual_mpesa" && providerId === payment.id ? (
-                <span className="choice-extra">
-                  <strong>Send payment to</strong>
-                  {paymentRecipientName ? <span>{paymentRecipientName}</span> : null}
-                  {paymentRecipientPhone ? <span>{paymentRecipientPhone}</span> : null}
-                  {!paymentRecipientName || !paymentRecipientPhone ? (
-                    <small>M-Pesa recipient details are not fully configured. Please contact us before paying.</small>
-                  ) : null}
-                  <strong>Confirmation message</strong>
+                <div className="choice-extra">
+                  <div className="mpesa-payment-details">
+                    <strong>Send payment to</strong>
+                    <dl>
+                      {paymentRecipientName ? (
+                        <div><dt>Recipient</dt><dd>{paymentRecipientName}</dd></div>
+                      ) : null}
+                      {paymentRecipientPhone ? (
+                        <div><dt>M-Pesa number</dt><dd>{paymentRecipientPhone}</dd></div>
+                      ) : null}
+                      <div>
+                        <dt>Amount to pay</dt>
+                        <dd>{total === null ? "Choose delivery" : formatMoney(Math.ceil(total), currency)}</dd>
+                      </div>
+                    </dl>
+                    <p>
+                      {total === null
+                        ? "Choose a delivery option before paying."
+                        : "Pay this amount in your M-Pesa app before submitting your confirmation message."}
+                    </p>
+                    {!paymentRecipientName || !paymentRecipientPhone ? (
+                      <p className="mpesa-recipient-warning">
+                        M-Pesa recipient details are not fully configured. Please contact us before paying.
+                      </p>
+                    ) : null}
+                  </div>
+                  <label htmlFor="mpesa-confirmation" className="mpesa-confirmation-label">Confirmation message</label>
                   <textarea
+                    id="mpesa-confirmation"
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
                     rows={5}
                     maxLength={1000}
                     required
                     placeholder="Paste the full M-Pesa message, including the transaction code"
-                    aria-label="M-Pesa confirmation message"
+                    aria-describedby="mpesa-confirmation-hint"
                   />
-                  <small>
-                    {total === null
-                      ? "Choose a delivery option before paying."
-                      : `Pay exactly ${formatMoney(Math.ceil(total), currency)} in your M-Pesa app first.`} Your order is created after staff verifies payment.
-                  </small>
-                </span>
+                  <small id="mpesa-confirmation-hint">Your order is created after staff verifies payment.</small>
+                </div>
               ) : null}
-            </label>
+            </div>
           ))
         ) : (
           <p className="muted">No payment methods are configured for this region.</p>
