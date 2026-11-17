@@ -179,7 +179,7 @@ export async function placeOrder(db: D1, input: PlaceOrderInput): Promise<PlaceO
             subtotal_minor, discount_minor, shipping_minor, tax_minor, total_minor,
             status, payment_status, shipping_address, billing_address, shipping_method,
             promotion_code, gift_note)
-         VALUES (?1, (SELECT MAX(last_display_id + 1, 1000) FROM order_display_sequence WHERE id = 1),
+         VALUES (?1, (SELECT MAX(COALESCE(MAX(display_id), 999) + 1, 1000) FROM "order"),
                  ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'pending', ?10, ?11, ?12, ?13, ?14, ?15)`
       )
       .bind(
@@ -369,8 +369,7 @@ export async function finalizePaidCart(
       .prepare(`SELECT display_id FROM "order" WHERE id = ?1`)
       .bind(cart.completedOrderId)
       .first<{ display_id: number }>()
-    if (!order) return { ok: false, reason: "cart_not_found", detail: "The completed order was deleted." }
-    return { ok: true, orderId: cart.completedOrderId, displayId: Number(order.display_id), replayed: true }
+    return { ok: true, orderId: cart.completedOrderId, displayId: Number(order?.display_id), replayed: true }
   }
 
   const attempt = await db

@@ -47,10 +47,6 @@
 		//   wrangler secret put DARAJA_PASSKEY
 		//   wrangler secret put DARAJA_CALLBACK_TOKEN   (16+ random chars: openssl rand -hex 24)
 		//   wrangler secret put SHIPPO_API_KEY
-		//   wrangler secret put EMAIL_API_URL
-		//   wrangler secret put EMAIL_API_KEY
-		// Set EMAIL_API_URL and EMAIL_API_KEY on both storefront and admin for
-		// transactional order emails. SMTP_FROM may be set as a Worker variable.
 		// A provider with no credentials is simply not offered at checkout.
 		// The callback token is appended to DARAJA_CALLBACK_URL automatically and
 		// checked on every callback; without it M-Pesa is not offered, because

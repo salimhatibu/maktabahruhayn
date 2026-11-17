@@ -36,7 +36,6 @@ import { db } from "./db"
 import { convertFromBase } from "./pricing"
 import { shippo, shippoConfig, stripe, stripeConfig } from "./payments"
 import { currentRegion } from "./region-context"
-import { notifyConfirmedOrder } from "./order-notifications"
 
 /**
  * The shopping cart, stored in D1.
@@ -411,14 +410,13 @@ export async function listShippingOptions(id: string): Promise<ShippingOption[]>
     .map((option) => ({
       id: option.id,
       name: option.free ? `${option.name} (free)` : option.name,
-      amount: row.totals.freeShipping ? 0 : toMajor(option.amountMinor),
+      amount: toMajor(option.amountMinor),
       price_type: "flat",
     }))
   // Nothing set up for this destination: offer standard delivery at the
   // admin's fallback rate, so a shopper is never left with no way to check out.
   if (!flat.length) {
-    const fallback = await standardDelivery(database, row)
-    flat.push(row.totals.freeShipping ? { ...fallback, amount: 0 } : fallback)
+    flat.push(await standardDelivery(database, row))
   }
 
   // Live courier rates, when Shippo is configured and we have somewhere to
@@ -454,9 +452,7 @@ export async function listShippingOptions(id: string): Promise<ShippingOption[]>
       name: `${rate.provider} ${rate.service}${rate.estimatedDays ? ` (${rate.estimatedDays} days)` : ""}`,
       // Shippo quotes in its own currency; the cart charges in the shopper's.
       amount:
-        row.totals.freeShipping
-          ? 0
-          : rate.currency.toLowerCase() === row.currency
+        rate.currency.toLowerCase() === row.currency
           ? rate.amount
           : await convertFromBase(rate.amount, row.currency),
       price_type: "calculated",
@@ -635,8 +631,8 @@ export async function manualMpesaStatus(): Promise<
     return { kind: "missing" }
   }
   if (cart.completedOrderId) {
-    const result = await orderPlaced(cart.completedOrderId)
-    return result.type === "order" ? { kind: "done", orderId: result.orderId } : { kind: "missing" }
+    await orderPlaced(cart.completedOrderId)
+    return { kind: "done", orderId: cart.completedOrderId }
   }
   const payment = await findLatestManualMpesaPayment(database, cart.id)
   if (!payment) {
@@ -687,10 +683,6 @@ export type CompleteResult =
 
 /** Hands the browser its order: the cart is spent, and the confirmation page may show this one. */
 async function orderPlaced(orderId: string): Promise<CompleteResult> {
-  const database = await db()
-  const order = await database.prepare(`SELECT id FROM "order" WHERE id = ?1`).bind(orderId).first<{ id: string }>()
-  if (!order) return { type: "error", message: "This order is no longer available. Please contact us." }
-  await notifyConfirmedOrder(database, orderId)
   const jar = await cookies()
   jar.delete(CART_COOKIE)
   jar.set(LAST_ORDER_COOKIE, orderId, {

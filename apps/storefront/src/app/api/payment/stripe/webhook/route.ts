@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server"
 import { finalizePaidCart, settlePayment, stripe } from "@maktabah/db"
 import { db } from "@/lib/db"
 import { stripeConfig } from "@/lib/payments"
-import { notifyConfirmedOrder } from "@/lib/order-notifications"
 
 /**
  * Stripe webhook.
@@ -62,8 +61,6 @@ export async function POST(request: NextRequest) {
         if (result.reason === "conflict") {
           return NextResponse.json({ error: "Busy, retry." }, { status: 500 })
         }
-      } else {
-        await notifyConfirmedOrder(database, result.orderId)
       }
     }
   }

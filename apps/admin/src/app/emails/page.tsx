@@ -7,7 +7,7 @@ import { ErrorNote, Field, PageHeader, Section } from "@/components/kit"
 import { RichEditor } from "@/components/rich-editor"
 import { api, dateTime, useApi, useSettings } from "@/lib/api"
 
-type TemplateKey = "order_placed" | "order_completed" | "order_shipped" | "order_delivered" | "customer_welcome" | "abandoned_cart" | "newsletter_welcome"
+type TemplateKey = "order_placed" | "order_shipped" | "order_delivered" | "customer_welcome" | "abandoned_cart" | "newsletter_welcome"
 type Template = { subject: string; body: string; enabled: boolean }
 type EmailSettings = {
   fromName: string
@@ -19,7 +19,6 @@ type EmailSettings = {
 
 const LABELS: Record<TemplateKey, string> = {
   order_placed: "Order confirmation",
-  order_completed: "Order completed",
   order_shipped: "Order shipped",
   order_delivered: "Order delivered",
   customer_welcome: "Welcome (new account)",

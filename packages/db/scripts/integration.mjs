@@ -51,15 +51,6 @@ await esbuild.build({
   logLevel: "warning",
 })
 const lib = await import(path.join(work, "db.mjs"))
-await esbuild.build({
-  entryPoints: [path.join(root, "apps/storefront/src/lib/checkout-total.ts")],
-  bundle: true,
-  format: "esm",
-  platform: "neutral",
-  outfile: path.join(work, "checkout-total.mjs"),
-  logLevel: "warning",
-})
-const { checkoutTotal } = await import(path.join(work, "checkout-total.mjs"))
 
 const proxy = await getPlatformProxy({ configPath: path.join(work, "wrangler.jsonc"), persist: { path: path.join(work, "state/v3") } })
 const db = proxy.env.DB
@@ -126,66 +117,6 @@ await test("ids are unique, sortable and not predictable from Math.random", asyn
 })
 
 /* ------------------------------------------------------------- cart */
-await test("checkout total includes the selected delivery price and handles discounts", async () => {
-  assert.equal(checkoutTotal(3000, 0, 0, 500), 3500)
-  assert.equal(checkoutTotal(3000, 100, 0, 650), 3550)
-  assert.equal(checkoutTotal(19.99, 2.5, 0, 4.99), 22.48)
-  assert.equal(checkoutTotal(3000, 0, 0, 0), 3000)
-  assert.equal(checkoutTotal(3000, 0, 0, null), null)
-})
-
-await test("order notifications are logged, deduplicated and retry failed sends", async () => {
-  const id = "order_notification_regression"
-  await db.prepare(
-    `INSERT INTO "order" (id, display_id, email, currency_code, subtotal_minor, total_minor, shipping_address)
-     VALUES (?1, 900002, 'shopper@example.com', 'kes', 350000, 350000, '{"first_name":"A"}')`
-  ).bind(id).run()
-  const config = { endpoint: "https://example.invalid/emails", token: "test", storeUrl: "https://example.invalid" }
-  const originalFetch = globalThis.fetch
-  let sends = 0
-  try {
-    globalThis.fetch = async (_url, request) => {
-      sends++
-      const body = JSON.parse(request.body)
-      assert.deepEqual(body.to, ["shopper@example.com"])
-      assert.match(body.subject, /900002/)
-      return new Response(JSON.stringify({ id: "provider-id" }), { status: 200 })
-    }
-    assert.equal((await lib.notifyOrder(db, id, "order_placed", {})).ok, false)
-    assert.equal((await lib.notifyOrder(db, id, "order_placed", config)).ok, true)
-    assert.equal((await lib.notifyOrder(db, id, "order_placed", config)).ok, true)
-    assert.equal(sends, 1)
-    assert.equal((await lib.notifyOrder(db, id, "order_completed", config)).ok, true)
-    assert.equal(sends, 2)
-    assert.equal((await one(`SELECT COUNT(*) AS n FROM email_log WHERE recipient = 'shopper@example.com' AND template IN ('order_placed', 'order_completed')`)).n, 3)
-    await db.prepare(`DELETE FROM "order" WHERE id = ?1`).bind(id).run()
-    assert.equal((await one(`SELECT COUNT(*) AS n FROM order_notification WHERE order_id = ?1`, id)).n, 0)
-  } finally {
-    globalThis.fetch = originalFetch
-  }
-})
-await test("deleting an order removes its payment without reusing its number or replaying the cart", async () => {
-  const place = async () => {
-    const cartId = await cartWith([[A.variant_id, 1]])
-    const result = await lib.placeOrder(db, {
-      cartId,
-      idempotencyKey: lib.orderKeyForCart(cartId),
-      email: "shopper@example.com",
-      payment: { provider: "manual", status: "captured" },
-    })
-    assert.equal(result.ok, true)
-    return { ...result, cartId }
-  }
-  const first = await place()
-  await db.prepare(`DELETE FROM "order" WHERE id = ?1`).bind(first.orderId).run()
-  assert.equal((await one(`SELECT COUNT(*) AS n FROM payment WHERE order_id = ?1`, first.orderId)).n, 0)
-  const replay = await lib.finalizePaidCart(db, {
-    cartId: first.cartId, provider: "manual", reference: "deleted", paidMinor: 0, currency: "usd",
-  })
-  assert.equal(replay.ok, false)
-  const second = await place()
-  assert.ok(second.displayId > first.displayId)
-})
 await test("a published, priced edition goes in the cart at its price", async () => {
   const id = await cartWith([[A.variant_id, 2]])
   const cart = await lib.getCart(db, id)
@@ -357,15 +288,6 @@ await test("promo codes match regardless of case", async () => {
   assert.equal(await lib.applyPromotion(db, id, "  save10 "), true)
   const cart = await lib.getCart(db, id)
   assert.ok(cart.totals.discountMinor > 0)
-})
-await test("free-shipping promotions waive the selected delivery rate", async () => {
-  await db.prepare(`INSERT INTO promotion (id, code, type, value, is_active) VALUES ('promo_free_delivery', 'FREEDELIVERY', 'free_shipping', 0, 1)`).run()
-  const id = await cartWith([[A.variant_id, 1]])
-  assert.equal(await lib.applyPromotion(db, id, "FREEDELIVERY"), true)
-  const cart = await lib.getCart(db, id)
-  assert.equal(cart.totals.freeShipping, true)
-  assert.equal(cart.totals.shippingMinor, 0)
-  assert.equal(cart.totals.totalMinor, cart.totals.itemSubtotalMinor)
 })
 
 /* ------------------------------------------------------------- payments */

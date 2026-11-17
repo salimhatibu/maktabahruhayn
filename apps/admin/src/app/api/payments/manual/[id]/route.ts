@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { finalizePaidCart, notifyOrder } from "@maktabah/db"
+import { finalizePaidCart } from "@maktabah/db"
 import { db } from "@/lib/db"
 
 type ManualPayment = {
@@ -112,11 +112,5 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       { status: 409 }
     )
   }
-  const notification = await notifyOrder(database, result.orderId, "order_placed", {
-    endpoint: process.env.EMAIL_API_URL,
-    token: process.env.EMAIL_API_KEY,
-    from: process.env.SMTP_FROM,
-    storeUrl: process.env.STOREFRONT_URL,
-  })
-  return NextResponse.json({ id, status: "verified", orderId: result.orderId, displayId: result.displayId, notificationError: notification.error })
+  return NextResponse.json({ id, status: "verified", orderId: result.orderId, displayId: result.displayId })
 }

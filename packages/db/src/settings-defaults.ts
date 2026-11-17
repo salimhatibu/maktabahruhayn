@@ -11,8 +11,6 @@ export type BusinessSettings = {
   tagline: string;
   email: string;
   phone: string;
-  mpesaRecipientName: string;
-  mpesaRecipientPhone: string;
   whatsapp: string;
   address: string;
   instagram: string;
@@ -78,7 +76,6 @@ export type EmailSettings = {
   replyTo: string;
   templates: Record<
     | "order_placed"
-    | "order_completed"
     | "order_shipped"
     | "order_delivered"
     | "customer_welcome"
@@ -174,8 +171,6 @@ export const DEFAULT_SETTINGS: SettingsMap = {
       "Classical Islamic books, multi-volume collections, and verified editions, shipped from Nairobi.",
     email: "",
     phone: "",
-    mpesaRecipientName: "",
-    mpesaRecipientPhone: "",
     whatsapp: "",
     address: "Nairobi, Kenya",
     instagram: "",
@@ -376,11 +371,6 @@ export const DEFAULT_SETTINGS: SettingsMap = {
         subject: "Your order #{{order.display_id}} is confirmed",
         body: "Assalamu alaikum {{customer.first_name}},\n\nJazakAllahu khayran for your order #{{order.display_id}}.\n\n{{order.items}}\n\nTotal: {{order.total}}\n\nWe'll email you again when it ships. You can check its status any time at {{store.url}}/order-status.\n\n{{store.name}}",
       },
-      order_completed: {
-        enabled: true,
-        subject: "Your order #{{order.display_id}} is complete",
-        body: "Assalamu alaikum {{customer.first_name}},\n\nYour order #{{order.display_id}} is complete. JazakAllahu khayran for shopping with us.\n\n{{store.name}}",
-      },
       order_shipped: {
         enabled: true,
         subject: "Order #{{order.display_id}} has shipped",
@@ -420,14 +410,6 @@ export function withDefaults<K extends SettingsKey>(
   const base = DEFAULT_SETTINGS[key];
   if (!saved || typeof saved !== "object") {
     return base;
-  }
-  if (key === "email") {
-    const email = saved as Partial<EmailSettings>;
-    return {
-      ...DEFAULT_SETTINGS.email,
-      ...email,
-      templates: { ...DEFAULT_SETTINGS.email.templates, ...email.templates },
-    } as SettingsMap[K];
   }
   return { ...base, ...(saved as object) } as SettingsMap[K];
 }

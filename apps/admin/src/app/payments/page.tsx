@@ -66,12 +66,11 @@ const PaymentsPage = () => {
     }
     setReviewing(submission.id)
     try {
-      const result = await api<{ displayId?: number; notificationError?: string }>(`/api/payments/manual/${submission.id}`, {
+      const result = await api<{ displayId?: number }>(`/api/payments/manual/${submission.id}`, {
         method: "POST",
         json: { action },
       })
       toast.success(action === "verify" ? `Payment verified. Order #${result.displayId} created.` : "Submission rejected.")
-      if (result.notificationError) toast.error(`Order email failed: ${result.notificationError}`)
       payments.reload()
     } catch (e) {
       toast.error((e as Error).message)

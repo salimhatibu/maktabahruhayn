@@ -15,7 +15,6 @@ import { formatMoney } from "@/lib/format"
 import { AddressFields, type AddressValue, type CountryOption } from "@/components/address-fields"
 import { StripePay } from "./stripe-pay"
 import { callAction } from "@/lib/stale-action"
-import { useShippingSelection } from "./shipping-selection"
 
 const initial: FormState = { error: null }
 
@@ -134,21 +133,21 @@ export function DeliveryPaymentForm({
   options,
   payments,
   currency,
-  paymentRecipientName,
-  paymentRecipientPhone,
+  manualPaymentAmount,
+  selectedOptionId,
   preferredProvider,
   manualPaymentPending,
 }: {
   options: ShippingOption[]
   payments: PaymentChoice[]
   currency: string
-  paymentRecipientName: string
-  paymentRecipientPhone: string
+  manualPaymentAmount: number
+  selectedOptionId?: string
   preferredProvider?: string | null
   manualPaymentPending: boolean
 }) {
   const router = useRouter()
-  const { optionId, setOptionId, total } = useShippingSelection()
+  const [optionId, setOptionId] = useState(selectedOptionId || options[0]?.id || "")
   const [providerId, setProviderId] = useState(
     (preferredProvider && payments.some((p) => p.id === preferredProvider) ? preferredProvider : null) || payments[0]?.id || ""
   )
@@ -302,12 +301,6 @@ export function DeliveryPaymentForm({
               <span className="choice-hint">{payment.hint}</span>
               {payment.id === "manual_mpesa" && providerId === payment.id ? (
                 <span className="choice-extra">
-                  <strong>Send payment to</strong>
-                  {paymentRecipientName ? <span>{paymentRecipientName}</span> : null}
-                  {paymentRecipientPhone ? <span>{paymentRecipientPhone}</span> : null}
-                  {!paymentRecipientName || !paymentRecipientPhone ? (
-                    <small>M-Pesa recipient details are not fully configured. Please contact us before paying.</small>
-                  ) : null}
                   <strong>Confirmation message</strong>
                   <textarea
                     value={message}
@@ -319,9 +312,8 @@ export function DeliveryPaymentForm({
                     aria-label="M-Pesa confirmation message"
                   />
                   <small>
-                    {total === null
-                      ? "Choose a delivery option before paying."
-                      : `Pay exactly ${formatMoney(Math.ceil(total), currency)} in your M-Pesa app first.`} Your order is created after staff verifies payment.
+                    Pay exactly {formatMoney(manualPaymentAmount, currency)} in your M-Pesa app first. Your order is
+                    created after staff verifies payment.
                   </small>
                 </span>
               ) : null}
