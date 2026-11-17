@@ -4,6 +4,8 @@ import { FreeShippingMeter } from "@/components/order-summary"
 import { getCustomer, paymentPreference } from "@/lib/auth"
 import {
   getCart,
+  activeMpesaCheckout,
+  completedMpesaCheckout,
   hasUnresolvedManualMpesaPayment,
   listPaymentChoices,
   listShippingOptions,
@@ -14,7 +16,7 @@ import { countryName, formatMoney } from "@/lib/format"
 import { getFreeShipping } from "@/lib/catalogue"
 import { currentRegion, listShippingCountries } from "@/lib/region-context"
 import { getSiteConfig } from "@/lib/site-config"
-import { AddressForm, DeliveryPaymentForm } from "./forms"
+import { AddressForm, CompletedPaymentRedirect, DeliveryPaymentForm } from "./forms"
 import { CheckoutSummaryRows, ShippingSelection } from "./shipping-selection"
 import { findKenyaCounty } from "@maktabah/shared"
 
@@ -36,6 +38,7 @@ export default async function CheckoutPage({
   const summary = summarizeCart(cart)
 
   if (!cart || !summary?.items.length) {
+    if (await completedMpesaCheckout()) return <CompletedPaymentRedirect />
     return (
       <main className="wrap empty-state">
         <h1>Your cart is empty</h1>
@@ -53,11 +56,12 @@ export default async function CheckoutPage({
   const onDelivery = hasAddress && step !== "address"
   const currency = summary.currency
 
-  const [threshold, options, payments, manualPaymentPending] = await Promise.all([
+  const [threshold, options, payments, manualPaymentPending, mpesaPaymentPending] = await Promise.all([
     getFreeShipping(currency),
     onDelivery ? listShippingOptions(cart.id).catch(() => []) : Promise.resolve([]),
     onDelivery ? listPaymentChoices() : Promise.resolve([]),
     onDelivery ? hasUnresolvedManualMpesaPayment() : Promise.resolve(false),
+    onDelivery ? activeMpesaCheckout() : Promise.resolve(false),
   ])
 
   const shippingMethod = cart.shipping_methods?.[0]
@@ -88,14 +92,14 @@ export default async function CheckoutPage({
   const saved = savedAddresses[0]
   const preference = paymentPreference(customer)
   const preferredProvider =
-    preference.method === "mpesa" ? "manual_mpesa" : preference.method === "card" ? "pp_stripe_stripe" : null
+    preference.method === "mpesa" ? "pp_daraja_daraja" : null
 
   return (
     <main className="wrap checkout">
       <h1 className="serif-title page-title">Checkout</h1>
       {payment === "failed" ? (
         <p className="form-banner" role="alert">
-          Your card payment was not completed. Please try again or choose another method.
+          Your payment was not completed. Please try again.
         </p>
       ) : payment === "pending" ? (
         <p className="form-banner" role="status">
@@ -154,6 +158,8 @@ export default async function CheckoutPage({
                   paymentRecipientPhone={site.business.mpesaRecipientPhone}
                   preferredProvider={preferredProvider}
                   manualPaymentPending={manualPaymentPending}
+                  mpesaPaymentPending={mpesaPaymentPending}
+                  defaultPhone={address.phone || ""}
                 />
               </section>
             </>

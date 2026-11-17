@@ -41,7 +41,7 @@ const FAQ_CATEGORIES = [
     questions: [
       {
         q: "What payment methods do you accept?",
-        a: "We accept credit/debit cards (Visa, Mastercard, Amex) via Stripe, Apple Pay, Google Pay, and M-Pesa for customers in Kenya.",
+        a: "We accept M-Pesa payments in Kenya.",
       },
       {
         q: "How does M-Pesa payment work?",
@@ -49,11 +49,11 @@ const FAQ_CATEGORIES = [
       },
       {
         q: "Is my payment secure?",
-        a: "Absolutely. All card payments are processed through Stripe with 3D Secure verification. We never store your card details on our servers.",
+        a: "Your M-Pesa PIN is entered on your phone, never on our website.",
       },
       {
         q: "What currency will I be charged in?",
-        a: "You're charged in the currency shown at checkout, which is determined by your shipping country. You can change your region using the 'Ship to' selector in the header.",
+        a: "M-Pesa payments are charged in Kenyan shillings.",
       },
     ],
   },

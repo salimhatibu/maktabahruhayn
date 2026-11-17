@@ -2,39 +2,39 @@ import { cookies } from "next/headers"
 import {
   addLine as dbAddLine,
   applyPromotion as dbApplyPromotion,
+  beginMpesaCheckout,
+  cancelUnsentMpesaCheckout,
   CartError,
   convert,
   createCart,
-  finalizePaidCart,
+  finalizeMpesaCheckout,
   findLatestManualMpesaPayment,
   hasUnresolvedManualMpesaPayment as dbHasUnresolvedManualMpesaPayment,
   getCart as dbGetCart,
   getFxRates,
   getSettings,
   listShippingOptions as dbListShippingOptions,
-  findPendingPayment,
-  orderKeyForCart,
-  placeOrder,
-  recordPendingPayment,
+  latestMpesaCheckout,
+  markMpesaCheckoutSent,
   recordManualMpesaSubmission,
+  reviewMpesaCheckout,
   removeLine as dbRemoveLine,
   repriceCart,
   setCartFields,
-  shippingMethodFor,
+  setMpesaCheckoutAmount,
   STANDARD_SHIPPING_ID,
   toMajor,
   toMinor,
   updateLine as dbUpdateLine,
   type CartRow,
   type D1,
-  type FinalizeResult,
 } from "@maktabah/db"
 import { findKenyaCounty, resolveRegion } from "@maktabah/shared"
 import { getAuthToken } from "./auth"
-import { AFFILIATE_COOKIE, CART_COOKIE, LAST_ORDER_COOKIE, mediaUrl, stripePublishableKey } from "./config"
+import { AFFILIATE_COOKIE, CART_COOKIE, LAST_ORDER_COOKIE, mediaUrl } from "./config"
 import { db } from "./db"
 import { convertFromBase } from "./pricing"
-import { shippo, shippoConfig, stripe, stripeConfig } from "./payments"
+import { mpesa, mpesaConfig, shippo, shippoConfig } from "./payments"
 import { currentRegion } from "./region-context"
 import { notifyConfirmedOrder } from "./order-notifications"
 
@@ -531,17 +531,13 @@ function notReadyForPayment(cart: Cart): string | null {
 export type PaymentChoice = { id: string; label: string; hint: string }
 
 const PAYMENT_LABELS: Record<string, Omit<PaymentChoice, "id">> = {
+  pp_daraja_daraja: {
+    label: "M-Pesa",
+    hint: "Receive a payment prompt on your phone and enter your M-Pesa PIN.",
+  },
   manual_mpesa: {
     label: "M-Pesa",
     hint: "Pay using your M-Pesa app, then paste the confirmation message for manual verification.",
-  },
-  pp_stripe_stripe: {
-    label: "Credit / Debit Card, Apple Pay, Google Pay",
-    hint: "Secured by Stripe with 3D Secure.",
-  },
-  pp_system_default: {
-    label: "Test payment",
-    hint: "Development only. Places the order without charging anything.",
   },
 }
 
@@ -550,71 +546,96 @@ export async function listPaymentChoices(): Promise<PaymentChoice[]> {
   const [region, cart] = await Promise.all([currentRegion(), getCart()])
   const currency = cart?.currency_code || region.currency
   const ids = [
-    ...(region.mpesa && currency.toLowerCase() === "kes" ? ["manual_mpesa"] : []),
-    ...(stripePublishableKey && stripeConfig() ? ["pp_stripe_stripe"] : []),
-    ...(process.env.NODE_ENV === "production" ? [] : ["pp_system_default"]),
+    ...(region.mpesa && currency.toLowerCase() === "kes" && mpesaConfig() ? ["pp_daraja_daraja"] : []),
   ]
   return ids.map((id) => ({ id, ...PAYMENT_LABELS[id] }))
 }
 
-export type PaymentSessionInput = {
-  providerId: string
-  data?: Record<string, unknown>
-  restart?: boolean
+export async function activeMpesaCheckout() {
+  const id = await cartId()
+  if (!id) return false
+  const attempt = await latestMpesaCheckout(await db(), id)
+  return Boolean(attempt && ["starting", "pending", "confirmed", "review"].includes(attempt.status))
 }
 
-/**
- * Starts a payment with the chosen provider.
- *
- * Stripe returns a client secret for the card form to confirm.
- * Neither creates the order - that happens once the money is confirmed, so a
- * failed payment never leaves an order behind.
- */
-export async function startPaymentSession(input: PaymentSessionInput): Promise<PaymentSession> {
-  const cart = await ensureCart()
+export async function completedMpesaCheckout() {
+  const id = await cartId()
+  if (!id) return false
   const database = await db()
-  const problem = notReadyForPayment(cart)
-  if (problem) {
-    throw new CartError(problem)
-  }
-  const totalMinor = toMinor(cart.total || 0)
-  const currency = cart.currency_code || "usd"
+  const [cart, attempt] = await Promise.all([dbGetCart(database, id), latestMpesaCheckout(database, id)])
+  return Boolean(cart?.completedOrderId && attempt?.status === "confirmed")
+}
 
-  if (input.providerId === "pp_system_default") {
-    return { id: "test", provider_id: input.providerId, status: "pending", data: {} }
+export async function startMpesaCheckout(phone: string) {
+  const config = mpesaConfig()
+  if (!config) throw new CartError("M-Pesa is unavailable right now.")
+  if (!mpesa.isKenyanMobile(phone)) throw new CartError("Enter a valid Kenyan M-Pesa phone number.")
+  const id = await cartId()
+  if (!id) throw new CartError("Your cart has expired. Please add your books again.")
+  const database = await db()
+  const attempt = await beginMpesaCheckout(database, id, phone)
+  if (!attempt) throw new CartError("A payment is already in progress for this cart. Please contact us before trying again.")
+
+  let amountMinor: number
+  try {
+    const row = await dbGetCart(database, id)
+    if (!row || row.currency !== "kes") throw new CartError("M-Pesa is only available for orders in Kenyan shillings.")
+    const problem = notReadyForPayment(toCart(row))
+    if (problem) throw new CartError(problem)
+    amountMinor = Math.ceil(row.totals.totalMinor / 100) * 100
+    await setMpesaCheckoutAmount(database, attempt.id, amountMinor)
+  } catch (error) {
+    await cancelUnsentMpesaCheckout(database, attempt.id)
+    throw error
   }
 
-  if (input.providerId === "pp_stripe_stripe") {
-    const config = stripeConfig()
-    if (!config) {
-      throw new CartError("Card payments are unavailable right now.")
-    }
-    const intent = await stripe.createPaymentIntent(config, {
-      amountMinor: totalMinor,
-      currency,
-      email: cart.email,
-      orderReference: cart.id,
-      // One intent per cart and amount: returning to checkout reuses it, and a
-      // cart that changed gets a new intent for the new total. Stripe refuses
-      // to replay one key with different parameters.
-      idempotencyKey: `cart_intent_${cart.id}_${totalMinor}_${currency}`,
+  const callbackUrl = new URL(config.callbackUrl)
+  callbackUrl.searchParams.set("attempt", attempt.id)
+  try {
+    const result = await mpesa.stkPush(config, {
+      phone: attempt.phone,
+      amount: amountMinor / 100,
+      accountReference: attempt.id.slice(-12),
+      description: "Maktabah Ruhayn order",
+      callbackUrl: callbackUrl.toString(),
     })
-    await recordPendingPayment(database, {
-      cartId: cart.id,
-      provider: "stripe",
-      reference: intent.id,
-      amountMinor: totalMinor,
-      currency,
-    })
-    return {
-      id: intent.id,
-      provider_id: input.providerId,
-      status: intent.status,
-      data: { client_secret: intent.clientSecret },
+    await markMpesaCheckoutSent(database, attempt.id, result.checkoutRequestId)
+  } catch (error) {
+    console.error("M-Pesa prompt outcome is uncertain", attempt.id, error)
+    if (error instanceof mpesa.MpesaRequestNotSentError) {
+      await cancelUnsentMpesaCheckout(database, attempt.id)
+      throw new CartError("M-Pesa is unavailable right now. Please try again later.")
     }
+    await reviewMpesaCheckout(database, attempt.id)
   }
+}
 
-  throw new CartError("That payment method is not available.")
+export async function mpesaCheckoutStatus(): Promise<
+  { kind: "pending" | "review" | "failed" | "missing" } | { kind: "done"; orderId: string }
+> {
+  const id = await cartId()
+  if (!id) return { kind: "missing" }
+  const database = await db()
+  const cart = await dbGetCart(database, id)
+  if (!cart) return { kind: "missing" }
+  if (cart.completedOrderId) {
+    const result = await orderPlaced(cart.completedOrderId)
+    return result.type === "order" ? { kind: "done", orderId: result.orderId } : { kind: "missing" }
+  }
+  const attempt = await latestMpesaCheckout(database, id)
+  if (!attempt) return { kind: "missing" }
+  if (attempt.status === "failed") return { kind: "failed" }
+  if (attempt.status === "review") return { kind: "review" }
+  if (attempt.status === "confirmed") {
+    const result = await finalizeMpesaCheckout(database, attempt.id)
+    if (result.ok) {
+      const completed = await orderPlaced(result.orderId)
+      return completed.type === "order" ? { kind: "done", orderId: completed.orderId } : { kind: "review" }
+    }
+    console.error("Confirmed M-Pesa checkout could not create an order", attempt.id, result)
+    return { kind: "review" }
+  }
+  return { kind: "pending" }
 }
 
 export async function hasUnresolvedManualMpesaPayment(): Promise<boolean> {
@@ -665,21 +686,6 @@ export async function submitManualMpesaPayment(message: string) {
   return recordManualMpesaSubmission(database, { cartId: cart.id, message })
 }
 
-/** Which provider this cart already started paying with, if any. */
-async function startedProvider(database: Awaited<ReturnType<typeof db>>, id: string): Promise<string> {
-  const [stripeAttempt, mpesaAttempt] = await Promise.all([
-    findPendingPayment(database, id, "stripe"),
-    findPendingPayment(database, id, "mpesa"),
-  ])
-  if (stripeAttempt) {
-    return "pp_stripe_stripe"
-  }
-  if (mpesaAttempt) {
-    return "pp_daraja_daraja"
-  }
-  return "pp_system_default"
-}
-
 export type CompleteResult =
   | { type: "order"; orderId: string }
   | { type: "pending"; message: string }
@@ -701,116 +707,6 @@ async function orderPlaced(orderId: string): Promise<CompleteResult> {
     maxAge: 60 * 60 * 24,
   })
   return { type: "order", orderId }
-}
-
-function failure(result: FinalizeResult & { ok: false }): CompleteResult {
-  if (result.reason === "out_of_stock") {
-    return { type: "error", message: `${result.detail || "An item"} just sold out.` }
-  }
-  if (result.reason === "amount_mismatch") {
-    // The cart changed after the payment was started; the shopper pays again
-    // for what is in it now, and the earlier payment is refunded.
-    console.error("Payment does not cover the cart", result.detail)
-    return { type: "error", message: "Your cart changed after you started paying. Please pay again for the updated total." }
-  }
-  if (result.reason === "conflict") {
-    return { type: "pending", message: "Your order is being placed." }
-  }
-  return { type: "error", message: "We could not place this order. Please try again." }
-}
-
-/**
- * Turns the cart into an order once its payment is confirmed.
- *
- * The provider's webhook or callback usually gets there first and places the
- * order on its own; then this just finds it. Otherwise it asks the provider
- * (never the browser) whether the money arrived, and finishes the order
- * through the same checks.
- */
-export async function completeCart(provider?: string): Promise<CompleteResult> {
-  const database = await db()
-  const id = await cartId()
-  const row = id ? await dbGetCart(database, id) : null
-  if (!row) {
-    return { type: "error", message: "Your cart has expired. Please add your books again." }
-  }
-  if (row.completedOrderId) {
-    return orderPlaced(row.completedOrderId)
-  }
-  // Signed in after the cart was started? The order still goes to the account.
-  if (!row.customerId) {
-    await attachCartToCustomer()
-  }
-  const cart = toCart((await dbGetCart(database, row.id)) || row)
-
-  // When the caller does not say, the payment already started on this cart
-  // decides. Defaulting to the test payment here would place an unpaid order
-  // for a card or M-Pesa checkout.
-  const chosen = provider || (await startedProvider(database, cart.id))
-
-  if (chosen === "pp_system_default") {
-    // The test payment takes no money, so it must never run in production.
-    if (process.env.NODE_ENV === "production") {
-      return { type: "error", message: "Choose a payment method." }
-    }
-    const problem = notReadyForPayment(cart)
-    if (problem) {
-      return { type: "error", message: problem }
-    }
-    const result = await placeOrder(database, {
-      cartId: cart.id,
-      idempotencyKey: orderKeyForCart(cart.id),
-      email: cart.email || "",
-      payment: { provider: "manual", status: "captured" },
-      shippingMethod: await shippingMethodFor(database, row),
-    })
-    return result.ok ? orderPlaced(result.orderId) : failure(result)
-  }
-
-  if (chosen === "pp_daraja_daraja") {
-    const attempt = await findPendingPayment(database, cart.id, "mpesa")
-    if (!attempt?.reference) {
-      return { type: "error", message: "Start the M-Pesa payment first." }
-    }
-    if (attempt.status === "failed") {
-      return { type: "error", message: "The M-Pesa payment was not completed. Please try again." }
-    }
-    if (attempt.status !== "captured") {
-      // Safaricom has not called back yet; the checkout page keeps polling.
-      return { type: "pending", message: "Waiting for your M-Pesa confirmation." }
-    }
-    const result = await finalizePaidCart(database, {
-      cartId: cart.id,
-      provider: "mpesa",
-      reference: attempt.reference,
-      paidMinor: attempt.amountMinor,
-      currency: attempt.currency,
-    })
-    return result.ok ? orderPlaced(result.orderId) : failure(result)
-  }
-
-  if (chosen === "pp_stripe_stripe") {
-    const config = stripeConfig()
-    const attempt = await findPendingPayment(database, cart.id, "stripe")
-    if (!config || !attempt?.reference) {
-      return { type: "error", message: "Start the card payment first." }
-    }
-    // Ask Stripe directly rather than trusting the browser's word for it.
-    const intent = await stripe.retrievePaymentIntent(config, attempt.reference)
-    if (!stripe.intentIsPaid(intent.status)) {
-      return { type: "pending", message: "Your card payment is still being confirmed." }
-    }
-    const result = await finalizePaidCart(database, {
-      cartId: cart.id,
-      provider: "stripe",
-      reference: intent.id,
-      paidMinor: intent.amount,
-      currency: intent.currency,
-    })
-    return result.ok ? orderPlaced(result.orderId) : failure(result)
-  }
-
-  return { type: "error", message: "That payment method is not available." }
 }
 
 export async function validateAddress(address: {

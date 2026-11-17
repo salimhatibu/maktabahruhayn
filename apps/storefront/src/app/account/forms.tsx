@@ -82,7 +82,7 @@ export function LoginForm({ next }: { next: string }) {
   )
 }
 
-export type PaymentChoiceKey = "mpesa" | "card" | "none"
+export type PaymentChoiceKey = "mpesa" | "none"
 
 function PaymentPreferenceFields({
   method,
@@ -99,7 +99,6 @@ function PaymentPreferenceFields({
         {(
           [
             ["mpesa", "M-Pesa", "Approve with your PIN on your phone (Kenya)."],
-            ["card", "Card", "Visa, Mastercard, Apple Pay or Google Pay."],
             ["none", "Decide at checkout", "Choose each time you order."],
           ] as const
         ).map(([value, title, body]) => (
@@ -121,11 +120,6 @@ function PaymentPreferenceFields({
           required
           hint="We send the payment request (STK push) to this number."
         />
-      ) : null}
-      {choice === "card" ? (
-        <p className="field-hint secure-note">
-          Card details are entered securely with Stripe when you pay. Maktabah Ruhayn never sees or stores your card number.
-        </p>
       ) : null}
     </div>
   )
@@ -190,7 +184,7 @@ export function RegisterForm({
             <small>We&apos;ll have it ready at checkout.</small>
           </span>
         </label>
-        {addPayment ? <PaymentPreferenceFields method={defaultCountry.toUpperCase() === "KE" ? "mpesa" : "card"} mpesaPhone={null} /> : null}
+        {addPayment ? <PaymentPreferenceFields method="mpesa" mpesaPhone={null} /> : null}
       </div>
 
       <label className="check-row">

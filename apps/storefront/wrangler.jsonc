@@ -40,8 +40,6 @@
 		"SITE_URL": "https://maktabahruhayn.com",
 		// Payments and shipping. Only the non-secret half belongs here; the rest
 		// are Worker secrets:
-		//   wrangler secret put STRIPE_API_KEY
-		//   wrangler secret put STRIPE_WEBHOOK_SECRET
 		//   wrangler secret put DARAJA_CONSUMER_KEY
 		//   wrangler secret put DARAJA_CONSUMER_SECRET
 		//   wrangler secret put DARAJA_PASSKEY
@@ -56,7 +54,9 @@
 		// checked on every callback; without it M-Pesa is not offered, because
 		// its confirmations would be refused. Give the admin Worker the same one.
 		"DARAJA_SHORTCODE": "",
-		"DARAJA_ENVIRONMENT": "sandbox",
+		"DARAJA_TRANSACTION_TYPE": "CustomerBuyGoodsOnline",
+		"DARAJA_PARTY_B": "",
+		"DARAJA_ENVIRONMENT": "production",
 		// Safaricom posts here; the token guards it, since Daraja cannot sign.
 		"DARAJA_CALLBACK_URL": "https://maktabahruhayn.com/api/payment/mpesa/callback",
 		"SHIPPO_FROM_NAME": "Maktabah Ruhayn",

@@ -157,7 +157,7 @@ export default async function HomePage() {
               <PhoneIcon size={26} />
             </span>
             <h3>Flexible Payments</h3>
-            <p>Lipa na M-Pesa in Kenya, and cards, Apple Pay or Google Pay everywhere, in your own currency.</p>
+            <p>Pay securely with M-Pesa in Kenya.</p>
           </li>
           <li>
             <span className="why-arch" aria-hidden="true">

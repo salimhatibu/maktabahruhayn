@@ -17,8 +17,6 @@ export function siteUrl() {
   )
 }
 
-/** Read in the browser by the Stripe Elements form, so it stays build-time. */
-export const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
 
 export const LOCALE_COOKIE = "mr_locale"
 export const REGION_COOKIE = "mr_region"
