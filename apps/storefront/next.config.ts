@@ -37,6 +37,8 @@ if (process.env.DEPLOY_TARGET === "cloudflare") {
 }
 
 const nextConfig: NextConfig = {
+  // Review photos are downscaled in the browser; this leaves room for them.
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
   // A separate output folder lets a production build run without
   // overwriting a running dev server's .next (which breaks its chunks).
   distDir: process.env.NEXT_DIST_DIR || ".next",

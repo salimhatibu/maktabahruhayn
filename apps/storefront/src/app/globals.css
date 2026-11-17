@@ -5357,3 +5357,12 @@ input[type="radio"] {
   }
   .live-island:not(.is-ready) { opacity: 0; }
 }
+
+.review-photo {
+  display: block;
+  max-width: 220px;
+  max-height: 220px;
+  margin-top: 0.6rem;
+  border-radius: 8px;
+  object-fit: cover;
+}

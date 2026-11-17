@@ -479,6 +479,11 @@ export default async function BookPage({ params, searchParams }: Props) {
                     {new Date(r.created_at).toLocaleDateString("en", { dateStyle: "medium" })}
                   </p>
                   <p>{r.content}</p>
+                  {r.photo_url ? (
+                    <a href={r.photo_url} target="_blank" rel="noopener noreferrer">
+                      <img className="review-photo" src={r.photo_url} alt={`Photo from ${r.display_name}`} loading="lazy" />
+                    </a>
+                  ) : null}
                 </li>
               ))}
             </ul>

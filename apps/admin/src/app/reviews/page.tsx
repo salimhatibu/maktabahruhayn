@@ -14,26 +14,26 @@ type Review = {
   rating: number
   title: string | null
   content: string
-  status: "published" | "hidden"
+  status: "pending" | "approved" | "rejected"
+  photo_url: string | null
   verified_purchase: boolean
   created_at: string
 }
 
 const ReviewsPage = () => {
-  const [filter, setFilter] = useState<"all" | "published" | "hidden">("all")
+  const [filter, setFilter] = useState<"pending" | "approved" | "rejected" | "all">("pending")
   const { data, error, loading, reload } = useApi<{ reviews: Review[] }>(
-    `/api/reviews?limit=200${filter !== "all" ? `&status=${filter}` : ""}`
+    `/api/reviews?status=${filter}`
   )
   const products = useApi<{ products: { id: string; title: string }[] }>("/api/catalog?limit=200")
   const titles = useMemo(() => new Map((products.data?.products || []).map((p) => [p.id, p.title])), [products.data])
   const [busy, setBusy] = useState<string | null>(null)
 
-  const setStatus = async (r: Review) => {
-    const status = r.status === "published" ? "hidden" : "published"
+  const setStatus = async (r: Review, status: "approved" | "rejected") => {
     setBusy(r.id)
     try {
       await api(`/api/reviews/${r.id}`, { method: "POST", json: { status } })
-      toast.success(status === "hidden" ? "Review hidden" : "Review published")
+      toast.success(status === "rejected" ? "Review hidden" : "Review published")
       reload()
     } catch (e) {
       toast.error((e as Error).message)
@@ -46,7 +46,7 @@ const ReviewsPage = () => {
 
   return (
     <div>
-      <PageHeader icon={Star} tone="plum" title="Reviews" subtitle="Reviews publish immediately. Hide anything that breaks the review guidelines." />
+      <PageHeader icon={Star} tone="plum" title="Reviews" subtitle="New reviews wait here until you publish them. Hide anything that breaks the review guidelines." />
       <ErrorNote message={error} />
       <Section
         title="Customer reviews"
@@ -56,9 +56,10 @@ const ReviewsPage = () => {
             value={filter}
             onChange={setFilter}
             options={[
+              { value: "pending", label: "Awaiting approval" },
+              { value: "approved", label: "Published" },
+              { value: "rejected", label: "Hidden" },
               { value: "all", label: "All" },
-              { value: "published", label: "Published" },
-              { value: "hidden", label: "Hidden" },
             ]}
           />
         }
@@ -91,6 +92,11 @@ const ReviewsPage = () => {
                   <Text size="small" className="text-ui-fg-subtle mt-1 whitespace-normal">
                     {r.content}
                   </Text>
+                  {r.photo_url ? (
+                    <a href={r.photo_url} target="_blank" rel="noopener noreferrer">
+                      <img src={r.photo_url} alt="Customer photo" className="mt-2 h-24 w-24 rounded-md object-cover" />
+                    </a>
+                  ) : null}
                   <Text size="xsmall" className="text-ui-fg-muted mt-1">
                     {r.display_name} · {dateTime(r.created_at)}
                     {r.verified_purchase ? (
@@ -106,12 +112,23 @@ const ReviewsPage = () => {
                   </Link>
                 </Table.Cell>
                 <Table.Cell className="py-3">
-                  <StatusBadge color={r.status === "published" ? "green" : "grey"}>{r.status === "published" ? "Published" : "Hidden"}</StatusBadge>
+                  <StatusBadge color={r.status === "approved" ? "green" : r.status === "pending" ? "orange" : "grey"}>
+                    {r.status === "approved" ? "Published" : r.status === "pending" ? "Awaiting approval" : "Hidden"}
+                  </StatusBadge>
                 </Table.Cell>
                 <Table.Cell className="py-3 text-right">
-                  <Button size="small" variant="secondary" isLoading={busy === r.id} onClick={() => setStatus(r)}>
-                    {r.status === "published" ? "Hide" : "Publish"}
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    {r.status !== "approved" ? (
+                      <Button size="small" isLoading={busy === r.id} onClick={() => setStatus(r, "approved")}>
+                        Publish
+                      </Button>
+                    ) : null}
+                    {r.status !== "rejected" ? (
+                      <Button size="small" variant="secondary" isLoading={busy === r.id} onClick={() => setStatus(r, "rejected")}>
+                        Hide
+                      </Button>
+                    ) : null}
+                  </div>
                 </Table.Cell>
               </Table.Row>
             ))}

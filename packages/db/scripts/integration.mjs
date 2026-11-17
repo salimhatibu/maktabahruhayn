@@ -512,6 +512,16 @@ await test("review requests are sent once, three days after delivery", async () 
   }
 })
 
+await test("reviews stay hidden until approved and keep their photo", async () => {
+  const product = await one(`SELECT id FROM product WHERE status = 'published' LIMIT 1`)
+  const id = await lib.createReview(db, { productId: product.id, rating: 5, body: "A wonderful book to own.", photoUrl: "https://media.example.invalid/reviews/x.jpg" })
+  const photos = async () => (await lib.listReviews(db, product.id, 50)).reviews.filter((r) => r.id === id)
+  assert.equal((await photos()).length, 0)
+  await db.prepare(`UPDATE review SET status = 'approved' WHERE id = ?1`).bind(id).run()
+  assert.equal((await photos())[0].photoUrl, "https://media.example.invalid/reviews/x.jpg")
+  await db.prepare(`DELETE FROM review WHERE id = ?1`).bind(id).run()
+})
+
 await test("delivery towns are seeded under Nairobi and can be added and removed", async () => {
   assert.equal(await lib.findCountyTown(db, "nairobi", "  ruiru "), "Ruiru")
   assert.equal(await lib.findCountyTown(db, "mombasa", "Ruiru"), null)

@@ -28,6 +28,11 @@
 			// Next.js incremental cache (ISR) for revalidated pages.
 			"binding": "NEXT_INC_CACHE_R2_BUCKET",
 			"bucket_name": "maktabah-next-cache"
+		},
+		{
+			// Customers' review photos; the same bucket the admin uploads to.
+			"binding": "MEDIA",
+			"bucket_name": "maktabah-media"
 		}
 	],
 	// Runtime configuration. Wrangler copies these into process.env on each cold
@@ -38,6 +43,8 @@
 	"vars": {
 		// This Worker's own public origin.
 		"SITE_URL": "https://maktabahruhayn.com",
+		// Public hostname of the media bucket, where review photos are served.
+		"R2_PUBLIC_URL": "https://media.maktabahruhayn.com",
 		// Payments. Only the non-secret half belongs here; the rest
 		// are Worker secrets:
 		//   wrangler secret put DARAJA_CONSUMER_KEY

@@ -56,6 +56,7 @@ export type NewReview = {
   rating: number
   title?: string | null
   body: string
+  photoUrl?: string | null
 }
 
 /** Posts a review for moderation. Returns its id. */
@@ -63,8 +64,8 @@ export async function createReview(db: D1, input: NewReview): Promise<string> {
   const id = newId("rev")
   await db
     .prepare(
-      `INSERT INTO review (id, product_id, customer_id, author_name, rating, title, body, status)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending')`
+      `INSERT INTO review (id, product_id, customer_id, author_name, rating, title, body, photo_url, status)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending')`
     )
     .bind(
       id,
@@ -73,7 +74,8 @@ export async function createReview(db: D1, input: NewReview): Promise<string> {
       input.authorName?.slice(0, 80) ?? null,
       Math.min(Math.max(Math.round(input.rating), 1), 5),
       input.title?.trim().slice(0, 120) || null,
-      input.body.trim().slice(0, 4000)
+      input.body.trim().slice(0, 4000),
+      input.photoUrl ?? null
     )
     .run()
   return id

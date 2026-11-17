@@ -254,6 +254,7 @@ export async function listCatalogueReviews(
       rating: r.rating,
       title: r.title,
       content: r.body || "",
+      photo_url: r.photoUrl,
       verified_purchase: r.verifiedPurchase,
       created_at: r.createdAt,
     })),

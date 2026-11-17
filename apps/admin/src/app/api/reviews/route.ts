@@ -20,8 +20,11 @@ export async function GET(request: NextRequest) {
 
   const { results } = await (await db())
     .prepare(
-      `SELECT r.id, r.product_id, r.customer_id, r.author_name, r.rating, r.title, r.body,
-              r.status, r.created_at, p.title AS product_title
+      `SELECT r.id, r.product_id, r.customer_id, r.author_name, r.rating, r.title, r.body, r.photo_url,
+              r.status, r.created_at, p.title AS product_title,
+              EXISTS (SELECT 1 FROM "order" o JOIN order_item oi ON oi.order_id = o.id
+                        JOIN variant v ON v.id = oi.variant_id
+                       WHERE o.customer_id = r.customer_id AND v.product_id = r.product_id) AS verified
          FROM review r LEFT JOIN product p ON p.id = r.product_id
         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
         ORDER BY r.created_at DESC LIMIT 500`
@@ -38,7 +41,9 @@ export async function GET(request: NextRequest) {
       rating: row.rating,
       title: row.title,
       content: row.body,
+      photo_url: row.photo_url,
       status: row.status,
+      verified_purchase: row.verified === 1,
       created_at: row.created_at,
     })),
   })

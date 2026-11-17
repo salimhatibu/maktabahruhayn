@@ -13,6 +13,7 @@ export type ReviewRow = {
   rating: number
   title: string | null
   body: string | null
+  photoUrl: string | null
   createdAt: string
   verifiedPurchase: boolean
 }
@@ -55,7 +56,7 @@ export async function listReviews(db: D1, productId: string, limit = 10, offset 
       .prepare(
         // A review counts as verified when that customer has an order
         // containing a variant of this book.
-        `SELECT r.id, r.product_id, r.author_name, r.rating, r.title, r.body, r.created_at,
+        `SELECT r.id, r.product_id, r.author_name, r.rating, r.title, r.body, r.photo_url, r.created_at,
                 EXISTS (
                   SELECT 1 FROM "order" o
                     JOIN order_item oi ON oi.order_id = o.id
@@ -73,6 +74,7 @@ export async function listReviews(db: D1, productId: string, limit = 10, offset 
         rating: number
         title: string | null
         body: string | null
+        photo_url: string | null
         created_at: string
         verified: number
       }>(),
@@ -87,6 +89,7 @@ export async function listReviews(db: D1, productId: string, limit = 10, offset 
       rating: r.rating,
       title: r.title,
       body: r.body,
+      photoUrl: r.photo_url,
       createdAt: r.created_at,
       verifiedPurchase: r.verified === 1,
     })) satisfies ReviewRow[],

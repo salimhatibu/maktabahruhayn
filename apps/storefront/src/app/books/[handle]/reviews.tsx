@@ -2,10 +2,34 @@
 
 import { keep } from "@/lib/keep-form"
 import Link from "next/link"
-import { useActionState, useState } from "react"
+import { useActionState, useState, type ChangeEvent } from "react"
 import { submitReviewAction, type ReviewFormState } from "@/app/actions/account"
 
 const initial: ReviewFormState = { error: null }
+
+const MAX_SIDE = 1600
+
+/** Phone photos are several MB; scale them down in the browser before upload. */
+async function shrinkPhoto(event: ChangeEvent<HTMLInputElement>) {
+  const input = event.currentTarget
+  const file = input.files?.[0]
+  if (!file || !file.type.startsWith("image/")) return
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85))
+    if (!blob || blob.size >= file.size) return
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([blob], "photo.jpg", { type: "image/jpeg" }))
+    input.files = transfer.files
+  } catch {
+    // The original is uploaded as is; the server enforces its own limits.
+  }
+}
 
 export function WriteReview({
   productId,
@@ -70,6 +94,10 @@ export function WriteReview({
       <label>
         Your review
         <textarea name="content" rows={5} minLength={10} maxLength={4000} required />
+      </label>
+      <label>
+        Photo of your purchase (optional)
+        <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" onChange={shrinkPhoto} />
       </label>
       {state.error ? (
         <p className="form-error" role="alert">

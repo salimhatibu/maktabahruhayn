@@ -15,6 +15,7 @@ import {
   saveProfile,
 } from "@/lib/auth"
 import { attachCartToCustomer } from "@/lib/cart"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { createReview, subscribeNewsletter } from "@maktabah/db"
 import { db } from "@/lib/db"
 import { LIMITS, throttle } from "@/lib/rate-limit"
@@ -309,6 +310,34 @@ export async function setDefaultAddressAction(formData: FormData) {
 
 /* Reviews --------------------------------------------------------- */
 
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
+class PhotoError extends Error {}
+
+/** The bytes decide the type, never the browser's claim; SVG and the like are refused. */
+function sniffPhoto(bytes: Uint8Array): { type: string; ext: string } | null {
+  const ascii = (from: number, to: number) => String.fromCharCode(...bytes.slice(from, to))
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return { type: "image/jpeg", ext: "jpg" }
+  if (bytes[0] === 0x89 && ascii(1, 4) === "PNG") return { type: "image/png", ext: "png" }
+  if (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return { type: "image/webp", ext: "webp" }
+  return null
+}
+
+async function storeReviewPhoto(file: File): Promise<string> {
+  const { env } = await getCloudflareContext({ async: true })
+  const bucket = (env as unknown as {
+    MEDIA?: { put(key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown> }
+  }).MEDIA
+  const publicUrl = (process.env.R2_PUBLIC_URL || "").replace(/\/+$/, "")
+  if (!bucket || !publicUrl) throw new PhotoError("Photo uploads are not available right now. Please post without one.")
+  const body = await file.arrayBuffer()
+  const image = sniffPhoto(new Uint8Array(body.slice(0, 16)))
+  if (!image) throw new PhotoError("Please choose a JPEG, PNG or WebP photo.")
+  const key = `reviews/${crypto.randomUUID()}.${image.ext}`
+  await bucket.put(key, body, { httpMetadata: { contentType: image.type } })
+  return `${publicUrl}/${key}`
+}
+
 export type ReviewFormState = { error: string | null; done?: boolean }
 
 export async function submitReviewAction(_prev: ReviewFormState, formData: FormData): Promise<ReviewFormState> {
@@ -328,6 +357,10 @@ export async function submitReviewAction(_prev: ReviewFormState, formData: FormD
   }
   if (content.length > 4000) {
     return { error: "Please keep your review under 4,000 characters." }
+  }
+  const photo = formData.get("photo")
+  if (photo instanceof File && photo.size > MAX_PHOTO_BYTES) {
+    return { error: "Please choose a photo under 5MB." }
   }
   const customer = await getCustomer().catch(() => null)
   if (!customer) {
@@ -355,6 +388,7 @@ export async function submitReviewAction(_prev: ReviewFormState, formData: FormD
     if (previous) {
       return { error: "You have already reviewed this book. Thank you!" }
     }
+    const photoUrl = photo instanceof File && photo.size ? await storeReviewPhoto(photo) : null
     await createReview(database, {
       productId,
       customerId: customer.id,
@@ -362,8 +396,10 @@ export async function submitReviewAction(_prev: ReviewFormState, formData: FormD
       rating,
       title: String(formData.get("title") || "").trim().slice(0, 120) || null,
       body: content,
+      photoUrl,
     })
-  } catch {
+  } catch (error) {
+    if (error instanceof PhotoError) return { error: error.message }
     return { error: "We could not post your review." }
   }
   revalidatePath(`/books/${handle}`)

@@ -108,6 +108,7 @@ export type Review = {
   rating: number
   title: string | null
   content: string
+  photo_url: string | null
   verified_purchase: boolean
   created_at: string
 }
