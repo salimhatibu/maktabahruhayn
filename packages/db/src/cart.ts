@@ -27,6 +27,7 @@ export type CartTotals = {
   itemSubtotalMinor: number
   discountMinor: number
   shippingMinor: number
+  freeShipping: boolean
   taxMinor: number
   totalMinor: number
 }
@@ -187,6 +188,7 @@ export async function getCart(db: D1, cartId: string): Promise<CartRow | null> {
       itemSubtotalMinor,
       discountMinor: discount.minor,
       shippingMinor,
+      freeShipping: discount.freeShipping,
       taxMinor: 0,
       totalMinor: Math.max(itemSubtotalMinor - discount.minor + shippingMinor, 0),
     },

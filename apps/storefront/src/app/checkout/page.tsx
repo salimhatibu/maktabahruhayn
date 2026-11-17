@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { FreeShippingMeter, SummaryRows } from "@/components/order-summary"
+import { FreeShippingMeter } from "@/components/order-summary"
 import { getCustomer, paymentPreference } from "@/lib/auth"
 import {
   getCart,
@@ -13,7 +13,9 @@ import {
 import { countryName, formatMoney } from "@/lib/format"
 import { getFreeShipping } from "@/lib/catalogue"
 import { currentRegion, listShippingCountries } from "@/lib/region-context"
+import { getSiteConfig } from "@/lib/site-config"
 import { AddressForm, DeliveryPaymentForm } from "./forms"
+import { CheckoutSummaryRows, ShippingSelection } from "./shipping-selection"
 import { findKenyaCounty } from "@maktabah/shared"
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } }
@@ -23,12 +25,13 @@ export default async function CheckoutPage({
 }: {
   searchParams: Promise<{ step?: string; payment?: string }>
 }) {
-  const [{ step, payment }, cart, region, countries, customer] = await Promise.all([
+  const [{ step, payment }, cart, region, countries, customer, site] = await Promise.all([
     searchParams,
     getCart(),
     currentRegion(),
     Promise.resolve(listShippingCountries()),
     getCustomer().catch(() => null),
+    getSiteConfig(),
   ])
   const summary = summarizeCart(cart)
 
@@ -110,6 +113,13 @@ export default async function CheckoutPage({
         <li className={onDelivery ? "is-current" : ""}>2. Delivery &amp; Payment</li>
       </ol>
 
+      <ShippingSelection
+        options={onDelivery ? options : []}
+        selectedOptionId={shippingMethod?.shipping_option_id}
+        subtotal={summary.subtotal}
+        discount={cart.discount_total ?? 0}
+        tax={cart.tax_total ?? 0}
+      >
       <div className="cart-layout">
         <div className="cart-main">
           {onDelivery && address ? (
@@ -140,14 +150,8 @@ export default async function CheckoutPage({
                   options={options}
                   payments={payments}
                   currency={currency}
-                  manualPaymentAmount={Math.ceil(
-                    cart.total ??
-                      summary.subtotal +
-                        (cart.shipping_total ?? 0) +
-                        (cart.tax_total ?? 0) -
-                        (cart.discount_total ?? 0)
-                  )}
-                  selectedOptionId={shippingMethod?.shipping_option_id}
+                  paymentRecipientName={site.business.mpesaRecipientName}
+                  paymentRecipientPhone={site.business.mpesaRecipientPhone}
                   preferredProvider={preferredProvider}
                   manualPaymentPending={manualPaymentPending}
                 />
@@ -201,14 +205,12 @@ export default async function CheckoutPage({
               </p>
             ) : null}
             <FreeShippingMeter subtotal={summary.subtotal} threshold={threshold} currency={currency} />
-            <SummaryRows
+            <CheckoutSummaryRows
               count={summary.count}
               currency={currency}
               itemSubtotal={summary.subtotal}
-              shipping={shippingMethod ? cart.shipping_total : null}
-              tax={shippingMethod ? cart.tax_total : null}
-              discount={cart.discount_total}
-              total={shippingMethod ? cart.total : null}
+              tax={cart.tax_total ?? 0}
+              discount={cart.discount_total ?? 0}
             />
             <Link href="/cart" className="link-btn">
               Edit Cart
@@ -216,6 +218,7 @@ export default async function CheckoutPage({
           </section>
         </aside>
       </div>
+      </ShippingSelection>
     </main>
   )
 }

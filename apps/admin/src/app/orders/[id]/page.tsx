@@ -3,6 +3,7 @@
 import { PencilSquare, XMark } from "@medusajs/icons"
 import { Button, Container, Heading, Input, Label, Select, StatusBadge, Table, Text, toast } from "@medusajs/ui"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { use, useState } from "react"
 import { api, dateTime, money, useApi } from "@/lib/api"
 
@@ -35,6 +36,7 @@ type Order = {
   items: Item[]
   payments: { id: string; provider: string; status: string; amount: number; reference: string | null }[]
   shipments: { id: string; tracking_number: string | null; tracking_url: string | null; created_at: string }[]
+  notifications: { event: "order_placed" | "order_completed"; status: "sending" | "sent" | "failed" }[]
 }
 
 const STATUS_COLORS: Record<string, "green" | "orange" | "red" | "grey"> = {
@@ -131,6 +133,7 @@ function EditAddressModal({
 
 export default function OrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const router = useRouter()
   const { data, error, loading, reload } = useApi<{ order: Order }>(`/api/orders/${id}`)
   const [tracking, setTracking] = useState("")
   const [saving, setSaving] = useState(false)
@@ -142,8 +145,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const update = async (body: Record<string, unknown>) => {
     setSaving(true)
     try {
-      await api(`/api/orders/${id}`, { method: "POST", json: body })
+      const result = await api<{ notificationError?: string }>(`/api/orders/${id}`, { method: "POST", json: body })
       toast.success("Order updated")
+      if (result.notificationError) toast.error(`Order email failed: ${result.notificationError}`)
       reload()
     } catch (updateError) {
       toast.error((updateError as Error).message)
@@ -223,6 +227,25 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            size="small"
+            variant="danger"
+            disabled={saving}
+            onClick={async () => {
+              if (!confirm("Permanently delete this order and its payment history? This does not refund the customer or restore stock.")) return
+              setSaving(true)
+              try {
+                await api(`/api/orders/${id}`, { method: "DELETE" })
+                toast.success("Order deleted")
+                router.push("/orders")
+              } catch (deleteError) {
+                toast.error((deleteError as Error).message)
+                setSaving(false)
+              }
+            }}
+          >
+            Delete order
+          </Button>
           {!isCancelled && order.fulfillment_status !== "shipped" && order.fulfillment_status !== "delivered" && (
             <Button size="small" variant="secondary" disabled={saving} onClick={() => update({ fulfillment_status: "shipped" })}>
               Mark shipped
@@ -352,6 +375,20 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 {shipment.tracking_number} · {dateTime(shipment.created_at)}
               </Text>
             ))}
+          </Container>
+
+          <Container className="flex flex-col gap-2 px-6 py-4">
+            <Heading level="h2">Order emails</Heading>
+            {order.notifications.length ? order.notifications.map((notification) => (
+              <div key={notification.event} className="flex items-center justify-between gap-2">
+                <Text size="small">{notification.event === "order_placed" ? "Confirmation" : "Completion"}: {notification.status}</Text>
+                {notification.status === "failed" || notification.status === "sending" ? (
+                  <Button size="small" variant="secondary" disabled={saving} onClick={() => update({ retry_notification: notification.event })}>
+                    Retry
+                  </Button>
+                ) : null}
+              </div>
+            )) : <Text size="small" className="text-ui-fg-subtle">No order emails recorded.</Text>}
           </Container>
 
           <Container className="flex flex-col gap-2 px-6 py-4">
