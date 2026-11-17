@@ -28,7 +28,8 @@ import { saveCustomerAddress } from "@/lib/auth"
 import { REGION_COOKIE } from "@/lib/config"
 import { LIMITS, throttle } from "@/lib/rate-limit"
 import { currentRegion } from "@/lib/region-context"
-import { CartError, clampQuantity, mpesa } from "@maktabah/db"
+import { CartError, clampQuantity, findCountyTown, mpesa } from "@maktabah/db"
+import { db } from "@/lib/db"
 import { resolveRegion } from "@maktabah/shared"
 import { manualRegion } from "@/lib/region"
 import { findKenyaCounty, findKenyaSubCounty } from "@maktabah/shared"
@@ -186,7 +187,10 @@ export async function saveAddressAction(_prev: FormState, formData: FormData): P
   }
   const kenyaCounty = enteredAddress.country_code === "ke" ? findKenyaCounty(enteredAddress.province) : null
   const kenyaSubCounty =
-    enteredAddress.country_code === "ke" ? findKenyaSubCounty(kenyaCounty, enteredAddress.city) : null
+    enteredAddress.country_code === "ke" && kenyaCounty
+      ? findKenyaSubCounty(kenyaCounty, enteredAddress.city) ||
+        (await findCountyTown(await db(), kenyaCounty.code, enteredAddress.city))
+      : null
   const address = {
     ...enteredAddress,
     province: kenyaCounty?.code || enteredAddress.province,
@@ -199,7 +203,7 @@ export async function saveAddressAction(_prev: FormState, formData: FormData): P
     return { error: `Please fill in: ${missing.join(", ")}.` }
   }
   if (address.country_code === "ke" && (!kenyaCounty || !kenyaSubCounty)) {
-    return { error: "Choose a valid Kenyan county and sub-county." }
+    return { error: "Choose a valid Kenyan county and town." }
   }
   if (!EMAIL.test(address.email)) {
     return { error: "Enter a valid email address." }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { findKenyaCounty, findKenyaSubCounty, KENYA_COUNTIES } from "@maktabah/shared"
 import { PhoneInput } from "./phone-input"
 
@@ -55,7 +55,20 @@ export function AddressFields({
   const [country, setCountry] = useState(value.country_code)
   const [countyCode, setCountyCode] = useState(findKenyaCounty(value.province)?.code || "")
   const county = KENYA_COUNTIES.find((item) => item.code === countyCode) || null
+  const [towns, setTowns] = useState<Record<string, string[]>>({})
   const [subCounty, setSubCounty] = useState(findKenyaSubCounty(county, value.city) || "")
+  useEffect(() => {
+    fetch("/api/towns")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { towns?: Record<string, string[]> } | null) => {
+        if (data?.towns) setTowns(data.towns)
+      })
+      .catch(() => undefined)
+  }, [])
+  const places = county ? [...county.subCounties, ...(towns[county.code] || [])] : []
+  // A saved town only matches once the list has loaded.
+  const savedTown = places.find((name) => name.toLowerCase() === value.city.trim().toLowerCase())
+  const selected = subCounty || (countyCode === findKenyaCounty(value.province)?.code ? savedTown || "" : "")
   const chosen = countries.find((c) => c.code === country)
   const n = (field: string) => `${prefix}${field}`
 
@@ -129,17 +142,17 @@ export function AddressFields({
             </select>
           </label>
           <label>
-            Sub-county / Constituency
+            Town / Sub-county
             <select
               name={n("city")}
               autoComplete="address-level2"
               required={required}
-              value={subCounty}
+              value={selected}
               disabled={!county}
               onChange={(event) => setSubCounty(event.target.value)}
             >
-              <option value="">Choose a sub-county</option>
-              {county?.subCounties.map((name) => (
+              <option value="">Choose a town or sub-county</option>
+              {places.map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>

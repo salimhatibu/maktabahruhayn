@@ -488,6 +488,16 @@ await test("a fixed discount and its minimum spend are converted into the cart's
   }
 })
 
+await test("delivery towns are seeded under Nairobi and can be added and removed", async () => {
+  assert.equal(await lib.findCountyTown(db, "nairobi", "  ruiru "), "Ruiru")
+  assert.equal(await lib.findCountyTown(db, "mombasa", "Ruiru"), null)
+  assert.equal(await lib.addCountyTown(db, "mombasa", "Bamburi"), "added")
+  assert.equal(await lib.addCountyTown(db, "mombasa", "bamburi"), "exists")
+  const town = (await lib.listCountyTowns(db)).find((item) => item.name === "Bamburi")
+  assert.equal(await lib.deleteCountyTown(db, town.id), true)
+  assert.equal(await lib.findCountyTown(db, "mombasa", "Bamburi"), null)
+})
+
 /* ------------------------------------------------------------- payments */
 await test("concurrent STK starts claim the cart once and freeze its contents", async () => {
   const id = await cartWith([[A.variant_id, 1]], { currency: "kes" })

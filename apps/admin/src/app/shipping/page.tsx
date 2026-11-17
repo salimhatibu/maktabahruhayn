@@ -1,5 +1,6 @@
 "use client"
 
+import { TownsSection } from "./towns-section"
 import { TruckFast } from "@medusajs/icons"
 import { Button, Input, StatusBadge, Table, Text, toast } from "@medusajs/ui"
 import { useEffect, useState } from "react"
@@ -293,6 +294,8 @@ const ShippingPage = () => {
           </div>
         ) : null}
       </Section>
+
+      <TownsSection />
 
       <Section title="Free shipping & fallback rates" description="Free standard (postal) shipping above these order values. Other currencies use the USD threshold converted at today's rate.">
         {form ? (
