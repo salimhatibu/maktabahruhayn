@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { finalizePaidCart, mpesa, settlePayment } from "@maktabah/db"
 import { db } from "@/lib/db"
+import { notifyConfirmedOrder } from "@/lib/order-notifications"
 
 /**
  * Safaricom's STK callback.
@@ -80,6 +81,8 @@ export async function POST(request: NextRequest) {
       })
       if (!result.ok) {
         console.error("M-Pesa payment could not become an order", callback.checkoutRequestId, result)
+      } else {
+        await notifyConfirmedOrder(database, result.orderId)
       }
     }
   } catch (error) {

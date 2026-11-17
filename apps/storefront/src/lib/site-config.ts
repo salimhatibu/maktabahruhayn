@@ -9,6 +9,8 @@ export type SiteConfig = {
     tagline: string
     email: string
     phone: string
+    mpesaRecipientName: string
+    mpesaRecipientPhone: string
     whatsapp: string
     address: string
     instagram: string
@@ -42,6 +44,8 @@ export const FALLBACK_CONFIG: SiteConfig = {
     tagline: "Classical Islamic books, multi-volume collections, and verified editions, shipped from Nairobi.",
     email: "",
     phone: "",
+    mpesaRecipientName: "",
+    mpesaRecipientPhone: "",
     whatsapp: "",
     address: "Nairobi, Kenya",
     instagram: "",
