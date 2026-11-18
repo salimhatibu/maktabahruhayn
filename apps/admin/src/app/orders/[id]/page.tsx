@@ -15,6 +15,7 @@ type Item = {
   unit_price: number
   total: number
   thumbnail: string | null
+  delivery_type: "physical" | "digital" | null
 }
 
 type Order = {
@@ -36,7 +37,7 @@ type Order = {
   items: Item[]
   payments: { id: string; provider: string; status: string; amount: number; reference: string | null }[]
   shipments: { id: string; tracking_number: string | null; tracking_url: string | null; created_at: string }[]
-  notifications: { event: "order_placed" | "order_completed" | "review_request"; status: "sending" | "sent" | "failed" }[]
+  notifications: { event: "order_placed" | "order_completed" | "review_request" | "digital_delivery"; status: "sending" | "sent" | "failed" }[]
 }
 
 const STATUS_COLORS: Record<string, "green" | "orange" | "red" | "grey"> = {
@@ -376,7 +377,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             <Heading level="h2">Order emails</Heading>
             {order.notifications.length ? order.notifications.map((notification) => (
               <div key={notification.event} className="flex items-center justify-between gap-2">
-                <Text size="small">{{ order_placed: "Confirmation", order_completed: "Completion", review_request: "Review request" }[notification.event]}: {notification.status}</Text>
+                <Text size="small">{{ order_placed: "Confirmation", order_completed: "Completion", review_request: "Review request", digital_delivery: "Digital access" }[notification.event]}: {notification.status}</Text>
                 {notification.status === "failed" || notification.status === "sending" ? (
                   <Button size="small" variant="secondary" disabled={saving} onClick={() => update({ retry_notification: notification.event })}>
                     Retry
@@ -384,6 +385,12 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 ) : null}
               </div>
             )) : <Text size="small" className="text-ui-fg-subtle">No order emails recorded.</Text>}
+            {order.payment_status === "captured" && !isCancelled && order.items.some((item) => item.delivery_type === "digital") &&
+              !order.notifications.some((notification) => notification.event === "digital_delivery") ? (
+                <Button size="small" variant="secondary" disabled={saving} onClick={() => update({ retry_notification: "digital_delivery" })}>
+                  Send digital access
+                </Button>
+              ) : null}
           </Container>
 
           <Container className="flex flex-col gap-2 px-6 py-4">

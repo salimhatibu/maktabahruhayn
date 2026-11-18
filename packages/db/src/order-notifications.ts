@@ -5,14 +5,35 @@ import { toMajor } from "./money"
 import { DEFAULT_SETTINGS, type EmailSettings } from "./settings-defaults"
 import { newId } from "./writes"
 
-export type OrderNotificationEvent = "order_placed" | "order_completed" | "review_request"
+export type OrderNotificationEvent = "order_placed" | "order_completed" | "review_request" | "digital_delivery"
+
+type NotificationConfig = {
+  endpoint?: string
+  token?: string
+  from?: string
+  storeUrl?: string
+  digitalFileAvailable?: (url: string) => Promise<boolean>
+}
+
+export function digitalFileKey(fileUrl: string, publicUrl: string): string | null {
+  try {
+    const base = new URL(publicUrl)
+    const url = new URL(fileUrl)
+    const prefix = `${base.pathname.replace(/\/+$/, "")}/digital/`
+    if (url.origin !== base.origin || !url.pathname.startsWith(prefix)) return null
+    const name = decodeURIComponent(url.pathname.slice(prefix.length))
+    return name ? `digital/${name}` : null
+  } catch {
+    return null
+  }
+}
 
 /** Attempts one transactional email per order and event; failed attempts can be retried. */
 export async function notifyOrder(
   db: D1,
   orderId: string,
   event: OrderNotificationEvent,
-  config: { endpoint?: string; token?: string; from?: string; storeUrl?: string }
+  config: NotificationConfig
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     return await sendOrderNotification(db, orderId, event, config)
@@ -26,14 +47,44 @@ async function sendOrderNotification(
   db: D1,
   orderId: string,
   event: OrderNotificationEvent,
-  config: { endpoint?: string; token?: string; from?: string; storeUrl?: string }
+  config: NotificationConfig
 ): Promise<{ ok: boolean; error?: string }> {
-  const order = await db.prepare(`SELECT id, display_id, email, currency_code, total_minor, shipping_address FROM "order" WHERE id = ?1`)
-    .bind(orderId).first<{ id: string; display_id: number; email: string; currency_code: string; total_minor: number; shipping_address: string }>()
+  const order = await db.prepare(`SELECT id, display_id, email, currency_code, total_minor, shipping_address, payment_status, status FROM "order" WHERE id = ?1`)
+    .bind(orderId).first<{ id: string; display_id: number; email: string; currency_code: string; total_minor: number; shipping_address: string; payment_status: string; status: string }>()
   if (!order) return { ok: false, error: "Order not found." }
 
   const settings = await getSettings<{ email?: Partial<EmailSettings>; business?: { name?: string } }>(db)
-  const template = settings.email?.templates?.[event] ?? DEFAULT_SETTINGS.email.templates[event]
+  const digitalItems = event === "digital_delivery" && order.payment_status === "captured" && order.status !== "cancelled"
+    ? await db.prepare(
+      `SELECT oi.id, oi.product_title, p.digital_file_url FROM order_item oi
+       JOIN variant v ON v.id = oi.variant_id JOIN product p ON p.id = v.product_id
+       WHERE oi.order_id = ?1 AND p.delivery_type = 'digital'`
+    ).bind(orderId).all<{ id: string; product_title: string; digital_file_url: string | null }>()
+    : null
+  let digitalError: string | null = null
+  if (event === "digital_delivery") {
+    if (order.payment_status !== "captured" || order.status === "cancelled") return { ok: false, error: "Digital access requires a paid, active order." }
+    if (!digitalItems?.results.length) return { ok: true }
+    if (digitalItems.results.some((item) => !item.digital_file_url)) digitalError = "A digital product has no file configured."
+    else if (!config.storeUrl || !/^https:\/\//i.test(config.storeUrl)) digitalError = "The storefront URL is not configured for digital delivery."
+    else if (!config.digitalFileAvailable) digitalError = "Digital file storage is not configured."
+    else {
+      try {
+        for (const item of digitalItems.results) {
+          if (!item.digital_file_url || !(await config.digitalFileAvailable(item.digital_file_url))) {
+            digitalError = "A digital file is missing or is not in the configured media bucket."
+            break
+          }
+        }
+      } catch (error) {
+        console.error(`Digital file validation for order ${orderId} failed`, error)
+        digitalError = "Could not check digital file storage."
+      }
+    }
+  }
+  const template = event === "digital_delivery"
+    ? { enabled: true, subject: "Your digital books for order #{{order.display_id}}", body: "Assalamu alaikum {{customer.first_name}},\n\nYour payment for order #{{order.display_id}} is confirmed. Open your digital books using the links below:\n\n{{digital.links}}\n\nPlease keep these links private.\n\n{{store.name}}" }
+    : settings.email?.templates?.[event] ?? DEFAULT_SETTINGS.email.templates[event]
   if (!template.enabled) return { ok: true }
 
   const items = await db.prepare(`SELECT product_title, quantity FROM order_item WHERE order_id = ?1 ORDER BY rowid`)
@@ -58,9 +109,19 @@ async function sendOrderNotification(
     "store.name": storeName,
     "store.url": storeUrl,
   }
+  const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+  const digitalLinks = (digitalItems?.results ?? []).map((item) => ({
+    title: item.product_title,
+    url: `${storeUrl}/digital/${encodeURIComponent(orderId)}/${encodeURIComponent(item.id)}`,
+  }))
+  values["digital.links"] = digitalLinks.map((item) => `${item.title}: ${item.url}`).join("\n")
   const interpolate = (text: string, html: boolean) => text.replace(/\{\{([^{}]+)\}\}/g, (_match, key: string) => {
-    const value = values[key.trim()] ?? ""
-    return html ? value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : value
+    const name = key.trim()
+    if (html && name === "digital.links") {
+      return digitalLinks.map((item) => `<a href="${escapeHtml(item.url)}">${escapeHtml(item.title)}</a>`).join("<br>")
+    }
+    const value = values[name] ?? ""
+    return html ? escapeHtml(value) : value
   })
   const subject = interpolate(template.subject, false)
   const bodyHtml = interpolate(template.body, true).replace(/\n/g, "<br>")
@@ -74,9 +135,11 @@ async function sendOrderNotification(
       .bind(orderId, event).first<{ status: string }>()
     return existing?.status === "sent" ? { ok: true } : { ok: false, error: "Order email is already being sent." }
   }
-  let error: string | null = null
+  let error: string | null = digitalError
   let providerId: string | null = null
-  if (!config.endpoint || !config.token) {
+  if (error) {
+    // Record the failed delivery below so an admin can retry it.
+  } else if (!config.endpoint || !config.token) {
     error = "Email provider is not configured."
   } else {
     try {
@@ -93,7 +156,7 @@ async function sendOrderNotification(
           to: [order.email],
           subject,
           html: renderEmailHtml({ bodyHtml, storeName, storeUrl }),
-          text: htmlToText(bodyHtml),
+          text: event === "digital_delivery" ? htmlToText(interpolate(template.body, false).replace(/\n/g, "<br>")) : htmlToText(bodyHtml),
         }),
       })
       if (!response.ok) error = `Email provider returned ${response.status}.`

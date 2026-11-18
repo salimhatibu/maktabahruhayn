@@ -84,6 +84,53 @@ await esbuild.build({
 })
 const townsRoute = await import(path.join(work, "towns-route.mjs"))
 
+await esbuild.build({
+  entryPoints: [path.join(root, "apps/admin/src/app/api/orders/[id]/route.ts")],
+  bundle: true,
+  format: "esm",
+  platform: "neutral",
+  mainFields: ["module", "main"],
+  outfile: path.join(work, "admin-order-route.mjs"),
+  plugins: [{
+    name: "order-route-test-bindings",
+    setup(build) {
+      build.onResolve({ filter: /^(next\/server|@\/lib\/db|@opennextjs\/cloudflare)$/ }, (args) => ({ path: args.path, namespace: "order-test" }))
+      build.onLoad({ filter: /.*/, namespace: "order-test" }, (args) => ({
+        contents: args.path === "next/server"
+          ? `export const NextResponse = { json: (body, init) => Response.json(body, init) }`
+          : args.path === "@/lib/db"
+            ? `export async function db() { return globalThis.__digitalTestDb }`
+            : `export async function getCloudflareContext() { return { env: { MEDIA: globalThis.__digitalTestBucket } } }`,
+        loader: "js",
+      }))
+    },
+  }],
+  logLevel: "warning",
+})
+const adminOrderRoute = await import(path.join(work, "admin-order-route.mjs"))
+
+await esbuild.build({
+  entryPoints: [path.join(root, "apps/storefront/src/app/digital/[orderId]/[itemId]/route.ts")],
+  bundle: true,
+  format: "esm",
+  platform: "neutral",
+  outfile: path.join(work, "digital-route.mjs"),
+  plugins: [{
+    name: "digital-route-test-bindings",
+    setup(build) {
+      build.onResolve({ filter: /^(?:@\/lib\/db|@opennextjs\/cloudflare)$/ }, (args) => ({ path: args.path, namespace: "digital-test" }))
+      build.onLoad({ filter: /.*/, namespace: "digital-test" }, (args) => ({
+        contents: args.path === "@/lib/db"
+          ? `export async function db() { return globalThis.__digitalTestDb }`
+          : `export async function getCloudflareContext() { return { env: { MEDIA: globalThis.__digitalTestBucket } } }`,
+        loader: "js",
+      }))
+    },
+  }],
+  logLevel: "warning",
+})
+const digitalRoute = await import(path.join(work, "digital-route.mjs"))
+
 const mpesaConfig = {
   consumerKey: "test-key",
   consumerSecret: "test-secret",
@@ -622,6 +669,137 @@ await test("digital-only orders have no shipping charge while mixed carts requir
     assert.equal(JSON.parse(order.shipping_method).name, "Digital delivery")
   } finally {
     await db.prepare(`UPDATE product SET delivery_type = 'physical' WHERE id = ?1`).bind(B.product_id).run()
+  }
+})
+
+await test("paid digital orders email one usable link and reject unpaid or mismatched access", async () => {
+  const originalFetch = globalThis.fetch
+  const originalPublicUrl = process.env.R2_PUBLIC_URL
+  const config = {
+    endpoint: "https://example.invalid/emails",
+    token: "test",
+    storeUrl: "https://example.invalid",
+    async digitalFileAvailable(url) {
+      const key = lib.digitalFileKey(url, process.env.R2_PUBLIC_URL)
+      return key ? (await globalThis.__digitalTestBucket.head(key)) !== null : false
+    },
+  }
+  globalThis.__digitalTestDb = db
+  globalThis.__digitalTestBucket = {
+    async head(key) {
+      assert.equal(key, "digital/test.pdf")
+      return {}
+    },
+    async get(key) {
+      assert.equal(key, "digital/test.pdf")
+      return { body: new Response("pdf data").body, httpMetadata: { contentType: "application/pdf" } }
+    },
+  }
+  process.env.R2_PUBLIC_URL = "https://media.example.invalid"
+  await db.prepare(`UPDATE product SET delivery_type = 'digital', digital_file_url = 'https://media.example.invalid/digital/test.pdf' WHERE id = ?1`).bind(B.product_id).run()
+  let orderId
+  try {
+    const cartId = await cartWith([[B.variant_id, 1]], { currency: "kes" })
+    await lib.setCartFields(db, cartId, { shippingOptionId: lib.DIGITAL_DELIVERY_ID, shippingTotalMinor: 0 })
+    const cart = await lib.getCart(db, cartId)
+    const reference = `digital_${cartId}`
+    await lib.recordPendingPayment(db, { cartId, provider: "mpesa", reference, amountMinor: cart.totals.totalMinor, currency: "kes" })
+    await lib.settlePayment(db, { provider: "mpesa", reference, status: "captured" })
+    const placed = await lib.finalizePaidCart(db, { cartId, provider: "mpesa", reference, paidMinor: cart.totals.totalMinor, currency: "kes" })
+    assert.equal(placed.ok, true)
+    orderId = placed.orderId
+    const item = await one(`SELECT id FROM order_item WHERE order_id = ?1`, orderId)
+    let sent = 0
+    let failSend = false
+    globalThis.fetch = async (_url, request) => {
+      sent++
+      if (failSend) return new Response("unavailable", { status: 503 })
+      const email = JSON.parse(request.body)
+      const link = `https://example.invalid/digital/${orderId}/${item.id}`
+      assert.ok(email.html.includes(`href="${link}"`))
+      assert.ok(email.text.includes(link))
+      assert.ok(!email.html.includes("media.example.invalid"))
+      return Response.json({ id: "email-id" })
+    }
+    await db.prepare(`UPDATE product SET digital_file_url = 'https://other.example/file.pdf' WHERE id = ?1`).bind(B.product_id).run()
+    assert.equal((await lib.notifyOrder(db, orderId, "digital_delivery", config)).ok, false)
+    assert.equal(sent, 0)
+    await db.prepare(`UPDATE product SET digital_file_url = 'https://media.example.invalid/digital/test.pdf' WHERE id = ?1`).bind(B.product_id).run()
+    const head = globalThis.__digitalTestBucket.head
+    globalThis.__digitalTestBucket.head = async () => null
+    assert.equal((await lib.notifyOrder(db, orderId, "digital_delivery", config)).ok, false)
+    assert.equal(sent, 0)
+    globalThis.__digitalTestBucket.head = head
+    failSend = true
+    assert.equal((await lib.notifyOrder(db, orderId, "digital_delivery", config)).ok, false)
+    failSend = false
+    assert.equal((await lib.notifyOrder(db, orderId, "digital_delivery", config)).ok, true)
+    assert.equal((await lib.notifyOrder(db, orderId, "digital_delivery", config)).ok, true)
+    assert.equal(sent, 2)
+    const get = (oid, iid) => digitalRoute.GET(new Request("https://example.invalid"), { params: Promise.resolve({ orderId: oid, itemId: iid }) })
+    const response = await get(orderId, item.id)
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get("content-disposition"), "inline")
+    assert.equal(await response.text(), "pdf data")
+    assert.equal((await get(orderId, "wrong-item")).status, 404)
+    await db.prepare(`UPDATE "order" SET payment_status = 'refunded' WHERE id = ?1`).bind(orderId).run()
+    assert.equal((await get(orderId, item.id)).status, 404)
+    assert.equal((await lib.notifyOrder(db, orderId, "digital_delivery", config)).ok, false)
+    await db.prepare(`UPDATE "order" SET payment_status = 'captured', status = 'cancelled' WHERE id = ?1`).bind(orderId).run()
+    assert.equal((await get(orderId, item.id)).status, 404)
+  } finally {
+    globalThis.fetch = originalFetch
+    if (originalPublicUrl === undefined) delete process.env.R2_PUBLIC_URL
+    else process.env.R2_PUBLIC_URL = originalPublicUrl
+    delete globalThis.__digitalTestDb
+    delete globalThis.__digitalTestBucket
+    await db.prepare(`UPDATE product SET delivery_type = 'physical', digital_file_url = NULL WHERE id = ?1`).bind(B.product_id).run()
+  }
+})
+
+await test("completing a paid order as admin sends digital access independently of the confirmation email", async () => {
+  const savedFetch = globalThis.fetch
+  const oldEnv = { ...process.env }
+  globalThis.__digitalTestDb = db
+  globalThis.__digitalTestBucket = { async head() { return {} } }
+  process.env.EMAIL_API_URL = "https://example.invalid/emails"
+  process.env.EMAIL_API_KEY = "test"
+  process.env.STOREFRONT_URL = "https://example.invalid"
+  process.env.R2_PUBLIC_URL = "https://media.example.invalid"
+  await db.prepare(`UPDATE product SET delivery_type = 'digital', digital_file_url = 'https://media.example.invalid/digital/test.pdf' WHERE id = ?1`).bind(B.product_id).run()
+  try {
+    const cartId = await cartWith([[B.variant_id, 1]], { currency: "kes" })
+    await lib.setCartFields(db, cartId, { shippingOptionId: lib.DIGITAL_DELIVERY_ID, shippingTotalMinor: 0 })
+    const cart = await lib.getCart(db, cartId)
+    const reference = `admin_${cartId}`
+    await lib.recordPendingPayment(db, { cartId, provider: "mpesa", reference, amountMinor: cart.totals.totalMinor, currency: "kes" })
+    await lib.settlePayment(db, { provider: "mpesa", reference, status: "captured" })
+    const placed = await lib.finalizePaidCart(db, { cartId, provider: "mpesa", reference, paidMinor: cart.totals.totalMinor, currency: "kes" })
+    assert.equal(placed.ok, true)
+    const emails = []
+    globalThis.fetch = async (_url, request) => {
+      emails.push(JSON.parse(request.body))
+      return Response.json({ id: "email-id" })
+    }
+    const request = new Request("https://admin.example/api/orders/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "completed" }),
+    })
+    const response = await adminOrderRoute.POST(request, { params: Promise.resolve({ id: placed.orderId }) })
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).notificationError, undefined)
+    assert.ok(emails.some((email) => email.html.includes(`/digital/${placed.orderId}/`)))
+    assert.equal((await one(`SELECT status FROM order_notification WHERE order_id = ?1 AND event = 'digital_delivery'`, placed.orderId)).status, "sent")
+  } finally {
+    globalThis.fetch = savedFetch
+    for (const key of ["EMAIL_API_URL", "EMAIL_API_KEY", "STOREFRONT_URL", "R2_PUBLIC_URL"]) {
+      if (oldEnv[key] === undefined) delete process.env[key]
+      else process.env[key] = oldEnv[key]
+    }
+    delete globalThis.__digitalTestDb
+    delete globalThis.__digitalTestBucket
+    await db.prepare(`UPDATE product SET delivery_type = 'physical', digital_file_url = NULL WHERE id = ?1`).bind(B.product_id).run()
   }
 })
 
