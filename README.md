@@ -127,6 +127,15 @@ Workers; `SMTP_FROM` can override the default sender. Failed sends are logged
 and can be retried from the order page. Deleting an order also deletes its
 payment history, but does not refund the customer or restore stock.
 
+Paid digital orders also receive a separate email with order-specific access
+links. The admin can send an access email for an older paid order from its
+order page, or retry a failed delivery there. Digital files must be uploaded
+through the admin to the configured media bucket. The links should be treated
+as secrets. This is not DRM: the underlying bucket is publicly served, and a
+browser cannot prevent saving, copying or screenshots. Access depends on the
+product and its edition remaining in the catalogue; deleting either can break
+links to previously purchased files.
+
 ## Deploying
 
 One Worker, one database, one bill.

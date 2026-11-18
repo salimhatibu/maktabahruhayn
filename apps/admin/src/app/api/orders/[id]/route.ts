@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { notifyOrder, toMajor } from "@maktabah/db"
 import { db } from "@/lib/db"
+import { orderNotificationConfig } from "@/lib/order-notifications"
 
 /** GET /api/orders/:id — one order with its items, payment and shipment. */
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -16,7 +17,9 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
   }
 
   const [items, payments, shipments, notifications] = await database.batch<Record<string, string | number | null>>([
-    database.prepare(`SELECT * FROM order_item WHERE order_id = ?1`).bind(id),
+    database.prepare(`SELECT oi.*, p.delivery_type FROM order_item oi
+      LEFT JOIN variant v ON v.id = oi.variant_id LEFT JOIN product p ON p.id = v.product_id
+      WHERE oi.order_id = ?1`).bind(id),
     database.prepare(`SELECT * FROM payment WHERE order_id = ?1 ORDER BY created_at DESC`).bind(id),
     database.prepare(`SELECT * FROM shipment WHERE order_id = ?1 ORDER BY created_at DESC`).bind(id),
     database.prepare(`SELECT event, status FROM order_notification WHERE order_id = ?1`).bind(id),
@@ -79,7 +82,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   if (body.retry_notification && !(
     (body.retry_notification === "order_placed" && order.payment_status === "captured") ||
     (body.retry_notification === "order_completed" && order.status === "completed") ||
-    (body.retry_notification === "review_request" && order.fulfillment_status === "delivered")
+    (body.retry_notification === "review_request" && order.fulfillment_status === "delivered") ||
+    (body.retry_notification === "digital_delivery" && order.payment_status === "captured" && order.status !== "cancelled")
   )) {
     return NextResponse.json({ message: "That notification cannot be sent for this order." }, { status: 400 })
   }
@@ -142,18 +146,20 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       .run()
   }
 
-  const event = body.retry_notification === "order_placed" || body.retry_notification === "order_completed" || body.retry_notification === "review_request"
+  const event = body.retry_notification === "order_placed" || body.retry_notification === "order_completed" || body.retry_notification === "review_request" || body.retry_notification === "digital_delivery"
     ? body.retry_notification
     : body.status === "completed" && order.status !== "completed"
     ? "order_completed"
     : body.payment_status === "captured" && order.payment_status !== "captured"
       ? "order_placed"
       : null
-  const notification = event ? await notifyOrder(database, id, event, {
-    endpoint: process.env.EMAIL_API_URL,
-    token: process.env.EMAIL_API_KEY,
-    from: process.env.SMTP_FROM,
-    storeUrl: process.env.STOREFRONT_URL,
-  }) : null
-  return NextResponse.json({ id, updated: true, notificationError: notification?.error })
+  const config = orderNotificationConfig()
+  const notification = event ? await notifyOrder(database, id, event, config) : null
+  const digital = !body.retry_notification &&
+    (body.payment_status === "captured" || (order.payment_status === "captured" && !body.payment_status)) &&
+    ((body.status === "completed" && order.status !== "completed") ||
+      (body.payment_status === "captured" && order.payment_status !== "captured"))
+    ? await notifyOrder(database, id, "digital_delivery", config)
+    : null
+  return NextResponse.json({ id, updated: true, notificationError: notification?.error || digital?.error })
 }
