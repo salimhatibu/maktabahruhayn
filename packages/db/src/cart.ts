@@ -9,6 +9,7 @@ export type CartLineRow = {
   productId: string
   productHandle: string
   productTitle: string
+  deliveryType: "physical" | "digital"
   productSubtitle: string | null
   variantTitle: string
   thumbnail: string | null
@@ -45,8 +46,11 @@ export type CartRow = {
   giftNote: string | null
   completedOrderId: string | null
   lines: CartLineRow[]
+  requiresShipping: boolean
   totals: CartTotals
 }
+
+export const DIGITAL_DELIVERY_ID = "digital-delivery"
 
 const touch = (db: D1, cartId: string) =>
   db
@@ -171,7 +175,7 @@ export async function getCart(db: D1, cartId: string): Promise<CartRow | null> {
       `SELECT ci.id, ci.variant_id, ci.quantity, ci.unit_price_minor, ci.title, ci.subtitle, ci.thumbnail,
               v.title AS variant_title, v.manage_inventory, v.allow_backorder,
               v.length_cm, v.width_cm, v.height_cm, v.weight_g,
-              p.id AS product_id, p.handle AS product_handle,
+              p.id AS product_id, p.handle AS product_handle, p.delivery_type,
               (SELECT COALESCE(SUM(stocked_quantity - reserved_quantity), 0)
                  FROM inventory_level WHERE variant_id = v.id) AS available
          FROM cart_item ci
@@ -189,6 +193,7 @@ export async function getCart(db: D1, cartId: string): Promise<CartRow | null> {
     productId: line.product_id,
     productHandle: line.product_handle,
     productTitle: line.title,
+    deliveryType: line.delivery_type,
     productSubtitle: line.subtitle ?? null,
     variantTitle: line.variant_title,
     thumbnail: line.thumbnail ?? null,
@@ -216,7 +221,12 @@ export async function getCart(db: D1, cartId: string): Promise<CartRow | null> {
       discount = auto
     }
   }
-  const shippingMinor = discount.freeShipping ? 0 : Number(cart.shipping_total || 0)
+  const requiresShipping = mapped.some((line) => line.deliveryType !== "digital")
+  const digitalOnly = mapped.length > 0 && !requiresShipping
+  const shippingOptionId = digitalOnly
+    ? cart.shipping_option_id === DIGITAL_DELIVERY_ID ? DIGITAL_DELIVERY_ID : null
+    : cart.shipping_option_id === DIGITAL_DELIVERY_ID ? null : cart.shipping_option_id ?? null
+  const shippingMinor = digitalOnly || discount.freeShipping ? 0 : Number(cart.shipping_total || 0)
 
   return {
     id: cart.id,
@@ -226,11 +236,12 @@ export async function getCart(db: D1, cartId: string): Promise<CartRow | null> {
     countryCode: cart.country_code ?? null,
     shippingAddress: cart.shipping_address ? JSON.parse(cart.shipping_address) : null,
     billingAddress: cart.billing_address ? JSON.parse(cart.billing_address) : null,
-    shippingOptionId: cart.shipping_option_id ?? null,
+    shippingOptionId,
     promotionCode,
     giftNote: cart.gift_note ?? null,
     completedOrderId: cart.completed_order_id ?? null,
     lines: mapped,
+    requiresShipping,
     totals: {
       itemSubtotalMinor,
       discountMinor: discount.minor,

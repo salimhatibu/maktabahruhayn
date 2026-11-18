@@ -7,6 +7,7 @@ import {
   CartError,
   convert,
   createCart,
+  DIGITAL_DELIVERY_ID,
   finalizeMpesaCheckout,
   findLatestManualMpesaPayment,
   hasUnresolvedManualMpesaPayment as dbHasUnresolvedManualMpesaPayment,
@@ -397,6 +398,9 @@ export async function listShippingOptions(id: string): Promise<ShippingOption[]>
   const row = await dbGetCart(database, id)
   if (!row) {
     return []
+  }
+  if (row.lines.length && !row.requiresShipping) {
+    return [{ id: DIGITAL_DELIVERY_ID, name: "Digital delivery (no shipping)", amount: 0, price_type: "flat" }]
   }
   const options = await dbListShippingOptions(database, {
     countryCode: row.countryCode,

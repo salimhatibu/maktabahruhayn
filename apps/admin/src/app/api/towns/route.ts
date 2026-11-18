@@ -3,9 +3,11 @@ import { findKenyaCounty } from "@maktabah/shared"
 import { addCountyTown, deleteCountyTown, listCountyTowns } from "@maktabah/db"
 import { db } from "@/lib/db"
 
+export const dynamic = "force-dynamic"
+
 /** GET /api/towns — every admin-managed town. */
 export async function GET() {
-  return NextResponse.json({ towns: await listCountyTowns(await db()) })
+  return NextResponse.json({ towns: await listCountyTowns(await db()) }, { headers: { "Cache-Control": "no-store" } })
 }
 
 /** POST /api/towns { county, name } — add a town to a county. */

@@ -20,6 +20,8 @@ directly and calls these functions.
 ## Conventions
 
 - **Money is an integer in minor units** of the row's currency. Never a float.
+- **Digital-only carts have no delivery charge.** Mixed carts use the normal
+  physical delivery options, and checkout still collects an address.
 - **Timestamps are ISO-8601 UTC text**, which sorts correctly as text.
 - **Regions are code, not data** (`packages/shared`): they are static
   configuration. Only the FX rates they depend on are stored, and prices for

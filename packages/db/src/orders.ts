@@ -1,4 +1,4 @@
-import { getCart, type CartRow } from "./cart"
+import { DIGITAL_DELIVERY_ID, getCart, type CartRow } from "./cart"
 import type { D1, D1Statement } from "./client"
 import { newId } from "./writes"
 
@@ -302,9 +302,11 @@ export async function shippingMethodFor(db: D1, cart: CartRow) {
   if (!cart.shippingOptionId) {
     return null
   }
-  const option = cart.shippingOptionId === STANDARD_SHIPPING_ID
-    ? { name: "Standard delivery", provider: "manual" }
-    : await db
+  const option = cart.shippingOptionId === DIGITAL_DELIVERY_ID
+    ? { name: "Digital delivery", provider: "digital" }
+    : cart.shippingOptionId === STANDARD_SHIPPING_ID
+      ? { name: "Standard delivery", provider: "manual" }
+      : await db
         .prepare(`SELECT name, provider FROM shipping_option WHERE id = ?1`)
         .bind(cart.shippingOptionId)
         .first<{ name: string; provider: string }>()
