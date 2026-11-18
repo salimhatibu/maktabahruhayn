@@ -3,7 +3,7 @@
 import { Button, Input, Table, Text, toast } from "@medusajs/ui"
 import { useState } from "react"
 import { KENYA_COUNTIES } from "@maktabah/shared"
-import { Field, Section } from "@/components/kit"
+import { ErrorNote, Field, Section } from "@/components/kit"
 import { api, useApi } from "@/lib/api"
 
 type Town = { id: number; county_code: string; name: string }
@@ -13,7 +13,7 @@ const selectClass =
 
 /** Towns offered at checkout for each county. A town is priced at its county's rate. */
 export function TownsSection() {
-  const { data, reload } = useApi<{ towns: Town[] }>("/api/towns")
+  const { data, error, reload } = useApi<{ towns: Town[] }>("/api/towns")
   const [county, setCounty] = useState("nairobi")
   const [name, setName] = useState("")
   const [adding, setAdding] = useState(false)
@@ -26,14 +26,26 @@ export function TownsSection() {
   )
 
   const add = async () => {
+    if (adding) return
+    const names = name.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
+    if (!names.length) return
     setAdding(true)
+    const failed: string[] = []
     try {
-      await api("/api/towns", { method: "POST", json: { county, name } })
-      toast.success(`${name.trim()} added to ${countyName}`)
-      setName("")
+      for (const town of names) {
+        try {
+          await api("/api/towns", { method: "POST", json: { county, name: town } })
+        } catch (e) {
+          failed.push(town)
+          toast.error(`${town}: ${(e as Error).message}`)
+        }
+      }
+      setName(failed.join("\n"))
+      if (names.length > failed.length) {
+        setFilter("")
+        toast.success(`${names.length - failed.length} town(s) added to ${countyName}`)
+      }
       reload()
-    } catch (e) {
-      toast.error((e as Error).message)
     } finally {
       setAdding(false)
     }
@@ -58,9 +70,10 @@ export function TownsSection() {
       title="Delivery towns"
       description="Towns customers can pick at checkout, beside each county's sub-counties. A town takes the delivery rate of the county it is listed under, wherever it really is."
     >
+      <ErrorNote message={error} />
       <div className="grid grid-cols-1 gap-4 px-6 py-4 sm:grid-cols-3">
         <Field label="County">
-          <select className={selectClass} value={county} onChange={(e) => setCounty(e.target.value)}>
+          <select className={selectClass} value={county} disabled={adding} onChange={(e) => setCounty(e.target.value)}>
             {KENYA_COUNTIES.map((item) => (
               <option key={item.code} value={item.code}>
                 {item.name}
@@ -68,19 +81,17 @@ export function TownsSection() {
             ))}
           </select>
         </Field>
-        <Field label="New town">
-          <Input
+        <Field label="New towns (one per line)">
+          <textarea
+            className={`${selectClass} h-20 py-2`}
             value={name}
-            maxLength={80}
+            disabled={adding}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && name.trim()) add()
-            }}
           />
         </Field>
         <div className="flex items-end">
-          <Button size="small" isLoading={adding} disabled={!name.trim()} onClick={add}>
-            Add town
+          <Button size="small" isLoading={adding} disabled={!name.trim() || adding} onClick={add}>
+            Add towns
           </Button>
         </div>
       </div>

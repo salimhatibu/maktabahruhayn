@@ -61,6 +61,29 @@ await esbuild.build({
 })
 const { checkoutTotal } = await import(path.join(work, "checkout-total.mjs"))
 
+await esbuild.build({
+  entryPoints: [path.join(root, "apps/admin/src/app/api/towns/route.ts")],
+  bundle: true,
+  format: "esm",
+  platform: "neutral",
+  mainFields: ["module", "main"],
+  outfile: path.join(work, "towns-route.mjs"),
+  plugins: [{
+    name: "towns-route-test-bindings",
+    setup(build) {
+      build.onResolve({ filter: /^(next\/server|@\/lib\/db)$/ }, (args) => ({ path: args.path, namespace: "towns-test" }))
+      build.onLoad({ filter: /.*/, namespace: "towns-test" }, (args) => ({
+        contents: args.path === "next/server"
+          ? `export const NextResponse = { json: (body, init) => Response.json(body, init) }`
+          : `export async function db() { return globalThis.__townsTestDb }`,
+        loader: "js",
+      }))
+    },
+  }],
+  logLevel: "warning",
+})
+const townsRoute = await import(path.join(work, "towns-route.mjs"))
+
 const mpesaConfig = {
   consumerKey: "test-key",
   consumerSecret: "test-secret",
@@ -526,10 +549,80 @@ await test("delivery towns are seeded under Nairobi and can be added and removed
   assert.equal(await lib.findCountyTown(db, "nairobi", "  ruiru "), "Ruiru")
   assert.equal(await lib.findCountyTown(db, "mombasa", "Ruiru"), null)
   assert.equal(await lib.addCountyTown(db, "mombasa", "Bamburi"), "added")
+  assert.equal(await lib.addCountyTown(db, "mombasa", "Nyali test town"), "added")
   assert.equal(await lib.addCountyTown(db, "mombasa", "bamburi"), "exists")
   const town = (await lib.listCountyTowns(db)).find((item) => item.name === "Bamburi")
+  assert.equal(await lib.findCountyTown(db, "mombasa", "Nyali test town"), "Nyali test town")
   assert.equal(await lib.deleteCountyTown(db, town.id), true)
   assert.equal(await lib.findCountyTown(db, "mombasa", "Bamburi"), null)
+  const second = (await lib.listCountyTowns(db)).find((item) => item.name === "Nyali test town")
+  assert.equal(await lib.deleteCountyTown(db, second.id), true)
+})
+
+await test("the admin can add several towns in the same county through the API", async () => {
+  globalThis.__townsTestDb = db
+  const names = ["Integration Town One", "Integration Town Two"]
+  try {
+    for (const name of names) {
+      const response = await townsRoute.POST(new Request("https://admin.example/api/towns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ county: "mombasa", name }),
+      }))
+      assert.equal(response.status, 201, await response.text())
+    }
+    const response = await townsRoute.GET()
+    assert.equal(response.headers.get("cache-control"), "no-store")
+    const { towns } = await response.json()
+    for (const name of names) assert.ok(towns.some((town) => town.county_code === "mombasa" && town.name === name))
+  } finally {
+    await db.prepare(`DELETE FROM county_town WHERE county_code = ?1 AND name IN (?2, ?3)`)
+      .bind("mombasa", ...names).run()
+    delete globalThis.__townsTestDb
+  }
+})
+
+await test("digital-only orders have no shipping charge while mixed carts require delivery", async () => {
+  await db.prepare(`UPDATE product SET delivery_type = 'digital' WHERE id = ?1`).bind(B.product_id).run()
+  try {
+    const id = await cartWith([[B.variant_id, 1]], { currency: "kes" })
+    let cart = await lib.getCart(db, id)
+    assert.equal(cart.requiresShipping, false)
+    assert.equal(cart.totals.shippingMinor, 0)
+    assert.equal(cart.shippingOptionId, null)
+    assert.equal(cart.totals.totalMinor, cart.totals.itemSubtotalMinor - cart.totals.discountMinor)
+    await lib.setCartFields(db, id, { shippingOptionId: lib.DIGITAL_DELIVERY_ID, shippingTotalMinor: 0 })
+    cart = await lib.getCart(db, id)
+    assert.equal(cart.shippingOptionId, lib.DIGITAL_DELIVERY_ID)
+
+    await lib.addLine(db, id, A.variant_id, 1, "kes")
+    cart = await lib.getCart(db, id)
+    assert.equal(cart.requiresShipping, true)
+    assert.equal(cart.shippingOptionId, null)
+    await assert.rejects(lib.recordManualMpesaSubmission(db, { cartId: id, message: "QAB111111111 confirmed payment" }), /delivery details/)
+    await lib.setCartFields(db, id, { shippingOptionId: lib.STANDARD_SHIPPING_ID, shippingTotalMinor: 500 })
+    cart = await lib.getCart(db, id)
+    assert.equal(cart.totals.shippingMinor, 500)
+
+    await lib.removeLine(db, id, cart.lines.find((line) => line.variantId === A.variant_id).id)
+    cart = await lib.getCart(db, id)
+    assert.equal(cart.totals.shippingMinor, 0)
+    assert.equal(cart.shippingOptionId, null)
+    await lib.setCartFields(db, id, { shippingOptionId: lib.DIGITAL_DELIVERY_ID, shippingTotalMinor: 0 })
+    cart = await lib.getCart(db, id)
+    const reference = `pi_${id}`
+    await lib.recordPendingPayment(db, { cartId: id, provider: "mpesa", reference, amountMinor: cart.totals.totalMinor, currency: "kes" })
+    await lib.settlePayment(db, { provider: "mpesa", reference, status: "captured" })
+    const result = await lib.finalizePaidCart(db, { cartId: id, provider: "mpesa", reference, paidMinor: cart.totals.totalMinor, currency: "kes" })
+    assert.equal(result.ok, true, JSON.stringify(result))
+    const order = await one(`SELECT shipping_minor, shipping_address, shipping_method, total_minor FROM "order" WHERE id = ?1`, result.orderId)
+    assert.equal(order.shipping_minor, 0)
+    assert.equal(order.total_minor, cart.totals.totalMinor)
+    assert.equal(JSON.parse(order.shipping_address).address_1, "1 Road")
+    assert.equal(JSON.parse(order.shipping_method).name, "Digital delivery")
+  } finally {
+    await db.prepare(`UPDATE product SET delivery_type = 'physical' WHERE id = ?1`).bind(B.product_id).run()
+  }
 })
 
 /* ------------------------------------------------------------- payments */
