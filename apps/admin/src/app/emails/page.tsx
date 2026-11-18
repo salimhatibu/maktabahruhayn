@@ -232,7 +232,7 @@ const EmailsPage = () => {
 
       <Section title="Sending">
         <StatusBadge color={log.data?.smtp_configured ? "green" : "orange"}>
-          {log.data?.smtp_configured ? "SMTP connected: emails are delivered" : "SMTP not connected: emails are logged, not delivered (set SMTP_* in the backend .env)"}
+          {log.data?.smtp_configured ? "Email provider configured" : "Email provider not configured (set EMAIL_API_URL and EMAIL_API_KEY on the admin Worker)"}
         </StatusBadge>
         {form ? (
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -244,11 +244,14 @@ const EmailsPage = () => {
             </Field>
             <label className="flex items-center gap-3">
               <Switch checked={form.abandonedCartAuto} onCheckedChange={(v) => setForm({ ...form, abandonedCartAuto: v })} />
-              <Text size="small">Send abandoned cart reminders automatically (once per cart)</Text>
+              <Text size="small">Send abandoned cart reminders automatically (once per eligible cart; checked hourly)</Text>
             </label>
             <Field label="Remind after (hours idle)">
               <Input type="number" min={1} value={form.abandonedCartAfterHours} onChange={(e) => setForm({ ...form, abandonedCartAfterHours: Number(e.target.value) })} />
             </Field>
+            <Text size="small" className="text-ui-fg-subtle md:col-span-2">
+              Reminders require a saved email and an incomplete cart with items. Carts with an active payment or created over 14 days ago are excluded. Guest cart links work in the original browser.
+            </Text>
           </div>
         ) : null}
       </Section>
@@ -283,7 +286,7 @@ const EmailsPage = () => {
               <Input value={template.subject} onChange={(e) => setTemplate({ subject: e.target.value })} />
             </Field>
             <Field label="Message" plain>
-              <RichEditor value={template.body} onChange={(html) => setTemplate({ body: html })} placeholder="Write your email template..." />
+              <RichEditor key={selected} value={template.body} onChange={(html) => setTemplate({ body: html })} placeholder="Write your email template..." />
             </Field>
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Send a test to">

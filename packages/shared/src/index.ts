@@ -6,6 +6,7 @@ export type {
 } from "./book"
 
 export * from "./email-template"
+export * from "./email-greeting"
 export * from "./html"
 export * from "./kenya-locations"
 export * from "./regions"

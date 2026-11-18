@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { newId } from "@maktabah/db"
-import { htmlToText, renderEmailHtml } from "@maktabah/shared"
+import { greetCustomerEmail, htmlToText, renderEmailHtml } from "@maktabah/shared"
 import { db } from "@/lib/db"
 
 /**
@@ -22,6 +22,15 @@ export async function POST(request: NextRequest) {
   const from = process.env.SMTP_FROM || "orders@maktabahruhayn.com"
   const subject = body.subject || `Test email (${body.template || "generic"})`
   const htmlBody = body.body || ""
+  const d = await db()
+  const customer = await d.prepare("SELECT first_name, last_name FROM customer WHERE email = ?1 COLLATE NOCASE LIMIT 1")
+    .bind(to).first<{ first_name: string | null; last_name: string | null }>()
+  const content = htmlBody || "This is a test email from the Maktabah Ruhayn admin."
+  const greeted = greetCustomerEmail({
+    html: content,
+    text: htmlToText(content),
+    customerName: [customer?.first_name, customer?.last_name].filter(Boolean).join(" "),
+  })
   let status: "sent" | "failed" = "failed"
   let error: string | null = "No email provider is configured (set EMAIL_API_URL and EMAIL_API_KEY)."
   let providerId: string | null = null
@@ -35,18 +44,15 @@ export async function POST(request: NextRequest) {
           from,
           to: [to],
           subject,
-          ...(htmlBody
-            ? {
-                html: renderEmailHtml({
-                  bodyHtml: htmlBody,
-                  storeName: process.env.STORE_NAME || "Maktabah Ruhayn",
-                  storeUrl: (process.env.STOREFRONT_URL || "").replace(/\/+$/, ""),
-                  address: "Nairobi • Kenya",
-                  preheader: "Test send from the shop admin.",
-                }),
-                text: htmlToText(htmlBody),
-              }
-            : { text: "This is a test email from the Maktabah Ruhayn admin." }),
+          html: renderEmailHtml({
+            bodyHtml: greeted.html,
+            storeName: process.env.STORE_NAME || "Maktabah Ruhayn",
+            storeUrl: (process.env.STOREFRONT_URL || "").replace(/\/+$/, ""),
+            address: "Nairobi • Kenya",
+            preheader: "Test send from the shop admin.",
+            greetingFirst: true,
+          }),
+          text: greeted.text,
         }),
       })
       if (response.ok) {
@@ -62,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  await (await db())
+  await d
     .prepare(
       `INSERT INTO email_log (id, template, recipient, subject, status, error, provider_id)
        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`

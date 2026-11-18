@@ -127,6 +127,17 @@ Workers; `SMTP_FROM` can override the default sender. Failed sends are logged
 and can be retried from the order page. Deleting an order also deletes its
 payment history, but does not refund the customer or restore stock.
 
+The admin Worker's hourly job sends abandoned-cart reminders when enabled in
+Emails, after the configured idle period. Only nonempty, incomplete carts with
+a saved email are eligible; carts with active or confirmed payments are
+excluded. Reminders are attempted once per cart, with failures retried, and
+only for carts created within 14 days (the cart cookie lifetime). A reminder
+links to the cart in the same browser; it cannot restore a guest cart on a
+different device. Guest emails are saved after checkout details are submitted.
+The Abandoned Carts page shows the current cart and last activity, not a
+historical record of changes. Apply D1 migrations before deploying the updated
+admin Worker. Deploy the storefront as well to update its customer emails.
+
 Paid digital orders also receive a separate email with order-specific access
 links. The admin can send an access email for an older paid order from its
 order page, or retry a failed delivery there. Digital files must be uploaded

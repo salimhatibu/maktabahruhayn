@@ -29,6 +29,7 @@ const NAV = [
   { group: "Sales", items: [
     { href: "/", label: "Dashboard", icon: ChartBar },
     { href: "/orders", label: "Orders", icon: ShoppingCart },
+    { href: "/abandoned-carts", label: "Abandoned Carts", icon: ShoppingCart },
     { href: "/payments", label: "Payments", icon: CurrencyDollar },
     { href: "/shipping", label: "Shipping", icon: TruckFast },
   ] },

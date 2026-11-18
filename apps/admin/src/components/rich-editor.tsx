@@ -1,6 +1,7 @@
 "use client"
 
 import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { isHtml } from "@maktabah/shared"
 
 const ICON = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const }
 
@@ -185,7 +186,7 @@ export function RichEditor({
 }) {
   const bodyRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const mounted = useRef(false)
+  const lastValue = useRef<string | null>(null)
   // Held in a ref so the callbacks below never change identity, which is what
   // keeps this component from re-rendering the body on each keystroke.
   const onChangeRef = useRef(onChange)
@@ -193,9 +194,11 @@ export function RichEditor({
 
   useEffect(() => {
     const el = bodyRef.current
-    if (mounted.current || !el) return
-    mounted.current = true
-    el.innerHTML = value || ""
+    if (!el || lastValue.current === value) return
+    lastValue.current = value
+    el.innerHTML = isHtml(value)
+      ? value
+      : value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\r\n?|\n/g, "<br>")
     el.toggleAttribute("data-empty", !el.textContent?.trim() && !el.querySelector("img, hr"))
     try {
       exec("defaultParagraphSeparator", "p")
@@ -208,6 +211,7 @@ export function RichEditor({
     const el = bodyRef.current
     if (!el) return
     el.toggleAttribute("data-empty", !el.textContent?.trim() && !el.querySelector("img, hr"))
+    lastValue.current = el.innerHTML
     onChangeRef.current(el.innerHTML)
   }, [])
 
