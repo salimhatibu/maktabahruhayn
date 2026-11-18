@@ -1,5 +1,5 @@
 import { newId, type D1 } from "@maktabah/db"
-import { htmlToText, renderEmailHtml } from "@maktabah/shared"
+import { greetCustomerEmail, htmlToText, renderEmailHtml } from "@maktabah/shared"
 
 type Waiting = {
   id: string
@@ -8,6 +8,8 @@ type Waiting = {
   title: string
   handle: string
   option_value: string | null
+  first_name: string | null
+  last_name: string | null
 }
 
 const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -43,7 +45,9 @@ export async function notifyRestocked(d: D1, variantIds: string[]): Promise<numb
   try {
     const { results } = await d
       .prepare(
-        `SELECT sa.id, sa.email, sa.variant_id, p.title, p.handle, v.option_value
+        `SELECT sa.id, sa.email, sa.variant_id, p.title, p.handle, v.option_value,
+                (SELECT first_name FROM customer WHERE email = sa.email COLLATE NOCASE LIMIT 1) AS first_name,
+                (SELECT last_name FROM customer WHERE email = sa.email COLLATE NOCASE LIMIT 1) AS last_name
            FROM stock_alert sa
            JOIN product p ON p.id = sa.product_id AND p.deleted_at IS NULL
            JOIN variant v ON v.product_id = p.id
@@ -77,6 +81,11 @@ export async function notifyRestocked(d: D1, variantIds: string[]): Promise<numb
         ? `<p><a href="${escape(link)}">View ${escape(w.title)}</a></p>`
         : "") +
       `<p>Stock is limited, so it may go again shortly.</p>`
+    const greeted = greetCustomerEmail({
+      html: bodyHtml,
+      text: htmlToText(bodyHtml),
+      customerName: [w.first_name, w.last_name].filter(Boolean).join(" "),
+    })
 
     let status: "sent" | "failed" = "failed"
     let error: string | null = null
@@ -90,8 +99,8 @@ export async function notifyRestocked(d: D1, variantIds: string[]): Promise<numb
           from,
           to: [w.email],
           subject,
-          html: renderEmailHtml({ bodyHtml, storeName, storeUrl, address: "Nairobi • Kenya" }),
-          text: htmlToText(bodyHtml),
+          html: renderEmailHtml({ bodyHtml: greeted.html, storeName, storeUrl, address: "Nairobi • Kenya", greetingFirst: true }),
+          text: greeted.text,
         }),
       })
       if (response.ok) {

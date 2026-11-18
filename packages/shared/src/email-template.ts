@@ -65,6 +65,8 @@ export type EmailShell = {
   /** Shown in the footer, e.g. "Nairobi • Kenya". */
   address?: string
   preheader?: string
+  /** Place the first body paragraph above the branding header. */
+  greetingFirst?: boolean
 }
 
 export function renderEmailHtml({
@@ -76,9 +78,11 @@ export function renderEmailHtml({
   unsubscribeUrl,
   address,
   preheader,
+  greetingFirst,
 }: EmailShell): string {
   const year = new Date().getUTCFullYear()
-  const body = inlineEmailStyles(bodyHtml)
+  const greeting = greetingFirst ? /^(\s*<p\b[^>]*>[\s\S]*?<\/p>)/i.exec(bodyHtml) : null
+  const body = inlineEmailStyles(greeting ? bodyHtml.slice(greeting[0].length) : bodyHtml)
   const footerBits: string[] = []
   if (address) footerBits.push(escapeAttr(address))
   const legal = `© ${year} ${escapeAttr(storeName)}`
@@ -99,7 +103,8 @@ ${preheader ? `<div style="display:none;overflow:hidden;line-height:1px;opacity:
 <td align="center" style="padding:32px 12px;font-family:${FONT};font-size:16px;line-height:1.65;color:#26352f">
 <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%">
 <tbody>
-<tr><td style="background-color:#1f3f37;padding:25px 28px;border-radius:12px 12px 0 0">
+${greeting ? `<tr><td style="background-color:#ffffff;padding:22px 28px;border-radius:12px 12px 0 0">${inlineEmailStyles(greeting[0])}</td></tr>` : ""}
+<tr><td style="background-color:#1f3f37;padding:25px 28px;${greeting ? "" : "border-radius:12px 12px 0 0"}">
 <p style="margin:0;color:#ffffff;font-family:${FONT};font-size:21px;line-height:1.3;font-weight:700;letter-spacing:0.02em">${escapeAttr(storeName)}</p>
 ${tagline ? `<p style="margin:6px 0 0;color:#e4e9e4;font-family:${FONT};font-size:13px;line-height:1.5">${escapeAttr(tagline)}</p>` : ""}
 </td></tr>

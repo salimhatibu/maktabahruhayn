@@ -9,7 +9,7 @@
 	// from the router keeps working):
 	"workers_dev": false,
 	"preview_urls": false,
-	// worker.mjs wraps the OpenNext build to add the hourly review-request job.
+	// worker.mjs wraps the OpenNext build for hourly review and cart reminders.
 	"main": "worker.mjs",
 	"triggers": { "crons": ["0 * * * *"] },
 	"compatibility_date": "2026-09-01",

@@ -594,6 +594,70 @@ await test("a fixed discount and its minimum spend are converted into the cart's
   }
 })
 
+await test("abandoned cart reminders honor settings, payment state, failure retry and deduplication", async () => {
+  const saved = await one(`SELECT value FROM store_setting WHERE key = 'email'`)
+  const originalFetch = globalThis.fetch
+  const config = { endpoint: "https://example.invalid/emails", token: "test", storeUrl: "https://example.invalid" }
+  const ids = []
+  const create = async () => {
+    const id = await cartWith([[A.variant_id, 1]])
+    ids.push(id)
+    await db.prepare(`UPDATE cart SET created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 hours'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 hours') WHERE id = ?1`).bind(id).run()
+    return id
+  }
+  try {
+    const due = await create()
+    await db.prepare(`UPDATE cart SET shipping_address = '{"first_name":"Amina","last_name":"Yusuf"}' WHERE id = ?1`).bind(due).run()
+    const pending = await create()
+    await lib.beginMpesaCheckout(db, pending, "254700000000")
+    const anonymous = await create()
+    await db.prepare(`UPDATE cart SET email = NULL WHERE id = ?1`).bind(anonymous).run()
+    const completed = await create()
+    await db.prepare(`UPDATE cart SET completed_order_id = 'completed' WHERE id = ?1`).bind(completed).run()
+    const stale = await create()
+    await db.prepare(`UPDATE cart SET created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days') WHERE id = ?1`).bind(stale).run()
+    const settings = { ...JSON.parse(saved.value), abandonedCartAuto: false, abandonedCartAfterHours: 1 }
+    const setSettings = async () => db.prepare(`UPDATE store_setting SET value = ?1 WHERE key = 'email'`).bind(JSON.stringify(settings)).run()
+    await setSettings()
+    assert.deepEqual(await lib.sendDueCartReminders(db, config), { sent: 0, failed: 0 })
+    settings.abandonedCartAuto = true
+    settings.templates.abandoned_cart.enabled = false
+    await setSettings()
+    assert.deepEqual(await lib.sendDueCartReminders(db, config), { sent: 0, failed: 0 })
+    settings.templates.abandoned_cart.enabled = true
+    await setSettings()
+    let attempts = 0
+    const messages = []
+    globalThis.fetch = async (_url, request) => {
+      attempts++
+      messages.push(JSON.parse(request.body))
+      return attempts === 1 ? new Response("", { status: 503 }) : Response.json({ id: "mail-test" })
+    }
+    assert.deepEqual(await lib.sendDueCartReminders(db, config), { sent: 0, failed: 1 })
+    assert.equal((await one(`SELECT status FROM cart_reminder WHERE cart_id = ?1`, due)).status, "failed")
+    assert.deepEqual(await lib.sendDueCartReminders(db, config), { sent: 1, failed: 0 })
+    assert.deepEqual(await lib.sendDueCartReminders(db, config), { sent: 0, failed: 0 })
+    assert.equal(attempts, 2)
+    assert.deepEqual(messages[1].to, ["shopper@example.com"])
+    assert.ok(messages[1].text.startsWith("As-Salaam Aleikum Warahmatullahi Wabarakatuh, Amina Yusuf\n"))
+    assert.ok(messages[1].html.includes("As-Salaam Aleikum Warahmatullahi Wabarakatuh, Amina Yusuf"))
+    assert.ok(messages[1].text.includes("https://example.invalid/cart"))
+    assert.ok(!messages[1].text.includes(due))
+    assert.equal((await one(`SELECT COUNT(*) AS n FROM cart_reminder WHERE cart_id IN (?1, ?2, ?3, ?4)`, pending, anonymous, completed, stale)).n, 0)
+    const unnamed = await create()
+    await db.prepare(`UPDATE cart SET shipping_address = NULL WHERE id = ?1`).bind(unnamed).run()
+    assert.deepEqual(await lib.sendDueCartReminders(db, config), { sent: 1, failed: 0 })
+    assert.ok(messages[2].text.startsWith("As-Salaam Aleikum Warahmatullahi Wabarakatuh, Customer\n"))
+  } finally {
+    globalThis.fetch = originalFetch
+    await db.prepare(`UPDATE store_setting SET value = ?1 WHERE key = 'email'`).bind(saved.value).run()
+    for (const id of ids) {
+      await db.prepare(`DELETE FROM mpesa_checkout WHERE cart_id = ?1`).bind(id).run()
+      await db.prepare(`DELETE FROM cart WHERE id = ?1`).bind(id).run()
+    }
+  }
+})
+
 await test("review requests are sent once, three days after delivery", async () => {
   const config = { endpoint: "https://example.invalid/emails", token: "test", storeUrl: "https://example.invalid" }
   const insert = (id, display, delivered) => db.prepare(

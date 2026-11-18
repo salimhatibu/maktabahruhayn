@@ -8,6 +8,8 @@
   "scripts": {
     "admin:cf:build": "pnpm --filter @maktabah/admin cf:build",
     "admin:cf:deploy": "pnpm --filter @maktabah/admin cf:deploy",
+    "admin:carts:test": "node --no-warnings --test ./apps/admin/scripts/abandoned-carts.test.mjs",
+    "admin:email-editor:test": "node --no-warnings --test ./apps/admin/scripts/email-editor.test.mjs",
     "admin:dev": "pnpm --filter @maktabah/admin dev",
     "build": "pnpm -r build",
     "deploy": "bash scripts/deploy-all.sh",
@@ -22,6 +24,7 @@
     "db:test": "node ./packages/db/scripts/integration.mjs",
     "checkout:test": "node --experimental-strip-types --no-warnings --test ./apps/storefront/scripts/checkout-towns.test.mts ./apps/storefront/scripts/checkout-address.test.mjs",
     "html:test": "node --experimental-strip-types --no-warnings ./packages/shared/scripts/html.test.mts",
+    "email:test": "node --experimental-strip-types --no-warnings --test ./packages/shared/scripts/email-greeting.test.mts",
     "db:verify": "node ./packages/db/scripts/verify.mjs",
     "dev": "pnpm -r --parallel --filter @maktabah/storefront --filter @maktabah/admin dev",
     "lint": "turbo lint",
@@ -33,7 +36,7 @@
     "router:deploy": "cd apps/router && npx wrangler deploy",
     "storefront:cf:typegen": "pnpm --filter @maktabah/storefront cf:typegen",
     "storefront:dev": "pnpm --filter @maktabah/storefront dev",
-    "test": "pnpm db:verify && pnpm db:test && pnpm html:test && pnpm checkout:test"
+    "test": "pnpm db:verify && pnpm db:test && pnpm html:test && pnpm email:test && pnpm checkout:test && pnpm admin:carts:test && pnpm admin:email-editor:test"
   },
   "pnpm": {
     "overrides": {

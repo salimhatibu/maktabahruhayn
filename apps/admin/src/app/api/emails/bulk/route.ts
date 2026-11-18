@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { newId } from "@maktabah/db"
-import { htmlToText, renderEmailHtml } from "@maktabah/shared"
+import { greetCustomerEmail, htmlToText, renderEmailHtml } from "@maktabah/shared"
 import { db } from "@/lib/db"
 
 /**
@@ -77,6 +77,24 @@ export async function POST(request: NextRequest) {
 
   const storeUrl = (process.env.STOREFRONT_URL || "").replace(/\/+$/, "")
   const storeName = process.env.STORE_NAME || "Maktabah Ruhayn"
+  const customerNames = new Map<string, string>()
+  for (let i = 0; i < emails.length; i += 50) {
+    const batch = emails.slice(i, i + 50)
+    const marks = batch.map((_, index) => `?${index + 1}`).join(",")
+    const { results } = await d.prepare(
+      `SELECT email, first_name, last_name FROM customer WHERE email COLLATE NOCASE IN (${marks})`
+    ).bind(...batch).all<{ email: string; first_name: string | null; last_name: string | null }>()
+    for (const customer of results) {
+      customerNames.set(customer.email.toLowerCase(), [customer.first_name, customer.last_name].filter(Boolean).join(" "))
+    }
+    const subscribers = await d.prepare(
+      `SELECT email, name FROM newsletter_subscriber WHERE email COLLATE NOCASE IN (${marks})`
+    ).bind(...batch).all<{ email: string; name: string | null }>()
+    for (const subscriber of subscribers.results) {
+      const email = subscriber.email.toLowerCase()
+      if (!customerNames.get(email) && subscriber.name) customerNames.set(email, subscriber.name)
+    }
+  }
 
   for (const to of emails) {
     let status: "sent" | "failed" = "failed"
@@ -84,11 +102,13 @@ export async function POST(request: NextRequest) {
     let providerId: string | null = null
 
     const subId = subscriberIds.get(to.toLowerCase())
+    const greeted = greetCustomerEmail({ html: body, text: htmlToText(body), customerName: customerNames.get(to.toLowerCase()) })
     const html = renderEmailHtml({
-      bodyHtml: body,
+      bodyHtml: greeted.html,
       storeName,
       storeUrl,
       address: "Nairobi • Kenya",
+      greetingFirst: true,
       // Customers who never subscribed have nothing to unsubscribe from.
       unsubscribeUrl: subId && storeUrl ? `${storeUrl}/unsubscribe?id=${encodeURIComponent(subId)}` : undefined,
     })
@@ -97,7 +117,7 @@ export async function POST(request: NextRequest) {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from, to: [to], subject, html, text: htmlToText(body) }),
+        body: JSON.stringify({ from, to: [to], subject, html, text: greeted.text }),
       })
       if (response.ok) {
         status = "sent"

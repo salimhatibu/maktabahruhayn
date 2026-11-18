@@ -1,5 +1,6 @@
 export * from "./auth"
 export * from "./cart"
+export * from "./cart-reminders"
 export * from "./catalogue"
 export * from "./fx"
 export * from "./client"

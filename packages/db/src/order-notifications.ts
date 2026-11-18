@@ -1,4 +1,4 @@
-import { htmlToText, renderEmailHtml } from "@maktabah/shared"
+import { greetCustomerEmail, htmlToText, renderEmailHtml } from "@maktabah/shared"
 import type { D1 } from "./client"
 import { getSettings } from "./catalogue"
 import { toMajor } from "./money"
@@ -49,8 +49,8 @@ async function sendOrderNotification(
   event: OrderNotificationEvent,
   config: NotificationConfig
 ): Promise<{ ok: boolean; error?: string }> {
-  const order = await db.prepare(`SELECT id, display_id, email, currency_code, total_minor, shipping_address, payment_status, status FROM "order" WHERE id = ?1`)
-    .bind(orderId).first<{ id: string; display_id: number; email: string; currency_code: string; total_minor: number; shipping_address: string; payment_status: string; status: string }>()
+  const order = await db.prepare(`SELECT o.id, o.display_id, o.email, o.currency_code, o.total_minor, o.shipping_address, o.payment_status, o.status, c.first_name, c.last_name FROM "order" o LEFT JOIN customer c ON c.id = o.customer_id WHERE o.id = ?1`)
+    .bind(orderId).first<{ id: string; display_id: number; email: string; currency_code: string; total_minor: number; shipping_address: string; payment_status: string; status: string; first_name: string | null; last_name: string | null }>()
   if (!order) return { ok: false, error: "Order not found." }
 
   const settings = await getSettings<{
@@ -99,11 +99,13 @@ async function sendOrderNotification(
        WHERE oi.order_id = ?1 ORDER BY oi.rowid`
     ).bind(orderId).all<{ title: string; handle: string }>()
     : null
-  const address = JSON.parse(order.shipping_address) as { first_name?: string }
+  const address = JSON.parse(order.shipping_address) as { first_name?: string; last_name?: string }
+  const customerName = [address.first_name, address.last_name].filter((part) => part?.trim()).join(" ").trim()
+    || [order.first_name, order.last_name].filter((part) => part?.trim()).join(" ").trim()
   const storeName = settings.business?.name || "Maktabah Ruhayn"
   const storeUrl = (config.storeUrl || "").replace(/\/+$/, "")
   const values: Record<string, string> = {
-    "customer.first_name": address.first_name || "Customer",
+    "customer.first_name": address.first_name?.trim() || order.first_name?.trim() || "Customer",
     "order.display_id": String(order.display_id),
     "order.items": items.results.map((item) => `${item.product_title} × ${item.quantity}`).join("\n"),
     "order.total": `${order.currency_code.toUpperCase()} ${toMajor(order.total_minor).toFixed(2)}`,
@@ -149,6 +151,7 @@ async function sendOrderNotification(
   })
   const subject = interpolate(template.subject, false)
   const bodyHtml = interpolate(template.body, true).replace(/\n/g, "<br>")
+  const greeted = greetCustomerEmail({ html: bodyHtml, text: htmlToText(bodyHtml), customerName })
   const preheaders: Record<OrderNotificationEvent, string> = {
     order_placed: `We’ve received order #${order.display_id} and are preparing it with care.`,
     order_completed: `A warm thank-you and an update about order #${order.display_id}.`,
@@ -192,15 +195,16 @@ async function sendOrderNotification(
           to: [order.email],
           subject,
           html: renderEmailHtml({
-            bodyHtml,
+            bodyHtml: greeted.html,
             storeName,
             storeUrl,
             tagline: settings.business?.tagline,
             supportEmail: settings.business?.email,
             address: settings.business?.address,
             preheader: preheaders[event],
+            greetingFirst: true,
           }),
-          text: `${htmlToText(bodyHtml)}\n\n${textFooter}`,
+          text: `${greeted.text}\n\n${textFooter}`,
         }),
       })
       if (!response.ok) error = `Email provider returned ${response.status}.`
