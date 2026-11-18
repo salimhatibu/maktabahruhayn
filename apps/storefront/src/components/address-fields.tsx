@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { findKenyaCounty, findKenyaSubCounty, KENYA_COUNTIES } from "@maktabah/shared"
+import { findKenyaCounty, KENYA_COUNTIES } from "@maktabah/shared"
+import { checkoutPlaces, fetchCheckoutTowns, selectedCheckoutTown, type TownsByCounty } from "@/lib/checkout-towns"
 import { PhoneInput } from "./phone-input"
 
 export type AddressValue = {
@@ -55,20 +56,32 @@ export function AddressFields({
   const [country, setCountry] = useState(value.country_code)
   const [countyCode, setCountyCode] = useState(findKenyaCounty(value.province)?.code || "")
   const county = KENYA_COUNTIES.find((item) => item.code === countyCode) || null
-  const [towns, setTowns] = useState<Record<string, string[]>>({})
-  const [subCounty, setSubCounty] = useState(findKenyaSubCounty(county, value.city) || "")
+  const [towns, setTowns] = useState<TownsByCounty>({})
+  const [townStatus, setTownStatus] = useState<"loading" | "ready" | "error">("loading")
+  const [townAttempt, setTownAttempt] = useState(0)
+  const [subCounty, setSubCounty] = useState(value.city)
   useEffect(() => {
-    fetch("/api/towns")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { towns?: Record<string, string[]> } | null) => {
-        if (data?.towns) setTowns(data.towns)
-      })
-      .catch(() => undefined)
+    const refresh = () => setTownAttempt((attempt) => attempt + 1)
+    window.addEventListener("focus", refresh)
+    return () => window.removeEventListener("focus", refresh)
   }, [])
-  const places = county ? [...county.subCounties, ...(towns[county.code] || [])] : []
-  // A saved town only matches once the list has loaded.
-  const savedTown = places.find((name) => name.toLowerCase() === value.city.trim().toLowerCase())
-  const selected = subCounty || (countyCode === findKenyaCounty(value.province)?.code ? savedTown || "" : "")
+  useEffect(() => {
+    let active = true
+    setTownStatus("loading")
+    fetchCheckoutTowns()
+      .then((data) => {
+        if (active) {
+          setTowns(data)
+          setTownStatus("ready")
+        }
+      })
+      .catch(() => {
+        if (active) setTownStatus("error")
+      })
+    return () => { active = false }
+  }, [townAttempt])
+  const places = county ? checkoutPlaces(county.subCounties, towns, county.code) : []
+  const selected = selectedCheckoutTown(places, subCounty)
   const chosen = countries.find((c) => c.code === country)
   const n = (field: string) => `${prefix}${field}`
 
@@ -159,6 +172,18 @@ export function AddressFields({
               ))}
             </select>
           </label>
+          {townStatus === "loading" ? <span className="field-hint span-2" role="status">Loading delivery towns...</span> : null}
+          {townStatus === "error" ? (
+            <div className="field-hint span-2" role="alert">
+              Delivery towns could not be loaded.{" "}
+              <button type="button" onClick={() => setTownAttempt((attempt) => attempt + 1)}>Try again</button>
+            </div>
+          ) : null}
+          {townStatus === "ready" ? (
+            <div className="field-hint span-2">
+              <button type="button" onClick={() => setTownAttempt((attempt) => attempt + 1)}>Refresh delivery towns</button>
+            </div>
+          ) : null}
         </>
       ) : (
         <>

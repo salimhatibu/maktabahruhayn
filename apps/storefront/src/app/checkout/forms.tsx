@@ -134,9 +134,7 @@ export function AddressForm({
           })()
         : null}
 
-      <div hidden={Boolean(picked && picked.phone && picked.address_1 && picked.city && picked.country_code)}>
-        <AddressFields key={choice} value={value} countries={countries} currentCurrency={currency} />
-      </div>
+      <AddressFields key={choice} value={value} countries={countries} currentCurrency={currency} />
 
       {signedIn && choice === "new" ? (
         <label className="check-row">

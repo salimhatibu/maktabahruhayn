@@ -375,12 +375,12 @@ export const DEFAULT_SETTINGS: SettingsMap = {
       order_placed: {
         enabled: true,
         subject: "Your order #{{order.display_id}} is confirmed",
-        body: "Assalamu alaikum {{customer.first_name}},\n\nJazakAllahu khayran for your order #{{order.display_id}}.\n\n{{order.items}}\n\nTotal: {{order.total}}\n\nWe'll email you again when it ships. You can check its status any time at {{store.url}}/order-status.\n\n{{store.name}}",
+        body: "Assalamu alaikum {{customer.first_name}},\n\nJazakAllahu khayran for choosing us. We’ve received your order and our team is getting it ready with care. May these books bring benefit to you and your family.\n\nOrder #{{order.display_id}}\n\n{{order.items}}\n\nOrder total: {{order.total}}\n\nWe’ll be in touch as soon as your parcel is on its way.\n\n{{order.status_button}}\n\nWith gratitude,\n{{store.name}}",
       },
       order_completed: {
         enabled: true,
         subject: "Your order #{{order.display_id}} is complete",
-        body: "Assalamu alaikum {{customer.first_name}},\n\nYour order #{{order.display_id}} is complete. JazakAllahu khayran for shopping with us.\n\n{{store.name}}",
+        body: "Assalamu alaikum {{customer.first_name}},\n\nA little note to let you know that order #{{order.display_id}} is complete. JazakAllahu khayran for placing your trust in our bookshop.\n\nWe hope your books bring you many moments of learning and benefit. Whenever you’re ready for your next read, we’d be delighted to welcome you back.\n\n{{store.browse_button}}\n\nWith warm wishes,\n{{store.name}}",
       },
       order_shipped: {
         enabled: true,
@@ -395,7 +395,7 @@ export const DEFAULT_SETTINGS: SettingsMap = {
       review_request: {
         enabled: true,
         subject: "How did you find your books from order #{{order.display_id}}?",
-        body: "Assalamu alaikum {{customer.first_name}},\n\nWe hope you are benefiting from your order #{{order.display_id}}. We would love to hear what you thought.\n\nPlease write a short review:\n{{review.links}}\n\nIf you can, simply reply to this email with a photo of your purchase. It means a lot to a small shop and helps other readers.\n\nJazakAllahu khayran,\n{{store.name}}",
+        body: "Assalamu alaikum {{customer.first_name}},\n\nWe hope your books from order #{{order.display_id}} have found a welcome place on your shelf. If you’ve had a chance to read them, would you share a few words about your experience?\n\nYour review helps other readers choose books that may benefit them too.\n\n{{review.buttons}}\n\nIf you’d like, you can also reply to this email with a photo of your purchase. We love seeing our books arrive in their new homes.\n\nJazakAllahu khayran for taking a moment to help our reading community.\n\nWith appreciation,\n{{store.name}}",
       },
       customer_welcome: {
         enabled: true,
