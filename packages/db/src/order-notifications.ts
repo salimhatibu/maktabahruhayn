@@ -53,7 +53,10 @@ async function sendOrderNotification(
     .bind(orderId).first<{ id: string; display_id: number; email: string; currency_code: string; total_minor: number; shipping_address: string; payment_status: string; status: string }>()
   if (!order) return { ok: false, error: "Order not found." }
 
-  const settings = await getSettings<{ email?: Partial<EmailSettings>; business?: { name?: string } }>(db)
+  const settings = await getSettings<{
+    email?: Partial<EmailSettings>
+    business?: { name?: string; tagline?: string; address?: string; email?: string }
+  }>(db)
   const digitalItems = event === "digital_delivery" && order.payment_status === "captured" && order.status !== "cancelled"
     ? await db.prepare(
       `SELECT oi.id, oi.product_title, p.digital_file_url FROM order_item oi
@@ -83,7 +86,7 @@ async function sendOrderNotification(
     }
   }
   const template = event === "digital_delivery"
-    ? { enabled: true, subject: "Your digital books for order #{{order.display_id}}", body: "Assalamu alaikum {{customer.first_name}},\n\nYour payment for order #{{order.display_id}} is confirmed. Open your digital books using the links below:\n\n{{digital.links}}\n\nPlease keep these links private.\n\n{{store.name}}" }
+    ? { enabled: true, subject: "Your digital books for order #{{order.display_id}} are ready", body: "Assalamu alaikum {{customer.first_name}},\n\nJazakAllahu khayran for your order. Your payment is confirmed and your digital books are ready for you:\n\n{{digital.links}}\n\nWe hope they bring you much benefit. Please keep your personal reading links private. If you have any trouble opening a book, simply reply to this email and we’ll be glad to help.\n\nWith warm wishes,\n{{store.name}}" }
     : settings.email?.templates?.[event] ?? DEFAULT_SETTINGS.email.templates[event]
   if (!template.enabled) return { ok: true }
 
@@ -110,21 +113,54 @@ async function sendOrderNotification(
     "store.url": storeUrl,
   }
   const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+  const button = (url: string, label: string) =>
+    `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background-color:#1f3f37;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:700;line-height:1.3">${escapeHtml(label)}</a>`
+  const itemSummary = items.results.map((item) =>
+    `<tr><td style="padding:12px 14px;border-bottom:1px solid #e8e2d6;color:#26352f">${escapeHtml(item.product_title)}</td><td align="right" style="padding:12px 14px;border-bottom:1px solid #e8e2d6;color:#59665f;white-space:nowrap">Qty ${item.quantity}</td></tr>`
+  ).join("")
+  const reviewButtons = (reviewLinks?.results ?? []).map((item) =>
+    `<p style="margin:10px 0">${button(`${storeUrl}/books/${encodeURIComponent(item.handle)}#reviews`, `Write a review: ${item.title}`)}</p>`
+  ).join("")
   const digitalLinks = (digitalItems?.results ?? []).map((item) => ({
     title: item.product_title,
     url: `${storeUrl}/digital/${encodeURIComponent(orderId)}/${encodeURIComponent(item.id)}`,
   }))
   values["digital.links"] = digitalLinks.map((item) => `${item.title}: ${item.url}`).join("\n")
+  values["order.status_button"] = `${storeUrl}/order-status`
+  values["store.browse_button"] = `${storeUrl}/books`
   const interpolate = (text: string, html: boolean) => text.replace(/\{\{([^{}]+)\}\}/g, (_match, key: string) => {
     const name = key.trim()
-    if (html && name === "digital.links") {
-      return digitalLinks.map((item) => `<a href="${escapeHtml(item.url)}">${escapeHtml(item.title)}</a>`).join("<br>")
+    if (html) {
+      if (name === "order.items") {
+        return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e2d6;border-radius:8px;border-collapse:separate;border-spacing:0;background-color:#fcfbf8"><tbody>${itemSummary}</tbody></table>`
+      }
+      if (name === "order.total") {
+        return `<strong style="color:#1f3f37;font-size:18px">${escapeHtml(values[name])}</strong>`
+      }
+      if (name === "order.status_button") return button(values[name], "View order status")
+      if (name === "store.browse_button") return button(values[name], "Browse the bookshop")
+      if (name === "review.buttons") return reviewButtons
+      if (name === "digital.links") {
+        return digitalLinks.map((item) => `<p style="margin:10px 0">${button(item.url, `Open ${item.title}`)}</p>`).join("")
+      }
     }
     const value = values[name] ?? ""
     return html ? escapeHtml(value) : value
   })
   const subject = interpolate(template.subject, false)
   const bodyHtml = interpolate(template.body, true).replace(/\n/g, "<br>")
+  const preheaders: Record<OrderNotificationEvent, string> = {
+    order_placed: `We’ve received order #${order.display_id} and are preparing it with care.`,
+    order_completed: `A warm thank-you and an update about order #${order.display_id}.`,
+    review_request: `We’d love to hear what you thought of your recent books.`,
+    digital_delivery: `Your digital books for order #${order.display_id} are ready to read.`,
+  }
+  const textFooter = [
+    "Thank you for choosing us. We’re always happy to help.",
+    settings.business?.email ? `Reach us at ${settings.business.email}.` : "",
+    settings.business?.address || "",
+    `© ${new Date().getUTCFullYear()} ${storeName}`,
+  ].filter(Boolean).join("\n")
   const claimed = await db.prepare(
     `INSERT INTO order_notification (order_id, event, status) VALUES (?1, ?2, 'sending')
      ON CONFLICT (order_id, event) DO UPDATE SET status = 'sending', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
@@ -155,8 +191,16 @@ async function sendOrderNotification(
           from: config.from || "orders@maktabahruhayn.com",
           to: [order.email],
           subject,
-          html: renderEmailHtml({ bodyHtml, storeName, storeUrl }),
-          text: event === "digital_delivery" ? htmlToText(interpolate(template.body, false).replace(/\n/g, "<br>")) : htmlToText(bodyHtml),
+          html: renderEmailHtml({
+            bodyHtml,
+            storeName,
+            storeUrl,
+            tagline: settings.business?.tagline,
+            supportEmail: settings.business?.email,
+            address: settings.business?.address,
+            preheader: preheaders[event],
+          }),
+          text: `${htmlToText(bodyHtml)}\n\n${textFooter}`,
         }),
       })
       if (!response.ok) error = `Email provider returned ${response.status}.`

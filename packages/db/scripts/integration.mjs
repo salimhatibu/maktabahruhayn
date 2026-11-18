@@ -52,6 +52,15 @@ await esbuild.build({
 })
 const lib = await import(path.join(work, "db.mjs"))
 await esbuild.build({
+  entryPoints: [path.join(root, "packages/shared/src/email-template.ts")],
+  bundle: true,
+  format: "esm",
+  platform: "neutral",
+  outfile: path.join(work, "email-template.mjs"),
+  logLevel: "warning",
+})
+const emailTemplate = await import(path.join(work, "email-template.mjs"))
+await esbuild.build({
   entryPoints: [path.join(root, "apps/storefront/src/lib/checkout-total.ts")],
   bundle: true,
   format: "esm",
@@ -298,6 +307,12 @@ await test("order notifications are logged, deduplicated and retry failed sends"
       const body = JSON.parse(request.body)
       assert.deepEqual(body.to, ["shopper@example.com"])
       assert.match(body.subject, /900002/)
+      assert.match(body.html, /background-color:#f4f1e9/)
+      assert.match(body.html, /(View order status|Browse the bookshop)/)
+      assert.match(body.html, /JazakAllahu khayran for (choosing us|placing your trust)/)
+      assert.match(body.html, /Nairobi, Kenya/)
+      assert.match(body.text, /order #900002/i)
+      assert.match(body.text, /Thank you for choosing us/)
       return new Response(JSON.stringify({ id: "provider-id" }), { status: 200 })
     }
     assert.equal((await lib.notifyOrder(db, id, "order_placed", {})).ok, false)
@@ -312,6 +327,27 @@ await test("order notifications are logged, deduplicated and retry failed sends"
   } finally {
     globalThis.fetch = originalFetch
   }
+})
+
+await test("transactional email shell is branded, readable, and preserves text links", async () => {
+  const html = emailTemplate.renderEmailHtml({
+    bodyHtml: "<p>Assalamu alaikum, reader.</p>",
+    storeName: "Maktabah Ruhayn",
+    storeUrl: "https://example.invalid",
+    tagline: "Books chosen with care",
+    supportEmail: "help@example.invalid",
+    address: "Nairobi & Kenya",
+    preheader: "Your order is on its way.",
+  })
+  assert.match(html, /background-color:#f4f1e9/)
+  assert.match(html, /Books chosen with care/)
+  assert.match(html, /help@example\.invalid/)
+  assert.match(html, /Nairobi &amp; Kenya/)
+  assert.match(html, /Your order is on its way\./)
+  assert.match(
+    emailTemplate.htmlToText('<p>View <a href="https://example.invalid/order">your order</a>.</p>'),
+    /your order \(https:\/\/example\.invalid\/order\)/
+  )
 })
 await test("deleting an order removes its payment without reusing its number or replaying the cart", async () => {
   const place = async () => {

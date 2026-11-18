@@ -20,6 +20,7 @@
     "db:seed:build": "node --experimental-strip-types ./packages/db/scripts/build-catalog-seed.mjs",
     "db:seed:local": "pnpm db:seed:build && pnpm --filter @maktabah/storefront exec wrangler d1 execute maktabah --local --persist-to ../../.wrangler/state --file=../../packages/db/seed/catalog.sql",
     "db:test": "node ./packages/db/scripts/integration.mjs",
+    "checkout:test": "node --experimental-strip-types --no-warnings --test ./apps/storefront/scripts/checkout-towns.test.mts ./apps/storefront/scripts/checkout-address.test.mjs",
     "html:test": "node --experimental-strip-types --no-warnings ./packages/shared/scripts/html.test.mts",
     "db:verify": "node ./packages/db/scripts/verify.mjs",
     "dev": "pnpm -r --parallel --filter @maktabah/storefront --filter @maktabah/admin dev",
@@ -32,7 +33,7 @@
     "router:deploy": "cd apps/router && npx wrangler deploy",
     "storefront:cf:typegen": "pnpm --filter @maktabah/storefront cf:typegen",
     "storefront:dev": "pnpm --filter @maktabah/storefront dev",
-    "test": "pnpm db:verify && pnpm db:test && pnpm html:test"
+    "test": "pnpm db:verify && pnpm db:test && pnpm html:test && pnpm checkout:test"
   },
   "pnpm": {
     "overrides": {

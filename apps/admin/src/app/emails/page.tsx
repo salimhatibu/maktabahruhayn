@@ -28,7 +28,7 @@ const LABELS: Record<TemplateKey, string> = {
   newsletter_welcome: "Newsletter welcome",
 }
 
-const VARIABLES = "{{customer.first_name}} {{order.display_id}} {{order.items}} {{order.total}} {{tracking.number}} {{tracking.url}} {{review.links}} {{cart.items}} {{store.name}} {{store.url}}"
+const VARIABLES = "{{customer.first_name}} {{order.display_id}} {{order.items}} {{order.total}} {{order.status_button}} {{tracking.number}} {{tracking.url}} {{review.links}} {{review.buttons}} {{cart.items}} {{store.name}} {{store.url}} {{store.browse_button}}"
 
 type EmailRow = { id: string; to: string; template: string; subject: string | null; status: string; provider_id: string | null; created_at: string }
 
